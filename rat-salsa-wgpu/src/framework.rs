@@ -15,6 +15,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use winit::application::ApplicationHandler;
+use winit::dpi::{PhysicalPosition, Position};
 use winit::event::{Modifiers, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowAttributes, WindowId};
@@ -111,11 +112,16 @@ where
     Error: 'static + Debug + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let attr = WindowAttributes::default()
+            .with_position(PhysicalPosition::new(0, 0))
+            .with_title("CLING")
+            .with_visible(false);
         let window = Arc::new(
             event_loop
-                .create_window(WindowAttributes::default())
+                .create_window(attr) //
                 .expect("create window"),
         );
+
         let terminal = Rc::new(RefCell::new(
             WgpuTerminal::new(window.clone()), //
         ));
@@ -127,6 +133,7 @@ where
             term: Some(terminal.clone()),
             // clear_terminal: Default::default(),
             // insert_before: Default::default(),
+            window: Some(window.clone()),
             last_render: Default::default(),
             last_event: Default::default(),
             // timers,
@@ -160,6 +167,7 @@ where
             .expect("initial render");
 
         window.request_redraw();
+        window.set_visible(true);
 
         self.window = Some(window);
         self.terminal = Some(terminal);
@@ -192,15 +200,16 @@ where
         }
 
         let mut was_changed = false;
+        let global = &mut *self.global;
+        let state = &mut *self.state;
 
-        self.global
-            .salsa_ctx()
+        global.salsa_ctx()
             .queue
             .push(Ok(Control::Event((event, self.modifiers).into())));
 
         'ui: loop {
             // Result of event-handling.
-            if let Some(ctrl) = self.global.salsa_ctx().queue.take() {
+            if let Some(ctrl) = global.salsa_ctx().queue.take() {
                 // filter out double Changed events.
                 // no need to render twice in a row.
                 if matches!(ctrl, Ok(Control::Changed)) {
@@ -214,8 +223,8 @@ where
 
                 match ctrl {
                     Err(e) => {
-                        let r = (self.error)(e, self.state, self.global);
-                        self.global.salsa_ctx().queue.push(r);
+                        let r = (self.error)(e, state, global);
+                        global.salsa_ctx().queue.push(r);
                     }
                     Ok(Control::Continue) => {}
                     Ok(Control::Unchanged) => {}
@@ -233,20 +242,20 @@ where
                         let r = term.borrow_mut().render(&mut |frame| {
                             let frame_area = frame.area();
                             let ttt = SystemTime::now();
-                            (self.render)(frame_area, frame.buffer_mut(), self.state, self.global)?;
-                            self.global
+                            (self.render)(frame_area, frame.buffer_mut(), state, global)?;
+                            global
                                 .salsa_ctx()
                                 .last_render
                                 .set(ttt.elapsed().unwrap_or_default());
-                            if let Some((cursor_x, cursor_y)) = self.global.salsa_ctx().cursor.get()
+                            if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get()
                             {
                                 frame.set_cursor_position((cursor_x, cursor_y));
                             }
-                            self.global.salsa_ctx().count.set(frame.count());
-                            self.global.salsa_ctx().cursor.set(None);
+                            global.salsa_ctx().count.set(frame.count());
+                            global.salsa_ctx().cursor.set(None);
                             Ok(())
                         });
-                        self.window.as_ref().expect("window").request_redraw();
+                        window.request_redraw();
 
                         match r {
                             Ok(_) => {
@@ -254,7 +263,7 @@ where
                                 //     global.salsa_ctx().queue.push(poll[h].read());
                                 // }
                             }
-                            Err(e) => self.global.salsa_ctx().queue.push(Err(e)),
+                            Err(e) => global.salsa_ctx().queue.push(Err(e)),
                         }
                     }
                     #[cfg(feature = "dialog")]
@@ -272,12 +281,12 @@ where
                     }
                     Ok(Control::Event(a)) => {
                         let ttt = SystemTime::now();
-                        let r = (self.event)(&a, self.state, self.global);
-                        self.global
+                        let r = (self.event)(&a, state, global);
+                        global
                             .salsa_ctx()
                             .last_event
                             .set(ttt.elapsed().unwrap_or_default());
-                        self.global.salsa_ctx().queue.push(r);
+                        global.salsa_ctx().queue.push(r);
                     }
                     Ok(Control::Quit) => {
                         // if let Some(quit) = quit {
@@ -297,7 +306,7 @@ where
                 }
             }
 
-            if self.global.salsa_ctx().queue.is_empty() {
+            if global.salsa_ctx().queue.is_empty() {
                 break 'ui;
             }
         }

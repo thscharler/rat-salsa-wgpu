@@ -4,7 +4,9 @@ use std::fmt::{Debug, Formatter};
 use std::mem;
 use rat_focus::Focus;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
+use winit::window::Window;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 
 mod framework;
@@ -333,6 +335,8 @@ where
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
     pub(crate) term: Option<Rc<RefCell<dyn Terminal<Error>>>>,
+    /// Window
+    pub(crate) window: Option<Arc<Window>>,
     /// Last render time.
     pub(crate) last_render: Cell<Duration>,
     /// Last event time.
@@ -374,6 +378,7 @@ where
             term: Default::default(),
             // clear_terminal: Default::default(),
             // insert_before: Default::default(),
+            window: Default::default(),
             last_render: Default::default(),
             last_event: Default::default(),
             // timers: Default::default(),
