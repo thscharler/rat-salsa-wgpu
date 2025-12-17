@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "rat-salsa-wgpu",
+    "ratatui-wgpu",
+    "rat-salsa/rat-focus",
+    "rat-salsa/rat-widget",
+]
+
+[workspace.lints.clippy]
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+if_same_then_else = "allow"
+comparison_chain = "allow"
+
+

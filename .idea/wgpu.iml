@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="EMPTY_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa-wgpu/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa-wgpu/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/pal-edit/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-cursor/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-dialog/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-dialog/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-event/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-event/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-focus/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-focus/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-ftable/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-ftable/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-ftable/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-markdown/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-menu/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-popup/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-popup/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-reloc/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-salsa/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-salsa/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-scrolled/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-scrolled/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-scrolled/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-text/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-text/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-text/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-theme/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-theme2/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-theme3/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-theme3/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-theme4/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-theme4/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-vim/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-vim/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-widget-extra/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-widget-extra/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-widget/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-widget/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rat-salsa/rat-widget/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/ratatui-wgpu/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ratatui-wgpu/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/rat-salsa/target" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
