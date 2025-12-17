@@ -202,6 +202,31 @@ where
     /// Access the AppContext previously set.
     fn salsa_ctx(&self) -> &SalsaAppContext<Event, Error>;
 
+    /// Get the current frame/render-count.
+    fn count(&self) -> usize {
+        self.salsa_ctx().count.get()
+    }
+
+    /// Get the last render timing.
+    fn last_render(&self) -> Duration {
+        self.salsa_ctx().last_render.get()
+    }
+
+    /// Get the last event-handling timing.
+    fn last_event(&self) -> Duration {
+        self.salsa_ctx().last_event.get()
+    }
+
+    /// Set the cursor, if the given value is something,
+    /// hides it otherwise.
+    ///
+    /// This should only be set during rendering.
+    fn set_screen_cursor(&self, cursor: Option<(u16, u16)>) {
+        if let Some(c) = cursor {
+            self.salsa_ctx().cursor.set(Some(c));
+        }
+    }
+
     /// Queue an application event.
     #[inline]
     fn queue_event(&self, event: Event) {
