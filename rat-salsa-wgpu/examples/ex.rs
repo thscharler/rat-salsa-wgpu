@@ -4,7 +4,7 @@ use anyhow::Error;
 use log::error;
 use rat_event::try_flow;
 use rat_focus::{FocusBuilder, impl_has_focus};
-use rat_salsa_wgpu::run_wgpu;
+use rat_salsa_wgpu::{run_wgpu, RunConfig};
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
@@ -35,7 +35,7 @@ pub fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        (),
+        RunConfig::default()?,
     )?;
 
     Ok(())

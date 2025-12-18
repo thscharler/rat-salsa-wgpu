@@ -1,59 +1,23 @@
 use crate::framework::control_queue::ControlQueue;
-use crate::framework::poll_queue::PollQueue;
-use crate::terminal::{Terminal, WgpuTerminal};
-use crate::{Control, SalsaAppContext, SalsaContext};
-use ratatui::Frame;
+use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Stylize;
-use ratatui::text::Line;
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::{Frame, Terminal};
+use ratatui_wgpu::WgpuBackend;
+use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::io;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use winit::application::ApplicationHandler;
-use winit::dpi::{PhysicalPosition, Position};
 use winit::event::{Modifiers, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::window::{Window, WindowAttributes, WindowId};
+use winit::event_loop::ActiveEventLoop;
+use winit::window::{Window, WindowId};
 
 pub(crate) mod control_queue;
 mod poll_queue;
-
-const SLEEP: u64 = 250_000; // µs
-const BACKOFF: u64 = 10_000; // µs
-const FAST_SLEEP: u64 = 100; // µs
-
-struct WgpuApp<'a, Global, State, Event, Error> {
-    init: fn(
-        state: &mut State, //
-        ctx: &mut Global,
-    ) -> Result<(), Error>,
-    render:
-        fn(area: Rect, buf: &mut Buffer, state: &mut State, ctx: &mut Global) -> Result<(), Error>,
-    event: fn(
-        event: &Event, //
-        state: &mut State,
-        ctx: &mut Global,
-    ) -> Result<Control<Event>, Error>,
-    error: fn(
-        error: Error, //
-        state: &mut State,
-        ctx: &mut Global,
-    ) -> Result<Control<Event>, Error>,
-
-    global: &'a mut Global,
-    state: &'a mut State,
-
-    cfg: (),
-
-    window: Option<Arc<Window>>,
-    modifiers: Modifiers,
-    terminal: Option<Rc<RefCell<WgpuTerminal>>>,
-}
 
 pub fn run_wgpu<Global, State, Event, Error>(
     init: fn(
@@ -78,14 +42,15 @@ pub fn run_wgpu<Global, State, Event, Error>(
     ) -> Result<Control<Event>, Error>,
     global: &mut Global,
     state: &mut State,
-    cfg: (),
+    mut cfg: RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
     Event: 'static + From<(WindowEvent, Modifiers)>,
     Error: 'static + Debug + From<winit::error::EventLoopError> + From<io::Error>,
 {
-    let event_loop = EventLoop::builder().build()?;
+    let event_loop = cfg.event_loop.take().expect("event-loop");
+
     let mut app = WgpuApp {
         init,
         render,
@@ -104,7 +69,41 @@ where
     Ok(())
 }
 
-impl<'a, Global, State, Event, Error> ApplicationHandler
+struct WgpuApp<'a, Global, State, Event, Error>
+where
+    Event: 'static,
+    Error: 'static,
+{
+    init: fn(
+        state: &mut State, //
+        ctx: &mut Global,
+    ) -> Result<(), Error>,
+    render:
+        fn(area: Rect, buf: &mut Buffer, state: &mut State, ctx: &mut Global) -> Result<(), Error>,
+    event: fn(
+        event: &Event, //
+        state: &mut State,
+        ctx: &mut Global,
+    ) -> Result<Control<Event>, Error>,
+    error: fn(
+        error: Error, //
+        state: &mut State,
+        ctx: &mut Global,
+    ) -> Result<Control<Event>, Error>,
+
+    global: &'a mut Global,
+    state: &'a mut State,
+
+    cfg: RunConfig<Event, Error>,
+
+    window: Option<Arc<Window>>,
+    modifiers: Modifiers,
+    terminal: Option<
+        Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
+    >,
+}
+
+impl<'a, Global, State, Event, Error> ApplicationHandler<Event>
     for WgpuApp<'a, Global, State, Event, Error>
 where
     Global: SalsaContext<Event, Error>,
@@ -112,19 +111,10 @@ where
     Error: 'static + Debug + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let attr = WindowAttributes::default()
-            .with_position(PhysicalPosition::new(0, 0))
-            .with_title("CLING")
-            .with_visible(false);
-        let window = Arc::new(
-            event_loop
-                .create_window(attr) //
-                .expect("create window"),
-        );
-
-        let terminal = Rc::new(RefCell::new(
-            WgpuTerminal::new(window.clone()), //
-        ));
+        let cr_window = self.cfg.window.take().expect("window-constructor");
+        let window = Arc::new(cr_window(event_loop));
+        let cr_terminal = self.cfg.term.take().expect("terminal-constructor");
+        let terminal = Rc::new(RefCell::new(cr_terminal(window.clone())));
 
         self.global.set_salsa_ctx(SalsaAppContext {
             focus: Default::default(),
@@ -149,10 +139,13 @@ where
         // initial render
         terminal
             .borrow_mut()
-            .render(&mut |frame| -> Result<(), Error> {
+            .draw(&mut |frame: &mut Frame| {
                 let frame_area = frame.area();
                 let ttt = SystemTime::now();
-                (self.render)(frame_area, frame.buffer_mut(), self.state, self.global)?;
+
+                (self.render)(frame_area, frame.buffer_mut(), self.state, self.global)
+                    .expect("initial render");
+
                 self.global
                     .salsa_ctx()
                     .last_render
@@ -162,7 +155,6 @@ where
                 }
                 self.global.salsa_ctx().count.set(frame.count());
                 self.global.salsa_ctx().cursor.set(None);
-                Ok(())
             })
             .expect("initial render");
 
@@ -203,7 +195,8 @@ where
         let global = &mut *self.global;
         let state = &mut *self.state;
 
-        global.salsa_ctx()
+        global
+            .salsa_ctx()
             .queue
             .push(Ok(Control::Event((event, self.modifiers).into())));
 
@@ -239,22 +232,26 @@ where
                         // if ib.height > 0 {
                         //     term.borrow_mut().insert_before(ib.height, ib.draw_fn)?;
                         // }
-                        let r = term.borrow_mut().render(&mut |frame| {
-                            let frame_area = frame.area();
-                            let ttt = SystemTime::now();
-                            (self.render)(frame_area, frame.buffer_mut(), state, global)?;
-                            global
-                                .salsa_ctx()
-                                .last_render
-                                .set(ttt.elapsed().unwrap_or_default());
-                            if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get()
-                            {
-                                frame.set_cursor_position((cursor_x, cursor_y));
-                            }
-                            global.salsa_ctx().count.set(frame.count());
-                            global.salsa_ctx().cursor.set(None);
-                            Ok(())
-                        });
+                        let mut r = Ok(());
+                        term.borrow_mut()
+                            .draw(&mut |frame: &mut Frame| {
+                                let frame_area = frame.area();
+                                let ttt = SystemTime::now();
+
+                                r = (self.render)(frame_area, frame.buffer_mut(), state, global);
+
+                                global
+                                    .salsa_ctx()
+                                    .last_render
+                                    .set(ttt.elapsed().unwrap_or_default());
+                                if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get()
+                                {
+                                    frame.set_cursor_position((cursor_x, cursor_y));
+                                }
+                                global.salsa_ctx().count.set(frame.count());
+                                global.salsa_ctx().cursor.set(None);
+                            })
+                            .expect("draw-frame");
                         window.request_redraw();
 
                         match r {

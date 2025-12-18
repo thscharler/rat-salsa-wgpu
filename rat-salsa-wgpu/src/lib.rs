@@ -1,21 +1,22 @@
+use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_focus::Focus;
+use ratatui::Terminal;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 use std::mem;
-use rat_focus::Focus;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 use winit::window::Window;
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 
 mod framework;
-// mod run_config;
-pub mod terminal;
+mod run_config;
 
 pub use framework::*;
-use crate::framework::control_queue::ControlQueue;
-use crate::terminal::Terminal;
+use ratatui_wgpu::WgpuBackend;
+use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
+pub use run_config::*;
 
 pub mod mock {
     //! Provides dummy implementations for some functions.
@@ -88,7 +89,6 @@ pub enum Control<Event> {
     /// Quit the application.
     Quit,
 }
-
 
 impl<Event> Eq for Control<Event> {}
 
@@ -181,7 +181,6 @@ impl<Event, T: Into<Outcome>> From<T> for Control<Event> {
         }
     }
 }
-
 
 /// This trait gives access to all facilities built into rat-salsa.
 ///
@@ -306,13 +305,21 @@ where
         r
     }
 
+    /// Access the window.
+    #[inline]
+    fn window(&self) -> Arc<Window> {
+        self.salsa_ctx().window.clone().expect("window")
+    }
+
     /// Access the terminal.
     #[inline]
-    fn terminal(&mut self) -> Rc<RefCell<dyn Terminal<Error>>> {
+    fn terminal(
+        &self,
+    ) -> Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>
+    {
         self.salsa_ctx().term.clone().expect("terminal")
     }
 }
-
 
 ///
 /// Application context for event handling.
@@ -334,7 +341,9 @@ where
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
-    pub(crate) term: Option<Rc<RefCell<dyn Terminal<Error>>>>,
+    pub(crate) term: Option<
+        Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
+    >,
     /// Window
     pub(crate) window: Option<Arc<Window>>,
     /// Last render time.
@@ -342,9 +351,8 @@ where
     /// Last event time.
     pub(crate) last_event: Cell<Duration>,
     /// Queue foreground tasks.
-    pub(crate) queue: ControlQueue<Event, Error>,
+    pub(crate) queue: control_queue::ControlQueue<Event, Error>,
 }
-
 
 impl<Event, Error> Debug for SalsaAppContext<Event, Error> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
