@@ -85,7 +85,9 @@ fn create_wgpu(
     let size = window.inner_size();
 
     let backend = futures_lite::future::block_on(
-        Builder::from_font(Font::new(include_bytes!("CascadiaMono-Regular.ttf")).expect("font"))
+        Builder::from_font(
+            Font::new(include_bytes!("CascadiaMono-Regular.ttf")).expect("font"))
+            // todo: fonts
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
                 height: NonZeroU32::new(size.height).expect("non-zero-height"),

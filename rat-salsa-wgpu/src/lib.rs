@@ -12,6 +12,7 @@ use winit::window::Window;
 
 mod framework;
 mod run_config;
+pub mod crossterm;
 
 pub use framework::*;
 use ratatui_wgpu::WgpuBackend;

@@ -5,8 +5,6 @@ edition = "2024"
 
 [features]
 default = []
-# Add scrolling-regions. See ratatui/scrolling-regions
-scrolling-regions = ["ratatui/scrolling-regions"]
 # Add support for dialog windows.
 dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
