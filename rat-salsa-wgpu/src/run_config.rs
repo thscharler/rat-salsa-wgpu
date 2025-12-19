@@ -169,7 +169,7 @@ fn create_fonts(fontdb: &fontdb::Database) -> Vec<fontdb::ID> {
 fn create_window(event_loop: &ActiveEventLoop) -> Window {
     let attr = WindowAttributes::default()
         .with_position(PhysicalPosition::new(0, 0))
-        .with_title("rat-salsa")
+        .with_title("rat-salsa & ratatui-wgpu")
         .with_visible(false);
 
     event_loop.create_window(attr).expect("event-loop")
