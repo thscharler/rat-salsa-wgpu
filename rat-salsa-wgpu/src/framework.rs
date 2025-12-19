@@ -8,6 +8,7 @@ use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::style::Color;
 use ratatui::{Frame, Terminal};
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
 use ratatui_wgpu::{Font, WgpuBackend};
@@ -19,7 +20,7 @@ use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
-use std::{io, thread};
+use std::{io, mem, thread};
 use winit::application::ApplicationHandler;
 use winit::event::{Modifiers, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
@@ -52,79 +53,91 @@ pub fn run_wgpu<Global, State, Event, Error>(
     ) -> Result<Control<Event>, Error>,
     global: &mut Global,
     state: &mut State,
-    mut cfg: RunConfig<Event, Error>,
+    cfg: RunConfig<Event, Error>,
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
     Event: 'static + Send + From<(WindowEvent, Modifiers)>,
     Error: 'static + Debug + Send + From<winit::error::EventLoopError> + From<io::Error>,
 {
-    let event_loop = cfg.event_loop.take().expect("event-loop");
+    let RunConfig {
+        event_loop,
+        cr_fonts,
+        font_size,
+        bg_color,
+        fg_color,
+        cr_window,
+        cr_term,
+        poll,
+    } = cfg;
 
-    let mut rendered = None;
-    let mut quit = None;
-    let mut timers = None;
-    let mut tasks = None;
-    let mut tokio = None;
-    let mut poll = Vec::new();
-    for v in cfg.poll.take().into_iter().flatten() {
-        if v.as_ref().type_id() == TypeId::of::<PollRendered>() {
-            rendered = Some(v);
-            continue;
-        } else if v.as_ref().type_id() == TypeId::of::<PollQuit>() {
-            quit = Some(v);
-            continue;
-        } else if v.as_ref().type_id() == TypeId::of::<PollTimers>() {
-            timers = v
-                .as_any()
-                .downcast_ref::<PollTimers>()
-                .map(|t| t.get_timers());
-        } else if v.as_ref().type_id() == TypeId::of::<PollTasks<Event, Error>>() {
-            tasks = v
-                .as_any()
-                .downcast_ref::<PollTasks<Event, Error>>()
-                .map(|t| t.get_tasks());
+    let mut rendered_event = None;
+    let mut quit_event = None;
+    let mut timers_ctrl = None;
+    let mut tasks_ctrl = None;
+    let mut tokio_ctrl = None;
+    let poll = {
+        let mut tmp = Vec::new();
+        for v in poll.into_iter() {
+            if v.as_ref().type_id() == TypeId::of::<PollRendered>() {
+                rendered_event = Some(v);
+                continue;
+            } else if v.as_ref().type_id() == TypeId::of::<PollQuit>() {
+                quit_event = Some(v);
+                continue;
+            } else if v.as_ref().type_id() == TypeId::of::<PollTimers>() {
+                timers_ctrl = v
+                    .as_any()
+                    .downcast_ref::<PollTimers>()
+                    .map(|t| t.get_timers());
+            } else if v.as_ref().type_id() == TypeId::of::<PollTasks<Event, Error>>() {
+                tasks_ctrl = v
+                    .as_any()
+                    .downcast_ref::<PollTasks<Event, Error>>()
+                    .map(|t| t.get_tasks());
+            }
+            #[cfg(feature = "async")]
+            if v.as_ref().type_id() == TypeId::of::<PollTokio<Event, Error>>() {
+                tokio_ctrl = v
+                    .as_any()
+                    .downcast_ref::<PollTokio<Event, Error>>()
+                    .map(|t| t.get_tasks());
+            }
+
+            tmp.push(v);
         }
-        #[cfg(feature = "async")]
-        if v.as_ref().type_id() == TypeId::of::<PollTokio<Event, Error>>() {
-            tokio = v
-                .as_any()
-                .downcast_ref::<PollTokio<Event, Error>>()
-                .map(|t| t.get_tasks());
-        }
+        tmp
+    };
+    let proxy = event_loop.create_proxy();
 
-        poll.push(v);
-    }
-    let poll = Some(poll);
-    let proxy = Some(event_loop.create_proxy());
-
-    let mut app = WgpuApp {
+    let mut app = WgpuApp::Startup(Startup {
         init,
         render,
         event,
         error,
         global,
         state,
-        cfg,
-        quit,
-        rendered,
-        timers,
-        tasks,
-        tokio,
+        cr_fonts,
+        font_size,
+        bg_color,
+        fg_color,
+        cr_window,
+        cr_term,
+        quit_event,
+        rendered_event,
+        timers_ctrl,
+        tasks_ctrl,
+        tokio_ctrl,
         poll,
         proxy,
-        poll_run: Default::default(),
-        window: Default::default(),
-        modifiers: Default::default(),
-        terminal: Default::default(),
-    };
+    });
 
     event_loop.run_app(&mut app)?;
 
     Ok(())
 }
 
-struct WgpuApp<'a, Global, State, Event, Error>
+struct Startup<'a, Global, State, Event, Error>
 where
     Event: 'static,
     Error: 'static,
@@ -149,27 +162,71 @@ where
     global: &'a mut Global,
     state: &'a mut State,
 
-    cfg: RunConfig<Event, Error>,
+    /// font loading callback
+    cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
+    font_size: f64,
+    bg_color: Color,
+    fg_color: Color,
 
-    quit: Option<Box<dyn PollEvents<Event, Error> + Send>>,
-    rendered: Option<Box<dyn PollEvents<Event, Error> + Send>>,
+    /// window callback
+    cr_window: Box<dyn FnOnce(&ActiveEventLoop) -> Window>,
+
+    /// terminal callback
+    cr_term: Box<
+        dyn FnOnce(
+            Arc<Window>,
+            Vec<Font<'static>>,
+            f64,
+            Color,
+            Color,
+        )
+            -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
+    >,
+
+    quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
+    rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     /// Application timers.
-    timers: Option<Rc<Timers>>,
+    timers_ctrl: Option<Rc<Timers>>,
     /// Background tasks.
-    tasks: Option<Rc<ThreadPool<Event, Error>>>,
+    tasks_ctrl: Option<Rc<ThreadPool<Event, Error>>>,
     /// Background tasks.
     #[cfg(feature = "async")]
-    tokio: Option<Rc<TokioTasks<Event, Error>>>,
+    tokio_ctrl: Option<Rc<TokioTasks<Event, Error>>>,
+    poll: Vec<Box<dyn PollEvents<Event, Error> + Send>>,
+    proxy: EventLoopProxy<Result<Control<Event>, Error>>,
+}
 
-    poll: Option<Vec<Box<dyn PollEvents<Event, Error> + Send>>>,
-    proxy: Option<EventLoopProxy<Result<Control<Event>, Error>>>,
-    poll_run: Option<Poll>,
+struct Running<'a, Global, State, Event, Error>
+where
+    Event: 'static,
+    Error: 'static,
+{
+    render:
+        fn(area: Rect, buf: &mut Buffer, state: &mut State, ctx: &mut Global) -> Result<(), Error>,
+    event: fn(event: &Event, state: &mut State, ctx: &mut Global) -> Result<Control<Event>, Error>,
+    error: fn(error: Error, state: &mut State, ctx: &mut Global) -> Result<Control<Event>, Error>,
 
-    window: Option<Arc<Window>>,
+    global: &'a mut Global,
+    state: &'a mut State,
+
+    quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
+    rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
+    poll: Poll,
+
+    window: Arc<Window>,
     modifiers: Modifiers,
-    terminal: Option<
+    terminal:
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
-    >,
+}
+
+enum WgpuApp<'a, Global, State, Event, Error>
+where
+    Event: 'static,
+    Error: 'static,
+{
+    Invalid,
+    Startup(Startup<'a, Global, State, Event, Error>),
+    Running(Running<'a, Global, State, Event, Error>),
 }
 
 impl<'a, Global, State, Event, Error> ApplicationHandler<Result<Control<Event>, Error>>
@@ -180,39 +237,62 @@ where
     Error: 'static + Debug + Send + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // todo: depends on resumed() being called at most once.
+        if !matches!(self, WgpuApp::Startup(_)) {
+            panic!("expected startup state");
+        }
+
+        let WgpuApp::Startup(Startup {
+            init,
+            render,
+            event,
+            error,
+            global,
+            state,
+            cr_fonts,
+            font_size,
+            bg_color,
+            fg_color,
+            cr_window,
+            cr_term,
+            quit_event,
+            rendered_event,
+            timers_ctrl,
+            tasks_ctrl,
+            tokio_ctrl,
+            poll,
+            proxy,
+        }) = mem::replace(self, WgpuApp::Invalid)
+        else {
+            panic!()
+        };
+
         let mut font_db = fontdb::Database::new();
         font_db.load_system_fonts();
-        let cr_font = self.cfg.fonts.take().expect("font-loader");
-        let font_ids = cr_font(&font_db);
+        let font_ids = cr_fonts(&font_db);
 
         static FONT_DATA: OnceLock<Vec<Vec<u8>>> = OnceLock::new();
-        FONT_DATA.get_or_init(|| {
-            font_ids
-                .into_iter()
-                .filter_map(|id| font_db.with_face_data(id, |d, _| d.to_vec()))
-                .collect::<Vec<_>>()
-        });
         let fonts = FONT_DATA
-            .get()
-            .expect("font-data")
+            .get_or_init(|| {
+                font_ids
+                    .into_iter()
+                    .filter_map(|id| font_db.with_face_data(id, |d, _| d.to_vec()))
+                    .collect::<Vec<_>>()
+            })
             .iter()
             .filter_map(|d| Font::new(d))
             .collect::<Vec<_>>();
 
-        let cr_window = self.cfg.window.take().expect("window-constructor");
         let window = Arc::new(cr_window(event_loop));
 
-        let cr_terminal = self.cfg.term.take().expect("terminal-constructor");
-        let terminal = Rc::new(RefCell::new(cr_terminal(
+        let terminal = Rc::new(RefCell::new(cr_term(
             window.clone(),
             fonts,
-            self.cfg.font_size,
-            self.cfg.bg_color,
-            self.cfg.fg_color,
+            font_size,
+            bg_color,
+            fg_color,
         )));
 
-        self.global.set_salsa_ctx(SalsaAppContext {
+        global.set_salsa_ctx(SalsaAppContext {
             focus: Default::default(),
             count: Default::default(),
             cursor: Default::default(),
@@ -220,15 +300,14 @@ where
             window: Some(window.clone()),
             last_render: Default::default(),
             last_event: Default::default(),
-            timers: self.timers.take(),
-            tasks: self.tasks.take(),
-            #[cfg(feature = "async")]
-            tokio: self.tokio.take(),
+            timers: timers_ctrl,
+            tasks: tasks_ctrl,
+            tokio: tokio_ctrl,
             queue: ControlQueue::default(),
         });
 
         // init state
-        (self.init)(self.state, self.global).expect("init");
+        init(state, global).expect("init");
 
         // initial render
         terminal
@@ -237,18 +316,17 @@ where
                 let frame_area = frame.area();
                 let ttt = SystemTime::now();
 
-                (self.render)(frame_area, frame.buffer_mut(), self.state, self.global)
-                    .expect("initial render");
+                render(frame_area, frame.buffer_mut(), state, global).expect("initial render");
 
-                self.global
+                global
                     .salsa_ctx()
                     .last_render
                     .set(ttt.elapsed().unwrap_or_default());
-                if let Some((cursor_x, cursor_y)) = self.global.salsa_ctx().cursor.get() {
+                if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
                     frame.set_cursor_position((cursor_x, cursor_y));
                 }
-                self.global.salsa_ctx().count.set(frame.count());
-                self.global.salsa_ctx().cursor.set(None);
+                global.salsa_ctx().count.set(frame.count());
+                global.salsa_ctx().cursor.set(None);
             })
             .expect("initial render");
 
@@ -256,12 +334,21 @@ where
         window.set_visible(true);
 
         // start poll
-        let proxy = self.proxy.take().expect("proxy event-loop");
-        let poll = self.poll.take().expect("poll list");
-        self.poll_run = Some(start_poll(proxy, poll));
+        let poll = start_poll(proxy, poll);
 
-        self.window = Some(window);
-        self.terminal = Some(terminal);
+        *self = WgpuApp::Running(Running {
+            render,
+            event,
+            error,
+            global,
+            state,
+            quit_event,
+            rendered_event,
+            poll,
+            window,
+            modifiers: Default::default(),
+            terminal,
+        });
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: Result<Control<Event>, Error>) {
@@ -283,11 +370,8 @@ fn process_event<'a, Global, State, Event, Error>(
     Event: 'static + From<(WindowEvent, Modifiers)>,
     Error: 'static + Debug + From<io::Error>,
 {
-    let Some(term) = app.terminal.as_mut() else {
-        return;
-    };
-    let Some(window) = app.window.as_mut() else {
-        return;
+    let WgpuApp::Running(app) = app else {
+        panic!("not initialized");
     };
 
     if let Some(WindowEvent::CloseRequested) = event {
@@ -298,7 +382,8 @@ fn process_event<'a, Global, State, Event, Error>(
         app.modifiers = modifiers;
     }
     if let Some(WindowEvent::Resized(size)) = event {
-        term.borrow_mut()
+        app.terminal
+            .borrow_mut()
             .backend_mut()
             .resize(size.width, size.height);
     }
@@ -316,6 +401,15 @@ fn process_event<'a, Global, State, Event, Error>(
     }
 
     'ui: loop {
+        // panic on worker panic
+        if let Some(tasks) = &global.salsa_ctx().tasks {
+            if !tasks.check_liveness() {
+                dbg!("worker panicked");
+                shutdown(app, event_loop);
+                break 'ui;
+            }
+        }
+
         // Result of event-handling.
         if let Some(ctrl) = global.salsa_ctx().queue.take() {
             // filter out double Changed events.
@@ -338,7 +432,8 @@ fn process_event<'a, Global, State, Event, Error>(
                 Ok(Control::Unchanged) => {}
                 Ok(Control::Changed) => {
                     let mut r = Ok(());
-                    term.borrow_mut()
+                    app.terminal
+                        .borrow_mut()
                         .draw(&mut |frame: &mut Frame| {
                             let frame_area = frame.area();
                             let ttt = SystemTime::now();
@@ -356,11 +451,11 @@ fn process_event<'a, Global, State, Event, Error>(
                             global.salsa_ctx().cursor.set(None);
                         })
                         .expect("draw-frame");
-                    window.request_redraw();
+                    app.window.request_redraw();
 
                     match r {
                         Ok(_) => {
-                            if let Some(rendered) = &mut app.rendered {
+                            if let Some(rendered) = &mut app.rendered_event {
                                 global.salsa_ctx().queue.push(rendered.read());
                             }
                         }
@@ -370,17 +465,8 @@ fn process_event<'a, Global, State, Event, Error>(
                 #[cfg(feature = "dialog")]
                 Ok(Control::Close(a)) => {
                     // close probably demands a repaint.
+                    global.salsa_ctx().queue.push(Ok(Control::Event(a)));
                     global.salsa_ctx().queue.push(Ok(Control::Changed));
-                    // forward event.
-                    let ttt = SystemTime::now();
-
-                    let r = (app.event)(&a, state, global);
-
-                    global
-                        .salsa_ctx()
-                        .last_event
-                        .set(ttt.elapsed().unwrap_or_default());
-                    global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Event(a)) => {
                     let ttt = SystemTime::now();
@@ -392,15 +478,20 @@ fn process_event<'a, Global, State, Event, Error>(
                     global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Quit) => {
-                    if let Some(quit) = &mut app.quit {
-                        let Control::Event(a) = quit.read().unwrap_or(Control::Quit) else {
-                            unreachable!();
-                        };
-                        match (app.event)(&a, state, global) {
-                            Ok(Control::Quit) => { /* really quit now */ }
-                            Ok(v) => global.salsa_ctx().queue.push(Ok(v)),
-                            Err(e) => global.salsa_ctx().queue.push(Err(e)),
-                        };
+                    if let Some(quit) = &mut app.quit_event {
+                        match quit.read() {
+                            Ok(Control::Event(a)) => {
+                                match (app.event)(&a, state, global) {
+                                    Ok(Control::Quit) => { /* really quit now */ }
+                                    v => {
+                                        global.salsa_ctx().queue.push(v);
+                                        continue;
+                                    }
+                                }
+                            }
+                            Err(_) => unreachable!(),
+                            Ok(_) => unreachable!(),
+                        }
                     }
                     shutdown(app, event_loop);
                     break 'ui;
@@ -415,14 +506,14 @@ fn process_event<'a, Global, State, Event, Error>(
 }
 
 fn shutdown<'a, Global, State, Event, Error>(
-    app: &mut WgpuApp<'a, Global, State, Event, Error>,
+    app: &mut Running<'a, Global, State, Event, Error>,
     event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
     Event: 'static + From<(WindowEvent, Modifiers)>,
     Error: 'static + Debug + From<io::Error>,
 {
-    app.poll_run.as_mut().expect("poll_run").shutdown();
+    app.poll.shutdown();
     event_loop.exit();
 }
 

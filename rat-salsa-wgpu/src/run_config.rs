@@ -19,34 +19,31 @@ where
     Error: 'static,
 {
     /// winit event-loop
-    pub(crate) event_loop: Option<EventLoop<Result<Control<Event>, Error>>>,
+    pub(crate) event_loop: EventLoop<Result<Control<Event>, Error>>,
     /// font loading callback
-    pub(crate) fonts: Option<Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>>,
+    pub(crate) cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
     /// font size
     pub(crate) font_size: f64,
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
     /// window callback
-    pub(crate) window: Option<Box<dyn FnOnce(&ActiveEventLoop) -> Window>>,
+    pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop) -> Window>,
     /// terminal callback
-    pub(crate) term: Option<
-        Box<
-            dyn FnOnce(
-                Arc<Window>,
-                Vec<Font<'static>>,
-                f64,
-                Color,
-                Color,
-            ) -> Terminal<
-                WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>,
-            >,
-        >,
+    pub(crate) cr_term: Box<
+        dyn FnOnce(
+            Arc<Window>,
+            Vec<Font<'static>>,
+            f64,
+            Color,
+            Color,
+        )
+            -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
     >,
 
     /// List of all event-handlers for the application.
     ///
     /// Defaults to PollTimers, PollCrossterm, PollTasks. Add yours here.
-    pub(crate) poll: Option<Vec<Box<dyn PollEvents<Event, Error> + Send>>>,
+    pub(crate) poll: Vec<Box<dyn PollEvents<Event, Error> + Send>>,
 }
 
 impl<Event, Error> RunConfig<Event, Error>
@@ -56,19 +53,19 @@ where
 {
     pub fn default() -> Result<Self, EventLoopError> {
         Ok(Self {
-            event_loop: Some(EventLoop::with_user_event().build()?),
-            fonts: Some(Box::new(create_fonts)),
+            event_loop: EventLoop::with_user_event().build()?,
+            cr_fonts: Box::new(create_fonts),
             font_size: 24.0,
             bg_color: Color::Black,
             fg_color: Color::White,
-            window: Some(Box::new(create_window)),
-            term: Some(Box::new(create_wgpu)),
+            cr_window: Box::new(create_window),
+            cr_term: Box::new(create_wgpu),
             poll: Default::default(),
         })
     }
 
     pub fn font_family(mut self, font_family: impl Into<String>) -> Self {
-        self.fonts = Some(Box::new(create_font_by_family(font_family.into())));
+        self.cr_fonts = Box::new(create_font_by_family(font_family.into()));
         self
     }
 
@@ -76,7 +73,7 @@ where
         mut self,
         font_init: impl FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static,
     ) -> Self {
-        self.fonts = Some(Box::new(font_init));
+        self.cr_fonts = Box::new(font_init);
         self
     }
 
@@ -99,7 +96,7 @@ where
         mut self,
         window_init: impl FnOnce(&ActiveEventLoop) -> Window + 'static,
     ) -> Self {
-        self.window = Some(Box::new(window_init));
+        self.cr_window = Box::new(window_init);
         self
     }
 
@@ -123,16 +120,13 @@ where
             WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>,
         > + 'static,
     ) -> Self {
-        self.term = Some(Box::new(wgpu_init));
+        self.cr_term = Box::new(wgpu_init);
         self
     }
 
     /// Add one more poll impl.
     pub fn poll(mut self, poll: impl PollEvents<Event, Error> + Send + 'static) -> Self {
-        if self.poll.is_none() {
-            self.poll = Some(Vec::new());
-        }
-        self.poll.as_mut().expect("poll").push(Box::new(poll));
+        self.poll.push(Box::new(poll));
         self
     }
 }
