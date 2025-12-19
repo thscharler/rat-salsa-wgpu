@@ -6,6 +6,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
+use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
@@ -185,6 +186,7 @@ where
 
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
+
     /// Application timers.
     timers_ctrl: Option<Arc<Timers>>,
     /// Background tasks.
@@ -192,7 +194,9 @@ where
     /// Background tasks.
     #[cfg(feature = "async")]
     tokio_ctrl: Option<Arc<TokioTasks<Event, Error>>>,
+
     poll: Vec<Box<dyn PollEvents<Event, Error> + Send>>,
+
     proxy: EventLoopProxy<Result<Control<Event>, Error>>,
 }
 
@@ -211,9 +215,11 @@ where
 
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
+
     poll: Poll,
 
     window: Arc<Window>,
+    window_size: WindowSize,
     modifiers: Modifiers,
     terminal:
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
@@ -237,118 +243,7 @@ where
     Error: 'static + Debug + Send + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if !matches!(self, WgpuApp::Startup(_)) {
-            panic!("expected startup state");
-        }
-
-        let WgpuApp::Startup(Startup {
-            init,
-            render,
-            event,
-            error,
-            global,
-            state,
-            cr_fonts,
-            font_size,
-            bg_color,
-            fg_color,
-            cr_window,
-            cr_term,
-            quit_event,
-            rendered_event,
-            timers_ctrl,
-            tasks_ctrl,
-            tokio_ctrl,
-            poll,
-            proxy,
-        }) = mem::replace(self, WgpuApp::Invalid)
-        else {
-            panic!()
-        };
-
-        let mut font_db = fontdb::Database::new();
-        font_db.load_system_fonts();
-        let font_ids = cr_fonts(&font_db);
-
-        static FONT_DATA: OnceLock<Vec<Vec<u8>>> = OnceLock::new();
-        let fonts = FONT_DATA
-            .get_or_init(|| {
-                font_ids
-                    .into_iter()
-                    .filter_map(|id| font_db.with_face_data(id, |d, _| d.to_vec()))
-                    .collect::<Vec<_>>()
-            })
-            .iter()
-            .filter_map(|d| Font::new(d))
-            .collect::<Vec<_>>();
-
-        let window = Arc::new(cr_window(event_loop));
-
-        let terminal = Rc::new(RefCell::new(cr_term(
-            window.clone(),
-            fonts,
-            font_size,
-            bg_color,
-            fg_color,
-        )));
-
-        global.set_salsa_ctx(SalsaAppContext {
-            focus: Default::default(),
-            count: Default::default(),
-            cursor: Default::default(),
-            term: Some(terminal.clone()),
-            window: Some(window.clone()),
-            last_render: Default::default(),
-            last_event: Default::default(),
-            timers: timers_ctrl,
-            tasks: tasks_ctrl,
-            tokio: tokio_ctrl,
-            queue: ControlQueue::default(),
-        });
-
-        // init state
-        init(state, global).expect("init");
-
-        // initial render
-        terminal
-            .borrow_mut()
-            .draw(&mut |frame: &mut Frame| {
-                let frame_area = frame.area();
-                let ttt = SystemTime::now();
-
-                render(frame_area, frame.buffer_mut(), state, global).expect("initial render");
-
-                global
-                    .salsa_ctx()
-                    .last_render
-                    .set(ttt.elapsed().unwrap_or_default());
-                if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
-                    frame.set_cursor_position((cursor_x, cursor_y));
-                }
-                global.salsa_ctx().count.set(frame.count());
-                global.salsa_ctx().cursor.set(None);
-            })
-            .expect("initial render");
-
-        window.request_redraw();
-        window.set_visible(true);
-
-        // start poll
-        let poll = start_poll(proxy, poll);
-
-        *self = WgpuApp::Running(Running {
-            render,
-            event,
-            error,
-            global,
-            state,
-            quit_event,
-            rendered_event,
-            poll,
-            window,
-            modifiers: Default::default(),
-            terminal,
-        });
+        initialize_terminal(self, event_loop);
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: Result<Control<Event>, Error>) {
@@ -360,6 +255,135 @@ where
     }
 }
 
+fn initialize_terminal<'a, Global, State, Event, Error>(
+    app: &mut WgpuApp<'a, Global, State, Event, Error>,
+    event_loop: &ActiveEventLoop,
+) where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + From<(WindowEvent, Modifiers)>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    if !matches!(app, WgpuApp::Startup(_)) {
+        panic!("expected startup state");
+    }
+
+    let WgpuApp::Startup(Startup {
+        init,
+        render,
+        event,
+        error,
+        global,
+        state,
+        cr_fonts,
+        font_size,
+        bg_color,
+        fg_color,
+        cr_window,
+        cr_term,
+        quit_event,
+        rendered_event,
+        timers_ctrl,
+        tasks_ctrl,
+        tokio_ctrl,
+        poll,
+        proxy,
+    }) = mem::replace(app, WgpuApp::Invalid)
+    else {
+        panic!()
+    };
+
+    let mut font_db = fontdb::Database::new();
+    font_db.load_system_fonts();
+    let font_ids = cr_fonts(&font_db);
+
+    static FONT_DATA: OnceLock<Vec<Vec<u8>>> = OnceLock::new();
+    let fonts = FONT_DATA
+        .get_or_init(|| {
+            font_ids
+                .into_iter()
+                .filter_map(|id| font_db.with_face_data(id, |d, _| d.to_vec()))
+                .collect::<Vec<_>>()
+        })
+        .iter()
+        .filter_map(|d| Font::new(d))
+        .collect::<Vec<_>>();
+
+    let window = Arc::new(cr_window(event_loop));
+
+    let terminal = Rc::new(RefCell::new(cr_term(
+        window.clone(),
+        fonts,
+        font_size,
+        bg_color,
+        fg_color,
+    )));
+
+    let window_size = terminal
+        .borrow_mut()
+        .backend_mut()
+        .window_size()
+        .expect("window_size");
+
+    global.set_salsa_ctx(SalsaAppContext {
+        focus: Default::default(),
+        count: Default::default(),
+        cursor: Default::default(),
+        term: Some(terminal.clone()),
+        window: Some(window.clone()),
+        last_render: Default::default(),
+        last_event: Default::default(),
+        timers: timers_ctrl,
+        tasks: tasks_ctrl,
+        tokio: tokio_ctrl,
+        queue: ControlQueue::default(),
+    });
+
+    // init state
+    init(state, global).expect("init");
+
+    // initial render
+    terminal
+        .borrow_mut()
+        .draw(&mut |frame: &mut Frame| {
+            let frame_area = frame.area();
+            let ttt = SystemTime::now();
+
+            render(frame_area, frame.buffer_mut(), state, global).expect("initial render");
+
+            global
+                .salsa_ctx()
+                .last_render
+                .set(ttt.elapsed().unwrap_or_default());
+            if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
+                frame.set_cursor_position((cursor_x, cursor_y));
+            }
+            global.salsa_ctx().count.set(frame.count());
+            global.salsa_ctx().cursor.set(None);
+        })
+        .expect("initial render");
+
+    window.request_redraw();
+    window.set_visible(true);
+
+    // start poll
+    let poll = start_poll(proxy, poll);
+
+    *app = WgpuApp::Running(Running {
+        render,
+        event,
+        error,
+        global,
+        state,
+        quit_event,
+        rendered_event,
+        poll,
+        window,
+        window_size,
+        modifiers: Default::default(),
+        terminal,
+    });
+}
+
 fn process_event<'a, Global, State, Event, Error>(
     app: &mut WgpuApp<'a, Global, State, Event, Error>,
     event_loop: &ActiveEventLoop,
@@ -367,8 +391,8 @@ fn process_event<'a, Global, State, Event, Error>(
     user: Option<Result<Control<Event>, Error>>,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + From<(WindowEvent, Modifiers)>,
-    Error: 'static + Debug + From<io::Error>,
+    Event: 'static + Send + From<(WindowEvent, Modifiers)>,
+    Error: 'static + Debug + Send + From<io::Error>,
 {
     let WgpuApp::Running(app) = app else {
         panic!("not initialized");
@@ -386,6 +410,13 @@ fn process_event<'a, Global, State, Event, Error>(
             .borrow_mut()
             .backend_mut()
             .resize(size.width, size.height);
+
+        app.window_size = app
+            .terminal
+            .borrow_mut()
+            .backend_mut()
+            .window_size()
+            .expect("window_size");
     }
 
     let mut was_changed = false;
@@ -510,8 +541,8 @@ fn shutdown<'a, Global, State, Event, Error>(
     event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + From<(WindowEvent, Modifiers)>,
-    Error: 'static + Debug + From<io::Error>,
+    Event: 'static + Send + From<(WindowEvent, Modifiers)>,
+    Error: 'static + Debug + Send + From<io::Error>,
 {
     app.poll.shutdown();
     event_loop.exit();
