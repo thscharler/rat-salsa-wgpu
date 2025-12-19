@@ -1,11 +1,9 @@
-use std::fs;
-use std::path::PathBuf;
 use anyhow::Error;
 use log::error;
 use rat_event::try_flow;
 use rat_focus::{FocusBuilder, impl_has_focus};
-use rat_salsa_wgpu::{run_wgpu, RunConfig};
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
+use rat_salsa_wgpu::{RunConfig, run_wgpu};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
@@ -17,6 +15,8 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
+use std::fs;
+use std::path::PathBuf;
 use winit::event::{ElementState, Modifiers, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
 
@@ -35,11 +35,46 @@ pub fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::default()?,
+        RunConfig::default()?
+            .font_family("Courier New"),
     )?;
 
     Ok(())
 }
+
+// fn create_fonts() {
+//     let mut fontdb = Database::new();
+//     fontdb.load_system_fonts();
+//
+//     let fonts = fontdb
+//         .faces()
+//         .filter_map(|info| {
+//             if info.monospaced {
+//                 dbg!(info);
+//             }
+//             if (info.monospaced
+//                 || info.post_script_name.contains("Emoji")
+//                 || info.post_script_name.contains("emoji"))
+//                 && info.index == 0
+//             {
+//                 Some(info.id)
+//             } else {
+//                 None
+//             }
+//         })
+//         .collect::<Vec<_>>();
+//
+//     let fonts = fonts
+//         .into_iter()
+//         .filter_map(|id| fontdb.with_face_data(id, |d, _| d.to_vec()))
+//         .collect::<Vec<_>>();
+//
+//     let fonts = fonts
+//         .iter()
+//         .filter_map(|d| Font::new(d))
+//         .collect::<Vec<_>>();
+//
+// }
 
 /// Globally accessible data/state.
 pub struct Global {
@@ -78,6 +113,7 @@ pub struct Config {}
 
 #[derive(Debug)]
 pub enum AppEvent {
+    NoOp,
     Event((WindowEvent, Modifiers)),
 }
 
@@ -167,7 +203,7 @@ pub fn event(
             (WindowEvent::Resized(_), _) => {
                 Control::Changed
             }
-            (WindowEvent::KeyboardInput { event: event, .. }, modifiers) => {
+            (WindowEvent::KeyboardInput { event, .. }, modifiers) => {
                 if event.state == ElementState::Pressed
                     && modifiers.state().control_key()
                     && event.logical_key == Key::Character(SmolStr::new_static("q"))

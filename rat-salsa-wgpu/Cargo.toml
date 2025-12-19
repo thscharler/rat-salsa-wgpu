@@ -5,6 +5,8 @@ edition = "2024"
 
 [features]
 default = []
+# Async support.
+async = ["dep:tokio"]
 # Add support for dialog windows.
 dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
@@ -20,13 +22,11 @@ ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
 winit = "0.30"
 fontdb = "0.23.0"
 futures-lite = "2.6.1"
+tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
 
 rat-event = { version = "1.4", path = "../rat-salsa/rat-event" }
 rat-focus = { version = "1.6", path = "../rat-salsa/rat-focus" }
 rat-widget = { version = "2.10", optional = true, path = "../rat-salsa/rat-widget", features = ["user_directories"] }
-
-
-
 
 [dev-dependencies]
 anyhow = "1.0"

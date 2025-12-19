@@ -3,13 +3,13 @@ use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::{Frame, Terminal};
-use ratatui_wgpu::WgpuBackend;
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
+use ratatui_wgpu::{Font, WgpuBackend};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::io;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 use winit::application::ApplicationHandler;
 use winit::event::{Modifiers, WindowEvent};
@@ -111,10 +111,37 @@ where
     Error: 'static + Debug + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        // todo: depends on resumed() being called at most once.
+        let mut font_db = fontdb::Database::new();
+        font_db.load_system_fonts();
+        let cr_font = self.cfg.fonts.take().expect("font-loader");
+        let font_ids = cr_font(&font_db);
+
+        static FONT_DATA: OnceLock<Vec<Vec<u8>>> = OnceLock::new();
+        FONT_DATA.get_or_init(|| {
+            font_ids
+                .into_iter()
+                .filter_map(|id| font_db.with_face_data(id, |d, _| d.to_vec()))
+                .collect::<Vec<_>>()
+        });
+        let fonts = FONT_DATA
+            .get()
+            .expect("font-data")
+            .iter()
+            .filter_map(|d| Font::new(d))
+            .collect::<Vec<_>>();
+
         let cr_window = self.cfg.window.take().expect("window-constructor");
         let window = Arc::new(cr_window(event_loop));
+
         let cr_terminal = self.cfg.term.take().expect("terminal-constructor");
-        let terminal = Rc::new(RefCell::new(cr_terminal(window.clone())));
+        let terminal = Rc::new(RefCell::new(cr_terminal(
+            window.clone(),
+            fonts,
+            self.cfg.font_size,
+            self.cfg.bg_color,
+            self.cfg.fg_color,
+        )));
 
         self.global.set_salsa_ctx(SalsaAppContext {
             focus: Default::default(),

@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
 use ratatui::Terminal;
@@ -10,9 +11,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use winit::window::Window;
 
+pub mod crossterm;
 mod framework;
 mod run_config;
-pub mod crossterm;
 
 pub use framework::*;
 use ratatui_wgpu::WgpuBackend;
