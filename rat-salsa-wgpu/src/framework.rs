@@ -186,12 +186,12 @@ where
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     /// Application timers.
-    timers_ctrl: Option<Rc<Timers>>,
+    timers_ctrl: Option<Arc<Timers>>,
     /// Background tasks.
-    tasks_ctrl: Option<Rc<ThreadPool<Event, Error>>>,
+    tasks_ctrl: Option<Arc<ThreadPool<Event, Error>>>,
     /// Background tasks.
     #[cfg(feature = "async")]
-    tokio_ctrl: Option<Rc<TokioTasks<Event, Error>>>,
+    tokio_ctrl: Option<Arc<TokioTasks<Event, Error>>>,
     poll: Vec<Box<dyn PollEvents<Event, Error> + Send>>,
     proxy: EventLoopProxy<Result<Control<Event>, Error>>,
 }

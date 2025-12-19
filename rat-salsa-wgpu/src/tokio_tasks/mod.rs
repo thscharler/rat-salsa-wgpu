@@ -1,16 +1,17 @@
-use crate::tasks::Liveness;
 use crate::Control;
+use crate::tasks::Liveness;
 use log::error;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
+use std::sync::Mutex;
 use tokio::runtime::Runtime;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::task::{AbortHandle, JoinHandle};
 
 pub(crate) struct TokioTasks<Event, Error> {
     rt: Runtime,
-    pending: RefCell<Vec<(JoinHandle<Result<Control<Event>, Error>>, Liveness)>>,
+    pending: Mutex<Vec<(JoinHandle<Result<Control<Event>, Error>>, Liveness)>>,
     send_queue: Sender<Result<Control<Event>, Error>>,
 }
 
@@ -22,7 +23,7 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TokioTasks")
             .field("rt", &self.rt)
-            .field("pending.len", &self.pending.borrow().len())
+            .field("pending.len", &self.pending.lock().expect("lock").len())
             .field("send_queue.is_closed", &self.send_queue.is_closed())
             .finish()
     }
@@ -53,7 +54,7 @@ where
         l.born();
         let h = self.rt.spawn(Box::into_pin(future));
         let ah = h.abort_handle();
-        self.pending.borrow_mut().push((h, l.clone()));
+        self.pending.lock().expect("lock").push((h, l.clone()));
         (ah, l)
     }
 
@@ -62,7 +63,7 @@ where
     }
 
     pub(crate) fn poll_finished(&self) -> Result<(), Error> {
-        self.pending.borrow_mut().retain_mut(|(v, l)| {
+        self.pending.lock().expect("lock").retain_mut(|(v, l)| {
             if v.is_finished() {
                 match self.rt.block_on(v) {
                     Ok(r) => {

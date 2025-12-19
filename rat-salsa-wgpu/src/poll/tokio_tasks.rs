@@ -1,8 +1,8 @@
+use crate::Control;
 use crate::poll::PollEvents;
 use crate::tokio_tasks::TokioTasks;
-use crate::Control;
 use std::any::Any;
-use std::rc::Rc;
+use std::sync::Arc;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::Receiver;
 
@@ -18,7 +18,7 @@ where
     Event: 'static,
     Error: 'static,
 {
-    tasks: Rc<TokioTasks<Event, Error>>,
+    tasks: Arc<TokioTasks<Event, Error>>,
     recv_queue: Receiver<Result<Control<Event>, Error>>,
 }
 
@@ -30,7 +30,7 @@ where
     pub fn new(rt: Runtime) -> Self {
         let (tokio, recv) = TokioTasks::new(rt);
         Self {
-            tasks: Rc::new(tokio),
+            tasks: Arc::new(tokio),
             recv_queue: recv,
         }
     }
@@ -41,7 +41,7 @@ where
     Event: 'static,
     Error: 'static,
 {
-    pub(crate) fn get_tasks(&self) -> Rc<TokioTasks<Event, Error>> {
+    pub(crate) fn get_tasks(&self) -> Arc<TokioTasks<Event, Error>> {
         self.tasks.clone()
     }
 }

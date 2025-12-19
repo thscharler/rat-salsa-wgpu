@@ -389,12 +389,12 @@ where
     pub(crate) last_event: Cell<Duration>,
 
     /// Application timers.
-    pub(crate) timers: Option<Rc<Timers>>,
+    pub(crate) timers: Option<Arc<Timers>>,
     /// Background tasks.
-    pub(crate) tasks: Option<Rc<ThreadPool<Event, Error>>>,
+    pub(crate) tasks: Option<Arc<ThreadPool<Event, Error>>>,
     /// Background tasks.
     #[cfg(feature = "async")]
-    pub(crate) tokio: Option<Rc<TokioTasks<Event, Error>>>,
+    pub(crate) tokio: Option<Arc<TokioTasks<Event, Error>>>,
 
     /// Queue foreground tasks.
     pub(crate) queue: framework::control_queue::ControlQueue<Event, Error>,

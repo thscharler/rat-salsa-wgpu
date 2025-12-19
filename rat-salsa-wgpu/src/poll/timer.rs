@@ -2,23 +2,23 @@ use crate::poll::PollEvents;
 use crate::timer::{TimeOut, Timers};
 use crate::Control;
 use std::any::Any;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Processes timers.
 #[derive(Debug, Default)]
 pub struct PollTimers {
-    timers: Rc<Timers>,
+    timers: Arc<Timers>,
 }
 
 impl PollTimers {
     pub fn new() -> Self {
         Self {
-            timers: Rc::new(Timers::default()),
+            timers: Arc::new(Timers::default()),
         }
     }
 
-    pub(crate) fn get_timers(&self) -> Rc<Timers> {
+    pub(crate) fn get_timers(&self) -> Arc<Timers> {
         self.timers.clone()
     }
 }

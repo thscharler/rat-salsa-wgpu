@@ -1,7 +1,10 @@
 use anyhow::Error;
 use log::error;
-use rat_event::try_flow;
+use rat_event::{event_flow, try_flow};
 use rat_focus::{FocusBuilder, impl_has_focus};
+use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
+use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
+use rat_salsa_wgpu::timer::{TimeOut, TimerDef};
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_wgpu};
 use rat_theme4::palette::Colors;
@@ -17,6 +20,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
 use std::path::PathBuf;
+use std::time::Duration;
 use winit::event::{ElementState, Modifiers, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
 
@@ -28,6 +32,8 @@ pub fn main() -> Result<(), Error> {
     let mut global = Global::new(config, theme);
     let mut state = Minimal::default();
 
+    let rt = tokio::runtime::Runtime::new()?;
+
     run_wgpu(
         init, //
         render,
@@ -36,7 +42,13 @@ pub fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::default()?
-            .font_family("Courier New"),
+            .font_family("FiraCode Nerd Font Mono")
+            .font_size(20.)
+            .poll(PollTimers::new())
+            .poll(PollQuit)
+            .poll(PollRendered)
+            .poll(PollTasks::new(2))
+            .poll(PollTokio::new(rt)),
     )?;
 
     Ok(())
@@ -115,11 +127,32 @@ pub struct Config {}
 pub enum AppEvent {
     NoOp,
     Event((WindowEvent, Modifiers)),
+    TimeOut(TimeOut),
+    Quit,
+    Rendered,
 }
 
 impl From<(WindowEvent, Modifiers)> for AppEvent {
     fn from(value: (WindowEvent, Modifiers)) -> Self {
         AppEvent::Event(value)
+    }
+}
+
+impl From<RenderedEvent> for AppEvent {
+    fn from(_: RenderedEvent) -> Self {
+        AppEvent::Rendered
+    }
+}
+
+impl From<QuitEvent> for AppEvent {
+    fn from(_: QuitEvent) -> Self {
+        AppEvent::Quit
+    }
+}
+
+impl From<TimeOut> for AppEvent {
+    fn from(value: TimeOut) -> Self {
+        Self::TimeOut(value)
     }
 }
 
@@ -190,13 +223,20 @@ pub fn render(
 pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::build_for(state));
     ctx.focus().first();
+
+    ctx.add_timer(
+        TimerDef::new()
+            .repeat_forever()
+            .timer(Duration::from_secs(1)),
+    );
+
     Ok(())
 }
 
 pub fn event(
     event: &AppEvent,
     _state: &mut Minimal,
-    _ctx: &mut Global,
+    ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
     if let AppEvent::Event(event) = event {
         try_flow!(match &event {
@@ -231,6 +271,15 @@ pub fn event(
         //     MenuOutcome::Activated(0) => Control::Quit,
         //     v => v.into(),
         // });
+    }
+
+    match event {
+        AppEvent::TimeOut(t) => event_flow!({
+            ctx.status = format!("{:?}", t.counter);
+            Control::Changed
+        }),
+        AppEvent::Quit => event_flow!(Control::Quit),
+        _ => {}
     }
 
     // match event {

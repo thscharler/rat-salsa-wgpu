@@ -1,9 +1,9 @@
+use crate::Control;
 use crate::poll::PollEvents;
 use crate::thread_pool::ThreadPool;
-use crate::Control;
 use crossbeam::channel::TryRecvError;
 use std::any::Any;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Processes results from background tasks.
 #[derive(Debug)]
@@ -12,7 +12,7 @@ where
     Event: 'static,
     Error: 'static,
 {
-    tasks: Rc<ThreadPool<Event, Error>>,
+    tasks: Arc<ThreadPool<Event, Error>>,
 }
 
 impl<Event, Error> Default for PollTasks<Event, Error>
@@ -32,7 +32,7 @@ where
 {
     pub fn new(num_workers: usize) -> Self {
         Self {
-            tasks: Rc::new(ThreadPool::new(num_workers)),
+            tasks: Arc::new(ThreadPool::new(num_workers)),
         }
     }
 }
@@ -42,7 +42,7 @@ where
     Event: 'static,
     Error: 'static,
 {
-    pub(crate) fn get_tasks(&self) -> Rc<ThreadPool<Event, Error>> {
+    pub(crate) fn get_tasks(&self) -> Arc<ThreadPool<Event, Error>> {
         self.tasks.clone()
     }
 }

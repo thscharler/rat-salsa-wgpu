@@ -33,7 +33,7 @@ where
     fn read(&mut self) -> Result<crate::Control<Event>, Error>;
 }
 
-mod crossterm;
+// mod crossterm;
 mod quit;
 mod rendered;
 mod thread_pool;
@@ -42,7 +42,7 @@ mod timer;
 mod tokio_tasks;
 
 use std::time::Duration;
-pub use crossterm::PollCrossterm;
+// pub use crossterm::PollCrossterm;
 pub use quit::PollQuit;
 pub use rendered::PollRendered;
 pub use thread_pool::PollTasks;

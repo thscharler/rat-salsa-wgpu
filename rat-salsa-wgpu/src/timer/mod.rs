@@ -1,12 +1,13 @@
 use crate::event::TimerEvent;
-use std::cell::{Cell, RefCell};
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 /// Holds all the timers.
 #[derive(Debug, Default)]
 pub(crate) struct Timers {
-    tags: Cell<usize>,
-    timers: RefCell<Vec<TimerImpl>>,
+    tags: AtomicUsize,
+    timers: Mutex<Vec<TimerImpl>>,
 }
 
 /// Handle for a submitted timer.
@@ -25,7 +26,7 @@ struct TimerImpl {
 impl Timers {
     /// Returns the next sleep time.
     pub(crate) fn sleep_time(&self) -> Option<Duration> {
-        let timers = self.timers.borrow();
+        let timers = self.timers.lock().expect("lock");
         if let Some(timer) = timers.last() {
             let now = Instant::now();
             if now > timer.next {
@@ -40,7 +41,7 @@ impl Timers {
 
     /// Polls for the next timer event.
     pub(crate) fn poll(&self) -> bool {
-        let timers = self.timers.borrow();
+        let timers = self.timers.lock().expect("lock");
         if let Some(timer) = timers.last() {
             Instant::now() >= timer.next
         } else {
@@ -51,7 +52,7 @@ impl Timers {
     /// Polls for the next timer event.
     /// Removes/recalculates the event and reorders the queue.
     pub(crate) fn read(&self) -> Option<TimerEvent> {
-        let mut timers = self.timers.borrow_mut();
+        let mut timers = self.timers.lock().expect("lock");
 
         let timer = timers.pop();
         if let Some(mut timer) = timer {
@@ -95,9 +96,7 @@ impl Timers {
     /// Add a timer.
     #[must_use]
     pub(crate) fn add(&self, t: TimerDef) -> TimerHandle {
-        let tag = self.tags.get() + 1;
-        self.tags.set(tag);
-
+        let tag = self.tags.fetch_add(1, Ordering::Release);
         let t = TimerImpl {
             tag,
             count: 0,
@@ -110,7 +109,7 @@ impl Timers {
             timer: t.timer,
         };
 
-        let mut timers = self.timers.borrow_mut();
+        let mut timers = self.timers.lock().expect("lock");
         Self::add_impl(timers.as_mut(), t);
 
         TimerHandle(tag)
@@ -118,7 +117,7 @@ impl Timers {
 
     /// Remove a timer.
     pub(crate) fn remove(&self, tag: TimerHandle) {
-        let mut timer = self.timers.borrow_mut();
+        let mut timer = self.timers.lock().expect("lock");
         for i in 0..timer.len() {
             if timer[i].tag == tag.0 {
                 timer.remove(i);
