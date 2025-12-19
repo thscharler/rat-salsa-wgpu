@@ -1,7 +1,6 @@
 use crate::Control;
 use crate::tasks::Liveness;
 use log::error;
-use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
 use std::sync::Mutex;
