@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = []
+default = ["dialog_widgets", "async"]
 # Async support.
 async = ["dep:tokio"]
 # Add support for dialog windows.

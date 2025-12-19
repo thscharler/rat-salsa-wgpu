@@ -1,9 +1,10 @@
+use crate::Control;
+use crate::poll::PollEvents;
 use log::debug;
 use ratatui::Terminal;
 use ratatui::style::Color;
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
 use ratatui_wgpu::{Builder, Dimensions, Font, WgpuBackend};
-use std::marker::PhantomData;
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use winit::dpi::PhysicalPosition;
@@ -18,7 +19,7 @@ where
     Error: 'static,
 {
     /// winit event-loop
-    pub(crate) event_loop: Option<EventLoop<Event>>,
+    pub(crate) event_loop: Option<EventLoop<Result<Control<Event>, Error>>>,
     /// font loading callback
     pub(crate) fonts: Option<Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>>,
     /// font size
@@ -45,8 +46,7 @@ where
     /// List of all event-handlers for the application.
     ///
     /// Defaults to PollTimers, PollCrossterm, PollTasks. Add yours here.
-    // pub(crate) poll: Vec<Box<dyn PollEvents<Event, Error>>>,
-    pub(crate) _phantom: PhantomData<(Event, Error)>,
+    pub(crate) poll: Option<Vec<Box<dyn PollEvents<Event, Error> + Send>>>,
 }
 
 impl<Event, Error> RunConfig<Event, Error>
@@ -56,14 +56,14 @@ where
 {
     pub fn default() -> Result<Self, EventLoopError> {
         Ok(Self {
-            event_loop: Some(EventLoop::<Event>::with_user_event().build()?),
+            event_loop: Some(EventLoop::with_user_event().build()?),
             fonts: Some(Box::new(create_fonts)),
             font_size: 24.0,
             bg_color: Color::Black,
             fg_color: Color::White,
             window: Some(Box::new(create_window)),
             term: Some(Box::new(create_wgpu)),
-            _phantom: Default::default(),
+            poll: Default::default(),
         })
     }
 
@@ -124,6 +124,15 @@ where
         > + 'static,
     ) -> Self {
         self.term = Some(Box::new(wgpu_init));
+        self
+    }
+
+    /// Add one more poll impl.
+    pub fn poll(mut self, poll: impl PollEvents<Event, Error> + Send + 'static) -> Self {
+        if self.poll.is_none() {
+            self.poll = Some(Vec::new());
+        }
+        self.poll.as_mut().expect("poll").push(Box::new(poll));
         self
     }
 }

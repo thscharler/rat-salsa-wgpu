@@ -1,5 +1,6 @@
 use crossterm::event::{MediaKeyCode, ModifierKeyCode};
 
+#[allow(dead_code)]
 pub fn to_crossterm_event(
     event: winit::event::WindowEvent,
     modifiers: winit::event::Modifiers,
