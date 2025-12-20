@@ -8,14 +8,13 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::{debug, info};
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::{Frame, Terminal};
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
-use ratatui_wgpu::{Font, Fonts, WgpuBackend};
+use ratatui_wgpu::{Fonts, WgpuBackend};
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::cmp::min;
@@ -26,7 +25,8 @@ use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
 use std::{io, mem, thread};
 use winit::application::ApplicationHandler;
-use winit::event::{Modifiers, WindowEvent};
+use winit::dpi::PhysicalSize;
+use winit::event::{Modifiers, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowId};
 
@@ -231,7 +231,8 @@ where
     terminal:
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
 
-    event_time: SystemTime,
+    font_ids: Vec<fontdb::ID>,
+    font_size: f64,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
@@ -252,9 +253,7 @@ where
     Error: 'static + Debug + Send + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let t = SystemTime::now();
         initialize_terminal(self, event_loop);
-        info!("initialize_terminal {:?}", t.elapsed());
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: Result<Control<Event>, Error>) {
@@ -307,8 +306,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
 
     let font_ids = cr_fonts(FontData.font_db());
     let font_list = font_ids
-        .into_iter()
-        .filter_map(|id| FontData.load_font(id))
+        .iter()
+        .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
 
     let window = Arc::new(cr_window(event_loop));
@@ -316,8 +315,9 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
 
     let terminal = Rc::new(RefCell::new(cr_term(window.clone(), bg_color, fg_color)));
 
-    let font_size = (font_size * window.scale_factor()).round() as u32;
-    let mut fonts = Fonts::new(FontData.fallback_font(), font_size);
+    // uses postscript pt for the font-size. the rest is an educated guess.
+    let font_size_px = (font_size / 72.0 * 96.0 * window.scale_factor()).round() as u32;
+    let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
     fonts.add_fonts(font_list);
     terminal.borrow_mut().backend_mut().update_fonts(fonts);
 
@@ -387,7 +387,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         window_size,
         modifiers: Default::default(),
         terminal,
-        event_time: SystemTime::UNIX_EPOCH,
+        font_ids,
+        font_size,
     });
 }
 
@@ -405,31 +406,57 @@ fn process_event<'a, Global, State, Event, Error>(
         panic!("not initialized");
     };
 
-    // info!("e2e {:?}", app.event_time.elapsed());
-    info!("event {:?}", event);
-    app.event_time = SystemTime::now();
-
-    if let Some(WindowEvent::CloseRequested) = event {
-        shutdown(app, event_loop);
-        return;
-    }
     if let Some(WindowEvent::ModifiersChanged(modifiers)) = event {
         app.modifiers = modifiers;
         app.event_type.set_modifiers(app.modifiers);
     }
-    if let Some(WindowEvent::Resized(size)) = event {
-        app.terminal
-            .borrow_mut()
-            .backend_mut()
-            .resize(size.width, size.height);
 
-        app.window_size = app
-            .terminal
-            .borrow_mut()
-            .backend_mut()
-            .window_size()
-            .expect("window_size");
-        app.event_type.set_window_size(app.window_size);
+    if let Some(WindowEvent::CloseRequested) = event {
+        app.global.salsa_ctx().queue.push(Ok(Control::Quit));
+    }
+
+    if let Some(WindowEvent::Resized(size)) = event {
+        resize(app, size);
+
+        // // round size
+        // let dx = app.window_size.pixels.width / app.window_size.columns_rows.width;
+        // let dy = app.window_size.pixels.height / app.window_size.columns_rows.height;
+        // let px_width = app.window_size.columns_rows.width * dx;
+        // let px_height = app.window_size.columns_rows.height * dy;
+        //
+        // if px_width != app.window_size.pixels.width || px_height != app.window_size.pixels.height {
+        //     if let Some(new_size) =
+        //         app.window
+        //             .request_inner_size(winit::dpi::Size::Physical(PhysicalSize::new(
+        //                 px_width as u32,
+        //                 px_height as u32,
+        //             )))
+        //     {
+        //         resize(app, new_size);
+        //     }
+        // }
+    }
+
+    if app.modifiers.state().control_key() {
+        if let Some(WindowEvent::MouseWheel {
+            delta: MouseScrollDelta::LineDelta(_, dy),
+            ..
+        }) = event
+        {
+            resize_ui(app, dy);
+
+            // inform app
+            let size = app.window_size.pixels;
+            let size = PhysicalSize::new(size.width as u32, size.height as u32);
+            if let Some(event) = app.event_type.convert(WindowEvent::Resized(size)) {
+                app.global
+                    .salsa_ctx()
+                    .queue
+                    .push(Ok(Control::Event(event.into())));
+            } else {
+                // todo: noop?
+            }
+        }
     }
 
     let mut was_changed = false;
@@ -450,8 +477,6 @@ fn process_event<'a, Global, State, Event, Error>(
         global.salsa_ctx().queue.push(user);
     }
 
-    // info!("prepare event {:?}", t.elapsed());
-    let t = SystemTime::now();
     'ui: loop {
         // panic on worker panic
         if let Some(tasks) = &global.salsa_ctx().tasks {
@@ -464,8 +489,6 @@ fn process_event<'a, Global, State, Event, Error>(
 
         // Result of event-handling.
         if let Some(ctrl) = global.salsa_ctx().queue.take() {
-            debug!("        loop event {:?}", ctrl);
-
             // filter out double Changed events.
             // no need to render twice in a row.
             if matches!(ctrl, Ok(Control::Changed)) {
@@ -486,7 +509,6 @@ fn process_event<'a, Global, State, Event, Error>(
                 Ok(Control::Unchanged) => {}
                 Ok(Control::Changed) => {
                     let mut r = Ok(());
-                    info!("        -> terminal.draw");
                     app.terminal
                         .borrow_mut()
                         .draw(&mut |frame: &mut Frame| {
@@ -558,8 +580,76 @@ fn process_event<'a, Global, State, Event, Error>(
             break 'ui;
         }
     }
+}
 
-    info!("        :: event-loop {:?}", t.elapsed());
+fn resize_ui<'a, Global, State, Event, Error>(
+    app: &mut Running<'a, Global, State, Event, Error>,
+    dy: f32,
+) where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + From<crossterm::event::Event>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    if dy > 0.0 {
+        app.font_size += 1.0;
+    } else {
+        if app.font_size > 7.0 {
+            app.font_size -= 1.0;
+        }
+    }
+
+    // reload backend font
+    reload_fonts(app);
+}
+
+fn reload_fonts<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
+where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + From<crossterm::event::Event>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    let font_list = app
+        .font_ids
+        .iter()
+        .filter_map(|id| FontData.load_font(*id))
+        .collect::<Vec<_>>();
+
+    // uses postscript pt for the font-size. the rest is an educated guess.
+    let font_size_px = (app.font_size / 72.0 * 96.0 * app.window.scale_factor()).round() as u32;
+    let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
+    fonts.add_fonts(font_list);
+    app.terminal.borrow_mut().backend_mut().update_fonts(fonts);
+
+    // only a resize of the backend works.
+    // and only a really extreme shrink removes all the artifacts, it seems ...
+    let lsize = app.window_size.pixels;
+    app.terminal.borrow_mut().backend_mut().resize(1, 1);
+    app.terminal
+        .borrow_mut()
+        .backend_mut()
+        .resize(lsize.width as u32, lsize.height as u32);
+}
+
+fn resize<'a, Global, State, Event, Error>(
+    app: &mut Running<'a, Global, State, Event, Error>,
+    size: PhysicalSize<u32>,
+) where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + From<crossterm::event::Event>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    app.terminal
+        .borrow_mut()
+        .backend_mut()
+        .resize(size.width, size.height);
+
+    app.window_size = app
+        .terminal
+        .borrow_mut()
+        .backend_mut()
+        .window_size()
+        .expect("window_size");
+    app.event_type.set_window_size(app.window_size);
 }
 
 fn shutdown<'a, Global, State, Event, Error>(
