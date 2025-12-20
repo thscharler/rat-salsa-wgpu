@@ -1,0 +1,505 @@
+use crate::event_type::ConvertEvent;
+
+/// Convert winit-events to crossterm-events.
+#[derive(Debug)]
+pub struct ConvertCrossterm {
+    /// Modifiers
+    pub modifiers: winit::event::Modifiers,
+    /// Window-size
+    pub window_size: ratatui::backend::WindowSize,
+    /// Cell width
+    pub cell_width: u16,
+    /// Cell height
+    pub cell_height: u16,
+    /// Mouse cursor
+    pub x: u16,
+    /// Mouse cursor
+    pub y: u16,
+    /// Mouse button state
+    pub left_pressed: bool,
+    /// Mouse button state
+    pub middle_pressed: bool,
+    /// Mouse button state
+    pub right_pressed: bool,
+}
+
+impl Default for ConvertCrossterm {
+    fn default() -> Self {
+        Self {
+            modifiers: Default::default(),
+            window_size: ratatui::backend::WindowSize {
+                columns_rows: Default::default(),
+                pixels: Default::default(),
+            },
+            cell_width: Default::default(),
+            cell_height: Default::default(),
+            x: Default::default(),
+            y: Default::default(),
+            left_pressed: Default::default(),
+            middle_pressed: Default::default(),
+            right_pressed: Default::default(),
+        }
+    }
+}
+
+impl<Event> ConvertEvent<Event> for ConvertCrossterm
+where
+    Event: 'static + From<crossterm::event::Event>,
+{
+    fn set_modifiers(&mut self, modifiers: winit::event::Modifiers) {
+        self.modifiers = modifiers;
+    }
+
+    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
+        self.window_size = window_size;
+        self.cell_width = window_size.pixels.width / window_size.columns_rows.width;
+        self.cell_height = window_size.pixels.height / window_size.columns_rows.height;
+    }
+
+    fn convert(&mut self, event: winit::event::WindowEvent) -> Option<Event> {
+        let event = to_crossterm_event(self, event, self.modifiers, self.window_size);
+        event.map(|e| e.into())
+    }
+}
+
+impl ConvertCrossterm {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+#[allow(dead_code)]
+fn to_crossterm_event(
+    state: &mut ConvertCrossterm,
+    event: winit::event::WindowEvent,
+    modifiers: winit::event::Modifiers,
+    window_size: ratatui::backend::WindowSize,
+) -> Option<crossterm::event::Event> {
+    'm: {
+        match event {
+            winit::event::WindowEvent::Resized(_) => Some(crossterm::event::Event::Resize(
+                window_size.columns_rows.width,
+                window_size.columns_rows.height,
+            )),
+            winit::event::WindowEvent::Focused(v) => {
+                if v {
+                    Some(crossterm::event::Event::FocusGained)
+                } else {
+                    Some(crossterm::event::Event::FocusLost)
+                }
+            }
+            winit::event::WindowEvent::KeyboardInput {
+                event:
+                    winit::event::KeyEvent {
+                        logical_key,
+                        location,
+                        state,
+                        repeat,
+                        ..
+                    },
+                ..
+            } => {
+                let ct_key_modifiers = map_modifiers(modifiers);
+                let ct_key_event_kind = map_key_state(state, repeat);
+                let ct_key_event_state = map_key_location(location);
+
+                match logical_key {
+                    winit::keyboard::Key::Character(c) => {
+                        let c = c.as_str().chars().next().expect("char");
+                        Some(crossterm::event::Event::Key(
+                            crossterm::event::KeyEvent::new_with_kind_and_state(
+                                crossterm::event::KeyCode::Char(c),
+                                ct_key_modifiers,
+                                ct_key_event_kind,
+                                ct_key_event_state,
+                            ),
+                        ))
+                    }
+                    winit::keyboard::Key::Named(nk) => {
+                        if let Some(kc) = map_key_code(nk, location, modifiers) {
+                            Some(crossterm::event::Event::Key(
+                                crossterm::event::KeyEvent::new_with_kind_and_state(
+                                    kc,
+                                    ct_key_modifiers,
+                                    ct_key_event_kind,
+                                    ct_key_event_state,
+                                ),
+                            ))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
+            }
+            winit::event::WindowEvent::CursorMoved { position, .. } => {
+                if state.cell_width == 0 || state.cell_height == 0 {
+                    break 'm None;
+                }
+
+                state.x = position.x as u16 / state.cell_width;
+                state.y = position.y as u16 / state.cell_height;
+
+                let ct_key_modifiers = map_modifiers(modifiers);
+
+                if state.left_pressed {
+                    Some(crossterm::event::Event::Mouse(
+                        crossterm::event::MouseEvent {
+                            kind: crossterm::event::MouseEventKind::Drag(
+                                crossterm::event::MouseButton::Left,
+                            ),
+                            column: state.x,
+                            row: state.y,
+                            modifiers: ct_key_modifiers,
+                        },
+                    ))
+                } else if state.right_pressed {
+                    Some(crossterm::event::Event::Mouse(
+                        crossterm::event::MouseEvent {
+                            kind: crossterm::event::MouseEventKind::Drag(
+                                crossterm::event::MouseButton::Right,
+                            ),
+                            column: state.x,
+                            row: state.y,
+                            modifiers: ct_key_modifiers,
+                        },
+                    ))
+                } else if state.middle_pressed {
+                    Some(crossterm::event::Event::Mouse(
+                        crossterm::event::MouseEvent {
+                            kind: crossterm::event::MouseEventKind::Drag(
+                                crossterm::event::MouseButton::Middle,
+                            ),
+                            column: state.x,
+                            row: state.y,
+                            modifiers: ct_key_modifiers,
+                        },
+                    ))
+                } else {
+                    Some(crossterm::event::Event::Mouse(
+                        crossterm::event::MouseEvent {
+                            kind: crossterm::event::MouseEventKind::Moved,
+                            column: state.x,
+                            row: state.y,
+                            modifiers: ct_key_modifiers,
+                        },
+                    ))
+                }
+            }
+            winit::event::WindowEvent::MouseWheel {
+                delta: winit::event::MouseScrollDelta::LineDelta(_horizontal, vertical),
+                ..
+            } => {
+                let ct_key_modifiers = map_modifiers(modifiers);
+
+                Some(crossterm::event::Event::Mouse(
+                    crossterm::event::MouseEvent {
+                        kind: if vertical > 0. {
+                            crossterm::event::MouseEventKind::ScrollDown
+                        } else {
+                            crossterm::event::MouseEventKind::ScrollUp
+                        },
+                        column: state.x,
+                        row: state.y,
+                        modifiers: ct_key_modifiers,
+                    },
+                ))
+            }
+            winit::event::WindowEvent::MouseInput {
+                state: mouse_state,
+                button,
+                ..
+            } => {
+                let pressed = map_mouse_state(mouse_state);
+                let Some(ct_button) = map_mouse_button(button) else {
+                    break 'm None;
+                };
+                let ct_key_modifiers = map_modifiers(modifiers);
+
+                match ct_button {
+                    crossterm::event::MouseButton::Left => {
+                        state.left_pressed = pressed;
+                    }
+                    crossterm::event::MouseButton::Right => {
+                        state.right_pressed = pressed;
+                    }
+                    crossterm::event::MouseButton::Middle => {
+                        state.middle_pressed = pressed;
+                    }
+                }
+
+                Some(crossterm::event::Event::Mouse(
+                    crossterm::event::MouseEvent {
+                        kind: create_mouse_event_kind(ct_button, pressed),
+                        column: state.x,
+                        row: state.y,
+                        modifiers: ct_key_modifiers,
+                    },
+                ))
+            }
+
+            // winit::event::WindowEvent::ActivationTokenDone { .. } => {}
+            // winit::event::WindowEvent::Moved(v) => {}
+            // winit::event::WindowEvent::CloseRequested => {}
+            // winit::event::WindowEvent::Destroyed => {}
+            // winit::event::WindowEvent::DroppedFile(_) => {}
+            // winit::event::WindowEvent::HoveredFile(_) => {}
+            // winit::event::WindowEvent::HoveredFileCancelled => {}
+            // winit::event::WindowEvent::ModifiersChanged(_) => {}
+            // winit::event::WindowEvent::Ime(_) => {}
+            // winit::event::WindowEvent::CursorEntered { .. } => {}
+            // winit::event::WindowEvent::CursorLeft { .. } => {}
+            // winit::event::WindowEvent::PinchGesture { .. } => {}
+            // winit::event::WindowEvent::PanGesture { .. } => {}
+            // winit::event::WindowEvent::DoubleTapGesture { .. } => {}
+            // winit::event::WindowEvent::RotationGesture { .. } => {}
+            // winit::event::WindowEvent::TouchpadPressure { .. } => {}
+            // winit::event::WindowEvent::AxisMotion { .. } => {}
+            // winit::event::WindowEvent::Touch(_) => {}
+            // winit::event::WindowEvent::ScaleFactorChanged { .. } => {}
+            // winit::event::WindowEvent::ThemeChanged(_) => {}
+            // winit::event::WindowEvent::Occluded(_) => {}
+            // winit::event::WindowEvent::RedrawRequested => {}
+            _ => None,
+        }
+    }
+}
+
+fn map_modifiers(modifiers: winit::event::Modifiers) -> crossterm::event::KeyModifiers {
+    let mut m = crossterm::event::KeyModifiers::empty();
+    if modifiers.state().control_key() {
+        m |= crossterm::event::KeyModifiers::CONTROL;
+    }
+    if modifiers.state().shift_key() {
+        m |= crossterm::event::KeyModifiers::SHIFT;
+    }
+    if modifiers.state().alt_key() {
+        m |= crossterm::event::KeyModifiers::ALT;
+    }
+    if modifiers.state().super_key() {
+        m |= crossterm::event::KeyModifiers::SUPER;
+    }
+    m
+}
+
+fn map_key_state(
+    state: winit::event::ElementState,
+    repeat: bool,
+) -> crossterm::event::KeyEventKind {
+    let mut s = match state {
+        winit::event::ElementState::Pressed => crossterm::event::KeyEventKind::Press,
+        winit::event::ElementState::Released => crossterm::event::KeyEventKind::Release,
+    };
+    if repeat {
+        s = crossterm::event::KeyEventKind::Repeat;
+    }
+    s
+}
+
+fn map_key_location(location: winit::keyboard::KeyLocation) -> crossterm::event::KeyEventState {
+    match location {
+        winit::keyboard::KeyLocation::Standard => crossterm::event::KeyEventState::NONE,
+        winit::keyboard::KeyLocation::Left => crossterm::event::KeyEventState::NONE,
+        winit::keyboard::KeyLocation::Right => crossterm::event::KeyEventState::NONE,
+        winit::keyboard::KeyLocation::Numpad => crossterm::event::KeyEventState::KEYPAD,
+    }
+}
+
+fn map_key_code(
+    named_key: winit::keyboard::NamedKey,
+    key_location: winit::keyboard::KeyLocation,
+    modifiers: winit::event::Modifiers,
+) -> Option<crossterm::event::KeyCode> {
+    let key_code = match named_key {
+        winit::keyboard::NamedKey::Enter => crossterm::event::KeyCode::Enter,
+        winit::keyboard::NamedKey::Tab => {
+            if modifiers.state().shift_key() {
+                crossterm::event::KeyCode::BackTab
+            } else {
+                crossterm::event::KeyCode::Tab
+            }
+        }
+        winit::keyboard::NamedKey::Space => crossterm::event::KeyCode::Char(' '),
+        winit::keyboard::NamedKey::ArrowDown => crossterm::event::KeyCode::Down,
+        winit::keyboard::NamedKey::ArrowLeft => crossterm::event::KeyCode::Left,
+        winit::keyboard::NamedKey::ArrowRight => crossterm::event::KeyCode::Right,
+        winit::keyboard::NamedKey::ArrowUp => crossterm::event::KeyCode::Up,
+        winit::keyboard::NamedKey::End => crossterm::event::KeyCode::End,
+        winit::keyboard::NamedKey::Home => crossterm::event::KeyCode::Home,
+        winit::keyboard::NamedKey::PageDown => crossterm::event::KeyCode::PageDown,
+        winit::keyboard::NamedKey::PageUp => crossterm::event::KeyCode::PageUp,
+        winit::keyboard::NamedKey::Backspace => crossterm::event::KeyCode::Backspace,
+        winit::keyboard::NamedKey::Delete => crossterm::event::KeyCode::Delete,
+        winit::keyboard::NamedKey::Insert => crossterm::event::KeyCode::Insert,
+        winit::keyboard::NamedKey::Escape => crossterm::event::KeyCode::Esc,
+        winit::keyboard::NamedKey::F1 => crossterm::event::KeyCode::F(1),
+        winit::keyboard::NamedKey::F2 => crossterm::event::KeyCode::F(2),
+        winit::keyboard::NamedKey::F3 => crossterm::event::KeyCode::F(3),
+        winit::keyboard::NamedKey::F4 => crossterm::event::KeyCode::F(4),
+        winit::keyboard::NamedKey::F5 => crossterm::event::KeyCode::F(5),
+        winit::keyboard::NamedKey::F6 => crossterm::event::KeyCode::F(6),
+        winit::keyboard::NamedKey::F7 => crossterm::event::KeyCode::F(7),
+        winit::keyboard::NamedKey::F8 => crossterm::event::KeyCode::F(8),
+        winit::keyboard::NamedKey::F9 => crossterm::event::KeyCode::F(9),
+        winit::keyboard::NamedKey::F10 => crossterm::event::KeyCode::F(10),
+        winit::keyboard::NamedKey::F11 => crossterm::event::KeyCode::F(11),
+        winit::keyboard::NamedKey::F12 => crossterm::event::KeyCode::F(12),
+        winit::keyboard::NamedKey::F13 => crossterm::event::KeyCode::F(13),
+        winit::keyboard::NamedKey::F14 => crossterm::event::KeyCode::F(14),
+        winit::keyboard::NamedKey::F15 => crossterm::event::KeyCode::F(15),
+        winit::keyboard::NamedKey::F16 => crossterm::event::KeyCode::F(16),
+        winit::keyboard::NamedKey::F17 => crossterm::event::KeyCode::F(17),
+        winit::keyboard::NamedKey::F18 => crossterm::event::KeyCode::F(18),
+        winit::keyboard::NamedKey::F19 => crossterm::event::KeyCode::F(19),
+        winit::keyboard::NamedKey::F20 => crossterm::event::KeyCode::F(20),
+        winit::keyboard::NamedKey::F21 => crossterm::event::KeyCode::F(21),
+        winit::keyboard::NamedKey::F22 => crossterm::event::KeyCode::F(22),
+        winit::keyboard::NamedKey::F23 => crossterm::event::KeyCode::F(23),
+        winit::keyboard::NamedKey::F24 => crossterm::event::KeyCode::F(24),
+        winit::keyboard::NamedKey::F25 => crossterm::event::KeyCode::F(25),
+        winit::keyboard::NamedKey::F26 => crossterm::event::KeyCode::F(26),
+        winit::keyboard::NamedKey::F27 => crossterm::event::KeyCode::F(27),
+        winit::keyboard::NamedKey::F28 => crossterm::event::KeyCode::F(28),
+        winit::keyboard::NamedKey::F29 => crossterm::event::KeyCode::F(29),
+        winit::keyboard::NamedKey::F30 => crossterm::event::KeyCode::F(30),
+        winit::keyboard::NamedKey::F31 => crossterm::event::KeyCode::F(31),
+        winit::keyboard::NamedKey::F32 => crossterm::event::KeyCode::F(32),
+        winit::keyboard::NamedKey::F33 => crossterm::event::KeyCode::F(33),
+        winit::keyboard::NamedKey::F34 => crossterm::event::KeyCode::F(34),
+        winit::keyboard::NamedKey::F35 => crossterm::event::KeyCode::F(35),
+        winit::keyboard::NamedKey::CapsLock => crossterm::event::KeyCode::CapsLock,
+        winit::keyboard::NamedKey::ScrollLock => crossterm::event::KeyCode::ScrollLock,
+        winit::keyboard::NamedKey::NumLock => crossterm::event::KeyCode::NumLock,
+        winit::keyboard::NamedKey::PrintScreen => crossterm::event::KeyCode::PrintScreen,
+        winit::keyboard::NamedKey::Pause => crossterm::event::KeyCode::Pause,
+        winit::keyboard::NamedKey::ContextMenu => crossterm::event::KeyCode::Menu,
+        winit::keyboard::NamedKey::MediaPlay => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::Play)
+        }
+        winit::keyboard::NamedKey::MediaPause => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::Pause)
+        }
+        winit::keyboard::NamedKey::MediaPlayPause => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::PlayPause)
+        }
+        winit::keyboard::NamedKey::MediaStop => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::Stop)
+        }
+        winit::keyboard::NamedKey::MediaFastForward => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::FastForward)
+        }
+        winit::keyboard::NamedKey::MediaRewind => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::Rewind)
+        }
+        winit::keyboard::NamedKey::MediaTrackNext => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::TrackNext)
+        }
+        winit::keyboard::NamedKey::MediaTrackPrevious => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::TrackPrevious)
+        }
+        winit::keyboard::NamedKey::MediaRecord => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::Record)
+        }
+        winit::keyboard::NamedKey::AudioVolumeDown => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::LowerVolume)
+        }
+        winit::keyboard::NamedKey::AudioVolumeUp => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::RaiseVolume)
+        }
+        winit::keyboard::NamedKey::AudioVolumeMute => {
+            crossterm::event::KeyCode::Media(crossterm::event::MediaKeyCode::MuteVolume)
+        }
+        winit::keyboard::NamedKey::Shift => {
+            if key_location == winit::keyboard::KeyLocation::Left {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::LeftShift)
+            } else {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::RightShift)
+            }
+        }
+        winit::keyboard::NamedKey::Control => {
+            if key_location == winit::keyboard::KeyLocation::Left {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::LeftControl)
+            } else {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::RightControl)
+            }
+        }
+        winit::keyboard::NamedKey::Alt => {
+            if key_location == winit::keyboard::KeyLocation::Left {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::LeftAlt)
+            } else {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::RightAlt)
+            }
+        }
+        winit::keyboard::NamedKey::Super => {
+            if key_location == winit::keyboard::KeyLocation::Left {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::LeftSuper)
+            } else {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::RightSuper)
+            }
+        }
+        winit::keyboard::NamedKey::Meta => {
+            if key_location == winit::keyboard::KeyLocation::Left {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::LeftMeta)
+            } else {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::RightMeta)
+            }
+        }
+        winit::keyboard::NamedKey::Hyper => {
+            if key_location == winit::keyboard::KeyLocation::Left {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::LeftHyper)
+            } else {
+                crossterm::event::KeyCode::Modifier(crossterm::event::ModifierKeyCode::RightHyper)
+            }
+        }
+        _ => return None,
+    };
+
+    Some(key_code)
+}
+
+fn map_mouse_button(button: winit::event::MouseButton) -> Option<crossterm::event::MouseButton> {
+    match button {
+        winit::event::MouseButton::Left => Some(crossterm::event::MouseButton::Left),
+        winit::event::MouseButton::Right => Some(crossterm::event::MouseButton::Right),
+        winit::event::MouseButton::Middle => Some(crossterm::event::MouseButton::Middle),
+        winit::event::MouseButton::Back => None,
+        winit::event::MouseButton::Forward => None,
+        winit::event::MouseButton::Other(_) => None,
+    }
+}
+
+fn map_mouse_state(state: winit::event::ElementState) -> bool {
+    match state {
+        winit::event::ElementState::Pressed => true,
+        winit::event::ElementState::Released => false,
+    }
+}
+
+fn create_mouse_event_kind(
+    button: crossterm::event::MouseButton,
+    pressed: bool,
+) -> crossterm::event::MouseEventKind {
+    match button {
+        crossterm::event::MouseButton::Left => {
+            if pressed {
+                crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Left)
+            } else {
+                crossterm::event::MouseEventKind::Up(crossterm::event::MouseButton::Left)
+            }
+        }
+        crossterm::event::MouseButton::Right => {
+            if pressed {
+                crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Right)
+            } else {
+                crossterm::event::MouseEventKind::Up(crossterm::event::MouseButton::Right)
+            }
+        }
+        crossterm::event::MouseButton::Middle => {
+            if pressed {
+                crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::Middle)
+            } else {
+                crossterm::event::MouseEventKind::Up(crossterm::event::MouseButton::Middle)
+            }
+        }
+    }
+}

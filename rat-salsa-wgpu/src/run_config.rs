@@ -1,4 +1,5 @@
 use crate::Control;
+use crate::event_type::ConvertEvent;
 use crate::poll::PollEvents;
 use log::debug;
 use ratatui::Terminal;
@@ -20,6 +21,8 @@ where
 {
     /// winit event-loop
     pub(crate) event_loop: EventLoop<Result<Control<Event>, Error>>,
+    /// app event type
+    pub(crate) event_type: Box<dyn ConvertEvent<Event>>,
     /// font loading callback
     pub(crate) cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
     /// font size
@@ -51,9 +54,10 @@ where
     Event: 'static,
     Error: 'static,
 {
-    pub fn default() -> Result<Self, EventLoopError> {
+    pub fn new(event_type: impl ConvertEvent<Event> + 'static) -> Result<Self, EventLoopError> {
         Ok(Self {
             event_loop: EventLoop::with_user_event().build()?,
+            event_type: Box::new(event_type),
             cr_fonts: Box::new(create_fonts),
             font_size: 24.0,
             bg_color: Color::Black,

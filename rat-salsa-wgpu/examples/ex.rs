@@ -3,6 +3,7 @@ use log::{debug, error};
 use rat_event::{Dialog, HandleEvent, Regular, ct_event, event_flow, try_flow};
 use rat_focus::{FocusBuilder, impl_has_focus};
 use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
+use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
@@ -41,7 +42,7 @@ pub fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::default()?
+        RunConfig::new(ConvertCrossterm::new())?
             .font_family("FiraCode Nerd Font Mono")
             .font_size(20.)
             .poll(PollTimers::new())

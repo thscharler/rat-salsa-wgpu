@@ -40,6 +40,8 @@ pub mod poll;
 pub mod tasks;
 /// Support for timers.
 pub mod timer;
+/// Support for different event-types.
+pub mod event_type;
 
 /// This trait gives access to all facilities built into rat-salsa.
 ///

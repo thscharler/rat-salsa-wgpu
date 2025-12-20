@@ -1,3 +1,4 @@
+use crate::event_type::ConvertEvent;
 use crate::framework::control_queue::ControlQueue;
 use crate::framework::convert_to_crossterm::{TrackMouse, to_crossterm_event};
 use crate::framework::poll_queue::PollQueue;
@@ -65,6 +66,7 @@ where
 {
     let RunConfig {
         event_loop,
+        event_type,
         cr_fonts,
         font_size,
         bg_color,
@@ -126,6 +128,7 @@ where
         fg_color,
         cr_window,
         cr_term,
+        event_type,
         quit_event,
         rendered_event,
         timers_ctrl,
@@ -186,6 +189,7 @@ where
             -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
     >,
 
+    event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
 
@@ -215,6 +219,7 @@ where
     global: &'a mut Global,
     state: &'a mut State,
 
+    event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
 
@@ -222,7 +227,6 @@ where
 
     window: Arc<Window>,
     window_size: WindowSize,
-    track_mouse: TrackMouse,
     modifiers: Modifiers,
     terminal:
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
@@ -287,6 +291,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         fg_color,
         cr_window,
         cr_term,
+        mut event_type,
         quit_event,
         rendered_event,
         timers_ctrl,
@@ -330,6 +335,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         .backend_mut()
         .window_size()
         .expect("window_size");
+
+    event_type.set_window_size(window_size);
 
     global.set_salsa_ctx(SalsaAppContext {
         focus: Default::default(),
@@ -381,12 +388,12 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         error,
         global,
         state,
+        event_type,
         quit_event,
         rendered_event,
         poll,
         window,
         window_size,
-        track_mouse: Default::default(),
         modifiers: Default::default(),
         terminal,
         event_time: SystemTime::UNIX_EPOCH,
@@ -417,6 +424,7 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if let Some(WindowEvent::ModifiersChanged(modifiers)) = event {
         app.modifiers = modifiers;
+        app.event_type.set_modifiers(app.modifiers);
     }
     if let Some(WindowEvent::Resized(size)) = event {
         app.terminal
@@ -430,8 +438,7 @@ fn process_event<'a, Global, State, Event, Error>(
             .backend_mut()
             .window_size()
             .expect("window_size");
-
-        // info!("resized {:?}", t.elapsed());
+        app.event_type.set_window_size(app.window_size);
     }
 
     let mut was_changed = false;
@@ -439,27 +446,14 @@ fn process_event<'a, Global, State, Event, Error>(
     let state = &mut *app.state;
 
     if let Some(event) = event {
-        // let v = Ok(Control::Event((event, app.modifiers).into()));
-        // global.salsa_ctx().queue.push(v);
-
-        if let Some(event) =
-            to_crossterm_event(event, app.modifiers, app.window_size, &mut app.track_mouse)
-        {
+        if let Some(event) = app.event_type.convert(event) {
             global
                 .salsa_ctx()
                 .queue
                 .push(Ok(Control::Event(event.into())));
+        } else {
+            // todo: noop?
         }
-        // if let WindowEvent::Resized(size) = event {
-        //     let event = crossterm::event::Event::Resize(
-        //         app.window_size.columns_rows.width,
-        //         app.window_size.columns_rows.height,
-        //     );
-        //     global
-        //         .salsa_ctx()
-        //         .queue
-        //         .push(Ok(Control::Event(event.into())));
-        // }
     }
     if let Some(user) = user {
         global.salsa_ctx().queue.push(user);
