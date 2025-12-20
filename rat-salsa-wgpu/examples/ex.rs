@@ -312,8 +312,10 @@ fn setup_logging() -> Result<(), Error> {
     let log_file = log_path.join("log.log");
     _ = fs::remove_file(&log_file);
     fern::Dispatch::new()
-        .format(|out, message, _record| {
-            out.finish(format_args!("{}", message)) //
+        .format(|out, message, record| {
+            if record.target() == "rat_salsa_wgpu::framework" {
+                out.finish(format_args!("{}", message)) //
+            }
         })
         .level(log::LevelFilter::Debug)
         .chain(fern::log_file(&log_file)?)

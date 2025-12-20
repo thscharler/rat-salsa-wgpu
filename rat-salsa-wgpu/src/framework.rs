@@ -6,6 +6,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
+use log::{debug, info};
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -223,6 +224,8 @@ where
     modifiers: Modifiers,
     terminal:
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
+
+    event_time: SystemTime,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
@@ -243,7 +246,9 @@ where
     Error: 'static + Debug + Send + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        let t = SystemTime::now();
         initialize_terminal(self, event_loop);
+        info!("initialize_terminal {:?}", t.elapsed());
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: Result<Control<Event>, Error>) {
@@ -381,6 +386,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         window_size,
         modifiers: Default::default(),
         terminal,
+        event_time: SystemTime::UNIX_EPOCH,
     });
 }
 
@@ -397,6 +403,11 @@ fn process_event<'a, Global, State, Event, Error>(
     let WgpuApp::Running(app) = app else {
         panic!("not initialized");
     };
+
+    // info!("e2e {:?}", app.event_time.elapsed());
+    info!("event {:?}", event);
+    app.event_time = SystemTime::now();
+    let t = app.event_time;
 
     if let Some(WindowEvent::CloseRequested) = event {
         shutdown(app, event_loop);
@@ -417,6 +428,8 @@ fn process_event<'a, Global, State, Event, Error>(
             .backend_mut()
             .window_size()
             .expect("window_size");
+
+        // info!("resized {:?}", t.elapsed());
     }
 
     let mut was_changed = false;
@@ -431,6 +444,8 @@ fn process_event<'a, Global, State, Event, Error>(
         global.salsa_ctx().queue.push(user);
     }
 
+    // info!("prepare event {:?}", t.elapsed());
+    let t = SystemTime::now();
     'ui: loop {
         // panic on worker panic
         if let Some(tasks) = &global.salsa_ctx().tasks {
@@ -443,6 +458,8 @@ fn process_event<'a, Global, State, Event, Error>(
 
         // Result of event-handling.
         if let Some(ctrl) = global.salsa_ctx().queue.take() {
+            debug!("        loop event {:?}", ctrl);
+
             // filter out double Changed events.
             // no need to render twice in a row.
             if matches!(ctrl, Ok(Control::Changed)) {
@@ -463,6 +480,7 @@ fn process_event<'a, Global, State, Event, Error>(
                 Ok(Control::Unchanged) => {}
                 Ok(Control::Changed) => {
                     let mut r = Ok(());
+                    info!("        -> terminal.draw");
                     app.terminal
                         .borrow_mut()
                         .draw(&mut |frame: &mut Frame| {
@@ -534,6 +552,8 @@ fn process_event<'a, Global, State, Event, Error>(
             break 'ui;
         }
     }
+
+    info!("        :: event-loop {:?}", t.elapsed());
 }
 
 fn shutdown<'a, Global, State, Event, Error>(

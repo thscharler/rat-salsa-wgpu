@@ -1,5 +1,6 @@
 use rat_event::{ConsumedEvent, Outcome};
 use std::cmp::Ordering;
+use std::fmt::{Debug, Formatter};
 use std::mem;
 
 /// Result enum for event handling.
@@ -20,7 +21,7 @@ use std::mem;
 /// - [flow!](rat_event::flow)
 /// - [try_flow!](rat_event::try_flow)
 /// - [ConsumedEvent]
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 #[must_use]
 #[non_exhaustive]
 pub enum Control<Event> {
@@ -51,6 +52,23 @@ pub enum Control<Event> {
     Close(Event),
     /// Quit the application.
     Quit,
+}
+
+impl<Event> Debug for Control<Event> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Control::{}",
+            match self {
+                Control::Continue => "Continue",
+                Control::Unchanged => "Unchanged",
+                Control::Changed => "Changed",
+                Control::Event(_) => "Event(_)",
+                Control::Close(_) => "Close(_)",
+                Control::Quit => "Quit",
+            }
+        )
+    }
 }
 
 impl<Event> Eq for Control<Event> {}
