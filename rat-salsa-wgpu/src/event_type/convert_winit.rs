@@ -2,9 +2,9 @@ use crate::event_type::ConvertEvent;
 
 /// Winit event with extra tracked modifier-state and window-size.
 pub struct CompositeWinitEvent {
-    modifiers: winit::event::Modifiers,
-    window_size: ratatui::backend::WindowSize,
-    event: winit::event::WindowEvent,
+    pub modifiers: winit::event::Modifiers,
+    pub window_size: ratatui::backend::WindowSize,
+    pub event: winit::event::WindowEvent,
 }
 
 /// Does a noop conversion to CompositWinitEvent, that
