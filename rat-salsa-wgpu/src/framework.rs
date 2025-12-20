@@ -29,7 +29,7 @@ use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowId};
 
 pub(crate) mod control_queue;
-mod crossterm;
+mod ct_event;
 mod poll_queue;
 
 pub fn run_wgpu<Global, State, Event, Error>(
