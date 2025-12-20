@@ -71,6 +71,7 @@ where
         font_size,
         bg_color,
         fg_color,
+        window_title,
         cr_window,
         cr_term,
         poll,
@@ -126,6 +127,7 @@ where
         font_size,
         bg_color,
         fg_color,
+        window_title,
         cr_window,
         cr_term,
         event_type,
@@ -175,6 +177,7 @@ where
     fg_color: Color,
 
     /// window callback
+    window_title: String,
     cr_window: Box<dyn FnOnce(&ActiveEventLoop) -> Window>,
 
     /// terminal callback
@@ -289,6 +292,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         font_size,
         bg_color,
         fg_color,
+        window_title,
         cr_window,
         cr_term,
         mut event_type,
@@ -321,6 +325,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         .collect::<Vec<_>>();
 
     let window = Arc::new(cr_window(event_loop));
+    window.set_title(window_title.as_str());
 
     let terminal = Rc::new(RefCell::new(cr_term(
         window.clone(),

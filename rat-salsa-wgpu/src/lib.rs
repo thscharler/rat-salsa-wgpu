@@ -32,6 +32,8 @@ pub use run_config::RunConfig;
 pub mod dialog_stack;
 /// Event types.
 pub mod event;
+/// Support for different event-types.
+pub mod event_type;
 /// Provides dummy implementations for some functions.
 pub mod mock;
 /// Event sources.
@@ -40,8 +42,6 @@ pub mod poll;
 pub mod tasks;
 /// Support for timers.
 pub mod timer;
-/// Support for different event-types.
-pub mod event_type;
 
 /// This trait gives access to all facilities built into rat-salsa.
 ///

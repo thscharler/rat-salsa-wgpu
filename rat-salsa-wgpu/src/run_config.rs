@@ -29,6 +29,7 @@ where
     pub(crate) font_size: f64,
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
+    pub(crate) window_title: String,
     /// window callback
     pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop) -> Window>,
     /// terminal callback
@@ -62,6 +63,7 @@ where
             font_size: 24.0,
             bg_color: Color::Black,
             fg_color: Color::White,
+            window_title: "rat-salsa & ratatui-wgpu".to_string(),
             cr_window: Box::new(create_window),
             cr_term: Box::new(create_wgpu),
             poll: Default::default(),
@@ -93,6 +95,11 @@ where
 
     pub fn fg_color(mut self, color: Color) -> Self {
         self.fg_color = color;
+        self
+    }
+
+    pub fn window_title(mut self, title: String) -> Self {
+        self.window_title = title;
         self
     }
 
@@ -173,7 +180,6 @@ fn create_fonts(fontdb: &fontdb::Database) -> Vec<fontdb::ID> {
 fn create_window(event_loop: &ActiveEventLoop) -> Window {
     let attr = WindowAttributes::default()
         .with_position(PhysicalPosition::new(0, 0))
-        .with_title("rat-salsa & ratatui-wgpu")
         .with_visible(false);
 
     event_loop.create_window(attr).expect("event-loop")
