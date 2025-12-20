@@ -21,6 +21,7 @@ ratatui = { version = "0.29", features = [] }
 ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
 winit = "0.30"
 fontdb = "0.23.0"
+append-only-vec = "0.1.8"
 futures-lite = "2.6.1"
 tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
 

@@ -1,6 +1,6 @@
 use crate::event_type::ConvertEvent;
+use crate::font_data::FontData;
 use crate::framework::control_queue::ControlQueue;
-use crate::framework::convert_to_crossterm::{TrackMouse, to_crossterm_event};
 use crate::framework::poll_queue::PollQueue;
 use crate::poll::{PollEvents, PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
 use crate::tasks::Cancel;
@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::fmt::Debug;
 use std::rc::Rc;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
 use std::{io, mem, thread};
@@ -31,7 +31,6 @@ use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowId};
 
 pub(crate) mod control_queue;
-mod convert_to_crossterm;
 mod poll_queue;
 
 pub fn run_wgpu<Global, State, Event, Error>(
@@ -308,21 +307,10 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         panic!()
     };
 
-    let mut font_db = fontdb::Database::new();
-    font_db.load_system_fonts();
-    let font_ids = cr_fonts(&font_db);
-
-    static FONT_DATA: OnceLock<Vec<Vec<u8>>> = OnceLock::new();
-    let fonts = FONT_DATA
-        .get_or_init(|| {
-            font_ids
-                .into_iter()
-                .filter_map(|id| font_db.with_face_data(id, |d, _| d.to_vec()))
-                .collect::<Vec<_>>()
-        })
-        .iter()
-        .filter_map(|d| Font::new(d))
-        .collect::<Vec<_>>();
+    let font_ids = cr_fonts(FontData.font_db());
+    let fonts = font_ids
+        .into_iter()
+        .filter_map(|id| FontData.load_font(id))        .collect();
 
     let window = Arc::new(cr_window(event_loop));
     window.set_title(window_title.as_str());

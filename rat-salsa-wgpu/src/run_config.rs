@@ -1,5 +1,6 @@
 use crate::Control;
 use crate::event_type::ConvertEvent;
+use crate::font_data::FALLBACK_FONT;
 use crate::poll::PollEvents;
 use log::debug;
 use ratatui::Terminal;
@@ -196,7 +197,7 @@ fn create_wgpu(
     let font_size = (font_size * window.scale_factor()).round() as u32;
 
     let backend = futures_lite::future::block_on(
-        Builder::from_font(Font::new(include_bytes!("CascadiaMono-Regular.ttf")).expect("font"))
+        Builder::from_font(Font::new(FALLBACK_FONT).expect("font"))
             .with_fonts(fonts)
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
