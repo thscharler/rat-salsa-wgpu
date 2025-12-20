@@ -25,7 +25,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
 use crate::tokio_tasks::TokioTasks;
 pub use control::Control;
-pub use framework::run_wgpu;
+pub use framework::run_tui;
 pub use run_config::RunConfig;
 
 #[cfg(feature = "dialog")]
@@ -79,6 +79,10 @@ where
     /// Get the last event-handling timing.
     fn last_event(&self) -> Duration {
         self.salsa_ctx().last_event.get()
+    }
+
+    fn set_window_title(&self, title: String) {
+        self.window().set_title(title.as_str());
     }
 
     /// Set the cursor, if the given value is something,
@@ -461,6 +465,7 @@ where
 }
 
 mod _private {
+    #[allow(dead_code)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct NonExhaustive;
 }

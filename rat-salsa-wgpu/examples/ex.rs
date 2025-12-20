@@ -7,7 +7,7 @@ use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
-use rat_salsa_wgpu::{RunConfig, run_wgpu};
+use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
@@ -35,7 +35,7 @@ pub fn main() -> Result<(), Error> {
 
     let rt = tokio::runtime::Runtime::new()?;
 
-    run_wgpu(
+    run_tui(
         init, //
         render,
         event,

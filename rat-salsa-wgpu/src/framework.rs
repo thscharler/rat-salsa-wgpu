@@ -33,7 +33,7 @@ use winit::window::{Window, WindowId};
 pub(crate) mod control_queue;
 mod poll_queue;
 
-pub fn run_wgpu<Global, State, Event, Error>(
+pub fn run_tui<Global, State, Event, Error>(
     init: fn(
         state: &mut State, //
         ctx: &mut Global,

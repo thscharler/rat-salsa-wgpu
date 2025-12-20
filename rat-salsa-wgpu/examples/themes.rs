@@ -7,7 +7,7 @@ use rat_focus::FocusBuilder;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
-use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_wgpu};
+use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{WidgetStyle, create_salsa_theme};
 use rat_widget::event::{Dialog, HandleEvent, ct_event, try_flow};
@@ -29,7 +29,7 @@ fn main() -> Result<(), Error> {
     let mut global = GlobalState::new(config, theme);
     let mut state = Scenery::default();
 
-    run_wgpu(
+    run_tui(
         init,
         render,
         event,
