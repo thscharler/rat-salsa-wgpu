@@ -195,9 +195,9 @@ fn to_crossterm_event(
                 Some(crossterm::event::Event::Mouse(
                     crossterm::event::MouseEvent {
                         kind: if vertical > 0. {
-                            crossterm::event::MouseEventKind::ScrollDown
-                        } else {
                             crossterm::event::MouseEventKind::ScrollUp
+                        } else {
+                            crossterm::event::MouseEventKind::ScrollDown
                         },
                         column: state.x,
                         row: state.y,
