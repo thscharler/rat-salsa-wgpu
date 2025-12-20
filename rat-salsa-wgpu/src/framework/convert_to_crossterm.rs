@@ -1,3 +1,4 @@
+#[derive(Default)]
 pub(crate) struct TrackMouse {
     x: u16,
     y: u16,
@@ -15,6 +16,10 @@ pub fn to_crossterm_event(
 ) -> Option<crossterm::event::Event> {
     'm: {
         match event {
+            winit::event::WindowEvent::Resized(_) => Some(crossterm::event::Event::Resize(
+                window_size.columns_rows.width,
+                window_size.columns_rows.height,
+            )),
             winit::event::WindowEvent::Focused(v) => {
                 if v {
                     Some(crossterm::event::Event::FocusGained)
@@ -24,13 +29,13 @@ pub fn to_crossterm_event(
             }
             winit::event::WindowEvent::KeyboardInput {
                 event:
-                    winit::event::KeyEvent {
-                        logical_key,
-                        location,
-                        state,
-                        repeat,
-                        ..
-                    },
+                winit::event::KeyEvent {
+                    logical_key,
+                    location,
+                    state,
+                    repeat,
+                    ..
+                },
                 ..
             } => {
                 let ct_key_modifiers = map_modifiers(modifiers);
@@ -166,6 +171,29 @@ pub fn to_crossterm_event(
                     },
                 ))
             }
+
+            // winit::event::WindowEvent::ActivationTokenDone { .. } => {}
+            // winit::event::WindowEvent::Moved(v) => {}
+            // winit::event::WindowEvent::CloseRequested => {}
+            // winit::event::WindowEvent::Destroyed => {}
+            // winit::event::WindowEvent::DroppedFile(_) => {}
+            // winit::event::WindowEvent::HoveredFile(_) => {}
+            // winit::event::WindowEvent::HoveredFileCancelled => {}
+            // winit::event::WindowEvent::ModifiersChanged(_) => {}
+            // winit::event::WindowEvent::Ime(_) => {}
+            // winit::event::WindowEvent::CursorEntered { .. } => {}
+            // winit::event::WindowEvent::CursorLeft { .. } => {}
+            // winit::event::WindowEvent::PinchGesture { .. } => {}
+            // winit::event::WindowEvent::PanGesture { .. } => {}
+            // winit::event::WindowEvent::DoubleTapGesture { .. } => {}
+            // winit::event::WindowEvent::RotationGesture { .. } => {}
+            // winit::event::WindowEvent::TouchpadPressure { .. } => {}
+            // winit::event::WindowEvent::AxisMotion { .. } => {}
+            // winit::event::WindowEvent::Touch(_) => {}
+            // winit::event::WindowEvent::ScaleFactorChanged { .. } => {}
+            // winit::event::WindowEvent::ThemeChanged(_) => {}
+            // winit::event::WindowEvent::Occluded(_) => {}
+            // winit::event::WindowEvent::RedrawRequested => {}
             _ => None,
         }
     }

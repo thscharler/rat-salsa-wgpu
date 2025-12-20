@@ -1,4 +1,5 @@
 use crate::framework::control_queue::ControlQueue;
+use crate::framework::convert_to_crossterm::{TrackMouse, to_crossterm_event};
 use crate::framework::poll_queue::PollQueue;
 use crate::poll::{PollEvents, PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
 use crate::tasks::Cancel;
@@ -29,7 +30,7 @@ use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowId};
 
 pub(crate) mod control_queue;
-mod ct_event;
+mod convert_to_crossterm;
 mod poll_queue;
 
 pub fn run_wgpu<Global, State, Event, Error>(
@@ -221,6 +222,7 @@ where
 
     window: Arc<Window>,
     window_size: WindowSize,
+    track_mouse: TrackMouse,
     modifiers: Modifiers,
     terminal:
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
@@ -367,7 +369,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         })
         .expect("initial render");
 
-    window.request_redraw();
+    // window.request_redraw();
     window.set_visible(true);
 
     // start poll
@@ -384,6 +386,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         poll,
         window,
         window_size,
+        track_mouse: Default::default(),
         modifiers: Default::default(),
         terminal,
         event_time: SystemTime::UNIX_EPOCH,
@@ -439,16 +442,24 @@ fn process_event<'a, Global, State, Event, Error>(
         // let v = Ok(Control::Event((event, app.modifiers).into()));
         // global.salsa_ctx().queue.push(v);
 
-        if let WindowEvent::Resized(size) = event {
-            let event = crossterm::event::Event::Resize(
-                app.window_size.columns_rows.width,
-                app.window_size.columns_rows.height,
-            );
+        if let Some(event) =
+            to_crossterm_event(event, app.modifiers, app.window_size, &mut app.track_mouse)
+        {
             global
                 .salsa_ctx()
                 .queue
                 .push(Ok(Control::Event(event.into())));
         }
+        // if let WindowEvent::Resized(size) = event {
+        //     let event = crossterm::event::Event::Resize(
+        //         app.window_size.columns_rows.width,
+        //         app.window_size.columns_rows.height,
+        //     );
+        //     global
+        //         .salsa_ctx()
+        //         .queue
+        //         .push(Ok(Control::Event(event.into())));
+        // }
     }
     if let Some(user) = user {
         global.salsa_ctx().queue.push(user);
