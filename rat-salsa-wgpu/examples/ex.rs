@@ -164,6 +164,19 @@ pub struct Minimal {
 
 impl_has_focus!(menu for Minimal);
 
+pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
+    ctx.set_focus(FocusBuilder::build_for(state));
+    ctx.focus().first();
+
+    // ctx.add_timer(
+    //     TimerDef::new()
+    //         .repeat_forever()
+    //         .timer(Duration::from_secs(1)),
+    // );
+
+    Ok(())
+}
+
 pub fn render(
     area: Rect,
     buf: &mut Buffer,
@@ -216,19 +229,6 @@ pub fn render(
                 .style(status_color_2),
         )
         .render(status_layout[1], buf);
-
-    Ok(())
-}
-
-pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
-    ctx.set_focus(FocusBuilder::build_for(state));
-    ctx.focus().first();
-
-    ctx.add_timer(
-        TimerDef::new()
-            .repeat_forever()
-            .timer(Duration::from_secs(1)),
-    );
 
     Ok(())
 }
@@ -308,7 +308,7 @@ pub fn error(
 }
 
 fn setup_logging() -> Result<(), Error> {
-    let log_path = PathBuf::from("../..");
+    let log_path = PathBuf::from("");
     let log_file = log_path.join("log.log");
     _ = fs::remove_file(&log_file);
     fern::Dispatch::new()
