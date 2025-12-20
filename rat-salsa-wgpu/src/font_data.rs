@@ -1,8 +1,9 @@
 use append_only_vec::AppendOnlyVec;
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 
 /// Some fallback font data.
-pub static FALLBACK_FONT: &[u8] = include_bytes!("CascadiaMono-Regular.ttf");
+static FALLBACK_DATA: &[u8] = include_bytes!("CascadiaMono-Regular.ttf");
+static FALLBACK_FONT: OnceLock<ratatui_wgpu::Font<'static>> = OnceLock::new();
 
 static FONTDB: OnceLock<fontdb::Database> = OnceLock::new();
 static FONT_DATA: AppendOnlyVec<(fontdb::ID, Box<[u8]>)> = AppendOnlyVec::new();
@@ -11,6 +12,12 @@ static FONTS: AppendOnlyVec<(fontdb::ID, ratatui_wgpu::Font<'static>)> = AppendO
 pub struct FontData;
 
 impl FontData {
+    pub fn fallback_font(self) -> ratatui_wgpu::Font<'static> {
+        FALLBACK_FONT
+            .get_or_init(|| ratatui_wgpu::Font::new(FALLBACK_DATA).expect("valid_font"))
+            .clone()
+    }
+
     pub fn font_db(self) -> &'static fontdb::Database {
         FONTDB.get_or_init(|| {
             let mut font_db = fontdb::Database::new();

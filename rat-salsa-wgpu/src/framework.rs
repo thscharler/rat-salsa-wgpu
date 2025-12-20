@@ -15,7 +15,7 @@ use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::{Frame, Terminal};
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
-use ratatui_wgpu::{Font, WgpuBackend};
+use ratatui_wgpu::{Font, Fonts, WgpuBackend};
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::cmp::min;
@@ -183,8 +183,6 @@ where
     cr_term: Box<
         dyn FnOnce(
             Arc<Window>,
-            Vec<Font<'static>>,
-            f64,
             Color,
             Color,
         )
@@ -308,20 +306,20 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     };
 
     let font_ids = cr_fonts(FontData.font_db());
-    let fonts = font_ids
+    let font_list = font_ids
         .into_iter()
-        .filter_map(|id| FontData.load_font(id))        .collect();
+        .filter_map(|id| FontData.load_font(id))
+        .collect::<Vec<_>>();
 
     let window = Arc::new(cr_window(event_loop));
     window.set_title(window_title.as_str());
 
-    let terminal = Rc::new(RefCell::new(cr_term(
-        window.clone(),
-        fonts,
-        font_size,
-        bg_color,
-        fg_color,
-    )));
+    let terminal = Rc::new(RefCell::new(cr_term(window.clone(), bg_color, fg_color)));
+
+    let font_size = (font_size * window.scale_factor()).round() as u32;
+    let mut fonts = Fonts::new(FontData.fallback_font(), font_size);
+    fonts.add_fonts(font_list);
+    terminal.borrow_mut().backend_mut().update_fonts(fonts);
 
     let window_size = terminal
         .borrow_mut()

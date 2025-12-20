@@ -1,6 +1,6 @@
 use crate::Control;
 use crate::event_type::ConvertEvent;
-use crate::font_data::FALLBACK_FONT;
+use crate::font_data::FontData;
 use crate::poll::PollEvents;
 use log::debug;
 use ratatui::Terminal;
@@ -37,8 +37,6 @@ where
     pub(crate) cr_term: Box<
         dyn FnOnce(
             Arc<Window>,
-            Vec<Font<'static>>,
-            f64,
             Color,
             Color,
         )
@@ -124,8 +122,6 @@ where
         mut self,
         wgpu_init: impl FnOnce(
             Arc<Window>,
-            Vec<Font>,
-            f64,
             Color,
             Color,
         ) -> Terminal<
@@ -188,24 +184,19 @@ fn create_window(event_loop: &ActiveEventLoop) -> Window {
 
 fn create_wgpu(
     window: Arc<Window>,
-    fonts: Vec<Font<'static>>,
-    font_size: f64,
     bg_color: Color,
     fg_color: Color,
 ) -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>> {
     let size = window.inner_size();
-    let font_size = (font_size * window.scale_factor()).round() as u32;
 
     let backend = futures_lite::future::block_on(
-        Builder::from_font(Font::new(FALLBACK_FONT).expect("font"))
-            .with_fonts(fonts)
+        Builder::from_font(FontData.fallback_font())
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
                 height: NonZeroU32::new(size.height).expect("non-zero-height"),
             })
             .with_bg_color(bg_color)
             .with_fg_color(fg_color)
-            .with_font_size_px(font_size)
             .build_with_target(window.clone()),
     )
     .expect("ratatui-wgpu-backend");
