@@ -59,7 +59,7 @@ pub fn run_wgpu<Global, State, Event, Error>(
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<(WindowEvent, Modifiers)>,
+    Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<winit::error::EventLoopError> + From<io::Error>,
 {
     let RunConfig {
@@ -242,7 +242,7 @@ impl<'a, Global, State, Event, Error> ApplicationHandler<Result<Control<Event>, 
     for WgpuApp<'a, Global, State, Event, Error>
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<(WindowEvent, Modifiers)>,
+    Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -265,7 +265,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<(WindowEvent, Modifiers)>,
+    Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     if !matches!(app, WgpuApp::Startup(_)) {
@@ -397,7 +397,7 @@ fn process_event<'a, Global, State, Event, Error>(
     user: Option<Result<Control<Event>, Error>>,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<(WindowEvent, Modifiers)>,
+    Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let WgpuApp::Running(app) = app else {
@@ -407,7 +407,6 @@ fn process_event<'a, Global, State, Event, Error>(
     // info!("e2e {:?}", app.event_time.elapsed());
     info!("event {:?}", event);
     app.event_time = SystemTime::now();
-    let t = app.event_time;
 
     if let Some(WindowEvent::CloseRequested) = event {
         shutdown(app, event_loop);
@@ -437,8 +436,19 @@ fn process_event<'a, Global, State, Event, Error>(
     let state = &mut *app.state;
 
     if let Some(event) = event {
-        let v = Ok(Control::Event((event, app.modifiers).into()));
-        global.salsa_ctx().queue.push(v);
+        // let v = Ok(Control::Event((event, app.modifiers).into()));
+        // global.salsa_ctx().queue.push(v);
+
+        if let WindowEvent::Resized(size) = event {
+            let event = crossterm::event::Event::Resize(
+                app.window_size.columns_rows.width,
+                app.window_size.columns_rows.height,
+            );
+            global
+                .salsa_ctx()
+                .queue
+                .push(Ok(Control::Event(event.into())));
+        }
     }
     if let Some(user) = user {
         global.salsa_ctx().queue.push(user);
@@ -561,7 +571,7 @@ fn shutdown<'a, Global, State, Event, Error>(
     event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<(WindowEvent, Modifiers)>,
+    Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     app.poll.shutdown();

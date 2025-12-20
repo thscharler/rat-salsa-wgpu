@@ -1,15 +1,16 @@
 use anyhow::Error;
-use log::error;
-use rat_event::{event_flow, try_flow};
+use log::{debug, error};
+use rat_event::{Dialog, HandleEvent, Regular, ct_event, event_flow, try_flow};
 use rat_focus::{FocusBuilder, impl_has_focus};
 use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
-use rat_salsa_wgpu::timer::{TimeOut, TimerDef};
+use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_wgpu};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
+use rat_widget::event::MenuOutcome;
 use rat_widget::menu::{MenuLine, MenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline_stacked::StatusLineStacked;
@@ -20,7 +21,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
 use std::path::PathBuf;
-use std::time::Duration;
 use winit::event::{ElementState, Modifiers, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
 
@@ -127,9 +127,16 @@ pub struct Config {}
 pub enum AppEvent {
     NoOp,
     Event((WindowEvent, Modifiers)),
+    CtEvent(crossterm::event::Event),
     TimeOut(TimeOut),
     Quit,
     Rendered,
+}
+
+impl From<crossterm::event::Event> for AppEvent {
+    fn from(value: crossterm::event::Event) -> Self {
+        AppEvent::CtEvent(value)
+    }
 }
 
 impl From<(WindowEvent, Modifiers)> for AppEvent {
@@ -159,6 +166,7 @@ impl From<TimeOut> for AppEvent {
 #[derive(Debug, Default)]
 pub struct Minimal {
     pub menu: MenuLineState,
+    pub mouse_event: Option<crossterm::event::MouseEvent>,
     pub error_dlg: MsgDialogState,
 }
 
@@ -194,6 +202,14 @@ pub fn render(
         Constraint::Fill(39),
     ])
     .split(layout[1]);
+
+    if let Some(mouse_event) = &state.mouse_event {
+        Line::from(format!(
+            "{}|{}: {:?}",
+            mouse_event.column, mouse_event.row, mouse_event.kind
+        ))
+        .render(layout[0], buf);
+    }
 
     MenuLine::new()
         .styles(ctx.theme.style(WidgetStyle::MENU))
@@ -235,7 +251,7 @@ pub fn render(
 
 pub fn event(
     event: &AppEvent,
-    _state: &mut Minimal,
+    state: &mut Minimal,
     ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
     if let AppEvent::Event(event) = event {
@@ -255,22 +271,39 @@ pub fn event(
             }
             _ => Control::Continue,
         });
+    }
 
-        // try_flow!({
-        //     if state.error_dlg.active() {
-        //         state.error_dlg.handle(event, Dialog).into()
-        //         Control::Continue
-        //     } else {
-        //         Control::Continue
-        //     }
-        // });
+    if let AppEvent::CtEvent(event) = event {
+        try_flow!(match &event {
+            ct_event!(resized) => {
+                debug!(">> resized");
+                Control::Changed
+            }
+            ct_event!(key press CONTROL-'q') => Control::Quit,
+            _ => Control::Continue,
+        });
 
-        // ctx.handle_focus(event);
+        try_flow!({
+            if state.error_dlg.active() {
+                state.error_dlg.handle(event, Dialog).into()
+            } else {
+                Control::Continue
+            }
+        });
 
-        // try_flow!(match state.menu.handle(event, Regular) {
-        //     MenuOutcome::Activated(0) => Control::Quit,
-        //     v => v.into(),
-        // });
+        ctx.handle_focus(event);
+
+        if let crossterm::event::Event::Mouse(m) = event {
+            event_flow!({
+                state.mouse_event = Some(m.clone());
+                Control::Changed
+            });
+        }
+
+        try_flow!(match state.menu.handle(event, Regular) {
+            MenuOutcome::Activated(0) => Control::Quit,
+            v => v.into(),
+        });
     }
 
     match event {
