@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::fmt::Debug;
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
 use std::{io, mem, thread};
@@ -230,7 +230,6 @@ where
 
     poll: Poll,
 
-    first_render: bool,
     window: Arc<Window>,
     window_size: WindowSize,
     modifiers: Modifiers,
@@ -346,6 +345,9 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         .expect("window_size");
     event_type.set_window_size(window_size);
 
+    // create other event-polling
+    let (poll_start, poll) = create_poll(proxy, poll);
+
     global.set_salsa_ctx(SalsaAppContext {
         focus: Default::default(),
         count: Default::default(),
@@ -360,15 +362,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         queue: ControlQueue::default(),
     });
 
-    // init state
-    init(state, global).expect("init");
-
-    window.request_redraw();
-
-    // start poll
-    let poll = start_poll(proxy, poll);
-
-    *app = WgpuApp::Running(Running {
+    let mut run_state = Running {
         render,
         event,
         error,
@@ -378,14 +372,27 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         quit_event,
         rendered_event,
         poll,
-        first_render: true,
         window,
         window_size,
         modifiers: Default::default(),
         terminal,
+        font_ids_changed: Default::default(),
         font_ids,
         font_size,
-    });
+    };
+
+    // init state
+    init(run_state.state, run_state.global).expect("init");
+
+    // initial render
+    render_tui(&mut run_state);
+    run_state.window.set_visible(true);
+
+    // set up running state.
+    *app = WgpuApp::Running(run_state);
+
+    // now start polling
+    poll_start.start();
 }
 
 fn process_event<'a, Global, State, Event, Error>(
@@ -456,11 +463,9 @@ fn process_event<'a, Global, State, Event, Error>(
     }
 
     let mut was_changed = false;
-    let global = &mut *app.global;
-    let state = &mut *app.state;
     'ui: loop {
         // panic on worker panic
-        if let Some(tasks) = &global.salsa_ctx().tasks {
+        if let Some(tasks) = &app.global.salsa_ctx().tasks {
             if !tasks.check_liveness() {
                 dbg!("worker panicked");
                 shutdown(app, event_loop);
@@ -469,7 +474,7 @@ fn process_event<'a, Global, State, Event, Error>(
         }
 
         // Result of event-handling.
-        if let Some(ctrl) = global.salsa_ctx().queue.take() {
+        if let Some(ctrl) = app.global.salsa_ctx().queue.take() {
             // filter out double Changed events.
             // no need to render twice in a row.
             if matches!(ctrl, Ok(Control::Changed)) {
@@ -483,70 +488,37 @@ fn process_event<'a, Global, State, Event, Error>(
 
             match ctrl {
                 Err(e) => {
-                    let r = (app.error)(e, state, global);
-                    global.salsa_ctx().queue.push(r);
+                    let r = (app.error)(e, app.state, app.global);
+                    app.global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Continue) => {}
                 Ok(Control::Unchanged) => {}
                 Ok(Control::Changed) => {
-                    let mut r = Ok(());
-                    app.terminal
-                        .borrow_mut()
-                        .draw(&mut |frame: &mut Frame| {
-                            let frame_area = frame.area();
-                            let ttt = SystemTime::now();
-
-                            r = (app.render)(frame_area, frame.buffer_mut(), state, global);
-
-                            global
-                                .salsa_ctx()
-                                .last_render
-                                .set(ttt.elapsed().unwrap_or_default());
-                            if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
-                                frame.set_cursor_position((cursor_x, cursor_y));
-                            }
-                            global.salsa_ctx().count.set(frame.count());
-                            global.salsa_ctx().cursor.set(None);
-                        })
-                        .expect("draw-frame");
-
-                    if app.first_render {
-                        app.window.set_visible(true);
-                        app.first_render = false;
-                    }
-
-                    match r {
-                        Ok(_) => {
-                            if let Some(rendered) = &mut app.rendered_event {
-                                global.salsa_ctx().queue.push(rendered.read());
-                            }
-                        }
-                        Err(e) => global.salsa_ctx().queue.push(Err(e)),
-                    }
+                    render_tui(app);
                 }
                 #[cfg(feature = "dialog")]
                 Ok(Control::Close(a)) => {
                     // close probably demands a repaint.
-                    global.salsa_ctx().queue.push(Ok(Control::Event(a)));
-                    global.salsa_ctx().queue.push(Ok(Control::Changed));
+                    app.global.salsa_ctx().queue.push(Ok(Control::Event(a)));
+                    app.global.salsa_ctx().queue.push(Ok(Control::Changed));
                 }
                 Ok(Control::Event(a)) => {
                     let ttt = SystemTime::now();
-                    let r = (app.event)(&a, state, global);
-                    global
+                    let r = (app.event)(&a, app.state, app.global);
+                    app.global
                         .salsa_ctx()
                         .last_event
                         .set(ttt.elapsed().unwrap_or_default());
-                    global.salsa_ctx().queue.push(r);
+                    app.global.salsa_ctx().queue.push(r);
                 }
                 Ok(Control::Quit) => {
                     if let Some(quit) = &mut app.quit_event {
                         match quit.read() {
                             Ok(Control::Event(a)) => {
-                                match (app.event)(&a, state, global) {
+                                match (app.event)(&a, app.state, app.global) {
                                     Ok(Control::Quit) => { /* really quit now */ }
                                     v => {
-                                        global.salsa_ctx().queue.push(v);
+                                        app.global.salsa_ctx().queue.push(v);
                                         continue;
                                     }
                                 }
@@ -561,9 +533,46 @@ fn process_event<'a, Global, State, Event, Error>(
             }
         }
 
-        if global.salsa_ctx().queue.is_empty() {
+        if app.global.salsa_ctx().queue.is_empty() {
             break 'ui;
         }
+    }
+}
+
+fn render_tui<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
+where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + From<crossterm::event::Event>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    let mut r = Ok(());
+    app.terminal
+        .borrow_mut()
+        .draw(&mut |frame: &mut Frame| {
+            let frame_area = frame.area();
+            let ttt = SystemTime::now();
+
+            r = (app.render)(frame_area, frame.buffer_mut(), app.state, app.global);
+
+            app.global
+                .salsa_ctx()
+                .last_render
+                .set(ttt.elapsed().unwrap_or_default());
+            if let Some((cursor_x, cursor_y)) = app.global.salsa_ctx().cursor.get() {
+                frame.set_cursor_position((cursor_x, cursor_y));
+            }
+            app.global.salsa_ctx().count.set(frame.count());
+            app.global.salsa_ctx().cursor.set(None);
+        })
+        .expect("draw-frame");
+
+    match r {
+        Ok(_) => {
+            if let Some(rendered) = &mut app.rendered_event {
+                app.global.salsa_ctx().queue.push(rendered.read());
+            }
+        }
+        Err(e) => app.global.salsa_ctx().queue.push(Err(e)),
     }
 }
 
@@ -599,7 +608,6 @@ where
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
 
-    // uses postscript pt for the font-size. the rest is an educated guess.
     let font_size_px = (app.font_size * app.window.scale_factor()).round() as u32;
     let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
     fonts.add_fonts(font_list);
@@ -662,13 +670,28 @@ fn shutdown<'a, Global, State, Event, Error>(
     event_loop.exit();
 }
 
+struct PollStart {
+    can_start: Arc<(Mutex<bool>, Condvar)>,
+}
+
 struct Poll {
     cancel: Cancel,
     join_handle: JoinHandle<()>,
 }
 
+impl PollStart {
+    fn start(&self) {
+        let (lock, cvar) = &*self.can_start;
+        let mut started = lock.lock().expect("can_start mutex");
+        *started = true;
+
+        // We notify the condvar that the value has changed.
+        cvar.notify_one();
+    }
+}
+
 impl Poll {
-    fn shutdown(&mut self) {
+    fn shutdown(&self) {
         self.cancel.cancel();
         self.join_handle.thread().unpark();
     }
@@ -678,20 +701,29 @@ const SLEEP: u64 = 250_000; // µs
 const BACKOFF: u64 = 10_000; // µs
 const FAST_SLEEP: u64 = 100; // µs
 
-fn start_poll<Event, Error>(
+fn create_poll<Event, Error>(
     event_loop: EventLoopProxy<Result<Control<Event>, Error>>,
     mut poll: Vec<Box<dyn PollEvents<Event, Error> + Send>>,
-) -> Poll
+) -> (PollStart, Poll)
 where
     Event: 'static + Send,
     Error: 'static + Debug + Send,
 {
     let cancel = Cancel::new();
+    let can_start = Arc::new((Mutex::new(false), Condvar::new()));
 
     let t_cancel = cancel.clone();
+    let t_can_start = Arc::clone(&can_start);
     let join_handle = thread::spawn(move || {
         let poll_queue = PollQueue::default();
         let mut poll_sleep = Duration::from_micros(SLEEP);
+
+        // Wait till we are free to start polling.
+        let (lock, cvar) = &*t_can_start;
+        let mut can_start = lock.lock().unwrap();
+        while !*can_start {
+            can_start = cvar.wait(can_start).unwrap();
+        }
 
         'l: loop {
             if t_cancel.is_canceled() {
@@ -743,8 +775,11 @@ where
         }
     });
 
-    Poll {
-        cancel,
-        join_handle,
-    }
+    (
+        PollStart { can_start },
+        Poll {
+            cancel,
+            join_handle,
+        },
+    )
 }
