@@ -20,6 +20,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui_wgpu::ColorTable;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -30,7 +31,8 @@ pub fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_salsa_theme("Imperial Shell");
+    let theme = create_salsa_theme("Shell");
+    debug!("{:?}", theme);
     let mut global = Global::new(config, theme);
     let mut state = Minimal::default();
 
@@ -140,6 +142,7 @@ pub struct Minimal {
     pub menu: MenuLineState,
     pub mouse_event: Option<crossterm::event::MouseEvent>,
     pub font_idx: usize,
+    pub color_idx: usize,
     pub error_dlg: MsgDialogState,
 }
 
@@ -299,6 +302,21 @@ pub fn event(
                 ctx.set_font_family(font);
                 Control::Changed
             }
+            ct_event!(keycode press F(2)) => {
+                state.color_idx = (state.color_idx + 1) % 2;
+                ctx.status = format!("color {}", state.color_idx);
+                debug!("set_colors {:?}", state.color_idx);
+                let t = match state.color_idx {
+                    0 => COLORS1,
+                    1 => COLORS2,
+                    _ => unreachable!(),
+                };
+                ctx.terminal()
+                    .borrow_mut()
+                    .backend_mut()
+                    .update_color_table(t);
+                Control::Changed
+            }
             _ => Control::Continue,
         });
 
@@ -374,3 +392,41 @@ fn setup_logging() -> Result<(), Error> {
         .apply()?;
     Ok(())
 }
+
+const COLORS1: ColorTable = ColorTable {
+    BLACK: [0, 0, 0],
+    RED: [170, 0, 0],
+    GREEN: [0, 170, 0],
+    YELLOW: [170, 85, 0],
+    BLUE: [0, 0, 170],
+    MAGENTA: [170, 0, 170],
+    CYAN: [0, 170, 170],
+    GRAY: [170, 170, 170],
+    DARKGRAY: [85, 85, 85],
+    LIGHTRED: [255, 85, 85],
+    LIGHTGREEN: [85, 255, 85],
+    LIGHTYELLOW: [255, 255, 85],
+    LIGHTBLUE: [85, 85, 255],
+    LIGHTMAGENTA: [255, 85, 255],
+    LIGHTCYAN: [85, 255, 255],
+    WHITE: [255, 255, 255],
+};
+
+const COLORS2: ColorTable = ColorTable {
+    BLACK: [12, 12, 12],
+    RED: [197, 15, 31],
+    GREEN: [19, 161, 14],
+    YELLOW: [193, 156, 0],
+    BLUE: [0, 55, 218],
+    MAGENTA: [136, 23, 152],
+    CYAN: [58, 150, 221],
+    GRAY: [204, 204, 204],
+    DARKGRAY: [118, 118, 118],
+    LIGHTRED: [231, 72, 86],
+    LIGHTGREEN: [22, 198, 12],
+    LIGHTYELLOW: [249, 241, 165],
+    LIGHTBLUE: [59, 120, 255],
+    LIGHTMAGENTA: [180, 0, 158],
+    LIGHTCYAN: [97, 214, 214],
+    WHITE: [242, 242, 242],
+};
