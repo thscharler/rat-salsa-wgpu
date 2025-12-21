@@ -1,5 +1,5 @@
 use append_only_vec::AppendOnlyVec;
-use std::sync::{LazyLock, OnceLock};
+use std::sync::OnceLock;
 
 /// Some fallback font data.
 static FALLBACK_DATA: &[u8] = include_bytes!("CascadiaMono-Regular.ttf");
