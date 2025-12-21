@@ -128,7 +128,7 @@ where
     }
 
     pub fn window_size(mut self, size: impl Into<winit::dpi::Size>) -> Self {
-        self.win_attr = self.win_attr.with_min_inner_size(size);
+        self.win_attr = self.win_attr.with_inner_size(size);
         self
     }
 
