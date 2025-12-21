@@ -3,6 +3,7 @@ use crate::font_data::FontData;
 use crate::framework::control_queue::ControlQueue;
 use crate::framework::poll_queue::PollQueue;
 use crate::poll::{PollEvents, PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
+use crate::run_config::TerminalArg;
 use crate::tasks::Cancel;
 use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
@@ -71,6 +72,8 @@ where
         bg_color,
         fg_color,
         window_title,
+        rapid_blink,
+        slow_blink,
         cr_window,
         cr_term,
         poll,
@@ -126,6 +129,8 @@ where
         font_size,
         bg_color,
         fg_color,
+        rapid_blink,
+        slow_blink,
         window_title,
         cr_window,
         cr_term,
@@ -174,6 +179,8 @@ where
     font_size: f64,
     bg_color: Color,
     fg_color: Color,
+    rapid_blink: u64,
+    slow_blink: u64,
 
     /// window callback
     window_title: String,
@@ -182,9 +189,7 @@ where
     /// terminal callback
     cr_term: Box<
         dyn FnOnce(
-            Arc<Window>,
-            Color,
-            Color,
+            TerminalArg,
         )
             -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
     >,
@@ -289,6 +294,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         font_size,
         bg_color,
         fg_color,
+        rapid_blink,
+        slow_blink,
         window_title,
         cr_window,
         cr_term,
@@ -307,7 +314,16 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
 
     let font_ids = cr_fonts(FontData.font_db());
     let window = Arc::new(cr_window(event_loop));
-    let terminal = Rc::new(RefCell::new(cr_term(window.clone(), bg_color, fg_color)));
+
+    let terminal = Rc::new(RefCell::new(
+        cr_term(TerminalArg {
+            window: window.clone(),
+            bg_color,
+            fg_color,
+            rapid_blink,
+            slow_blink,
+        }), //
+    ));
 
     // title
     window.set_title(window_title.as_str());
@@ -317,7 +333,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         .iter()
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
-    let font_size_px = (font_size / 72.0 * 96.0 * window.scale_factor()).round() as u32;
+    let font_size_px = (font_size * window.scale_factor()).round() as u32;
     let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
     fonts.add_fonts(font_list);
     terminal.borrow_mut().backend_mut().update_fonts(fonts);
@@ -584,7 +600,7 @@ where
         .collect::<Vec<_>>();
 
     // uses postscript pt for the font-size. the rest is an educated guess.
-    let font_size_px = (app.font_size / 72.0 * 96.0 * app.window.scale_factor()).round() as u32;
+    let font_size_px = (app.font_size * app.window.scale_factor()).round() as u32;
     let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
     fonts.add_fonts(font_list);
     app.terminal.borrow_mut().backend_mut().update_fonts(fonts);

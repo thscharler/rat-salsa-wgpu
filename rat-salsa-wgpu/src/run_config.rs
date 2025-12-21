@@ -6,7 +6,7 @@ use log::debug;
 use ratatui::Terminal;
 use ratatui::style::Color;
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
-use ratatui_wgpu::{Builder, Dimensions, Font, WgpuBackend};
+use ratatui_wgpu::{Builder, Dimensions, Font, Viewport, WgpuBackend};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use winit::dpi::PhysicalPosition;
@@ -31,14 +31,14 @@ where
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
     pub(crate) window_title: String,
+    pub(crate) rapid_blink: u64,
+    pub(crate) slow_blink: u64,
     /// window callback
     pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop) -> Window>,
     /// terminal callback
     pub(crate) cr_term: Box<
         dyn FnOnce(
-            Arc<Window>,
-            Color,
-            Color,
+            TerminalArg,
         )
             -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
     >,
@@ -63,6 +63,8 @@ where
             bg_color: Color::Black,
             fg_color: Color::White,
             window_title: "rat-salsa & ratatui-wgpu".to_string(),
+            rapid_blink: Default::default(),
+            slow_blink: Default::default(),
             cr_window: Box::new(create_window),
             cr_term: Box::new(create_wgpu),
             poll: Default::default(),
@@ -82,6 +84,8 @@ where
         self
     }
 
+    /// Set the initial font size in pixel.
+    /// This will be adjusted by the scaling factor of the system.
     pub fn font_size(mut self, pt_size: f64) -> Self {
         self.font_size = pt_size;
         self
@@ -94,6 +98,24 @@ where
 
     pub fn fg_color(mut self, color: Color) -> Self {
         self.fg_color = color;
+        self
+    }
+
+    /// Use the given interval in milliseconds as the rapid blink speed.
+    ///
+    /// Note that this is not enough to start blinking text. You also need
+    /// to add [PollTick] for the actual rendering.
+    pub fn rapid_blink_millis(mut self, t: u64) -> Self {
+        self.rapid_blink = t;
+        self
+    }
+
+    /// Use the given interval in milliseconds as the slow blink speed.
+    ///
+    /// Note that this is not enough to start blinking text. You also need
+    /// to add [PollTick] for the actual rendering.
+    pub fn slow_blink_millis(mut self, t: u64) -> Self {
+        self.slow_blink = t;
         self
     }
 
@@ -121,9 +143,7 @@ where
     pub fn terminal(
         mut self,
         wgpu_init: impl FnOnce(
-            Arc<Window>,
-            Color,
-            Color,
+            TerminalArg,
         ) -> Terminal<
             WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>,
         > + 'static,
@@ -137,6 +157,15 @@ where
         self.poll.push(Box::new(poll));
         self
     }
+}
+
+/// Parameters passed to the terminal init function.
+pub struct TerminalArg {
+    pub window: Arc<Window>,
+    pub fg_color: Color,
+    pub bg_color: Color,
+    pub rapid_blink: u64,
+    pub slow_blink: u64,
 }
 
 fn create_font_by_family(family: String) -> impl FnOnce(&fontdb::Database) -> Vec<fontdb::ID> {
@@ -183,22 +212,26 @@ fn create_window(event_loop: &ActiveEventLoop) -> Window {
 }
 
 fn create_wgpu(
-    window: Arc<Window>,
-    bg_color: Color,
-    fg_color: Color,
+    arg: TerminalArg,
 ) -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>> {
-    let size = window.inner_size();
+    let size = arg.window.inner_size();
 
-    let backend = futures_lite::future::block_on(
-        Builder::from_font(FontData.fallback_font())
+    let backend = futures_lite::future::block_on({
+        let mut b = Builder::from_font(FontData.fallback_font())
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
                 height: NonZeroU32::new(size.height).expect("non-zero-height"),
             })
-            .with_bg_color(bg_color)
-            .with_fg_color(fg_color)
-            .build_with_target(window.clone()),
-    )
+            .with_bg_color(arg.bg_color)
+            .with_fg_color(arg.fg_color);
+        if arg.rapid_blink > 0 {
+            b = b.with_rapid_blink_millis(arg.rapid_blink);
+        }
+        if arg.slow_blink > 0 {
+            b = b.with_slow_blink_millis(arg.slow_blink);
+        }
+        b.build_with_target(arg.window.clone())
+    })
     .expect("ratatui-wgpu-backend");
 
     Terminal::new(backend).expect("ratatui-terminal")
