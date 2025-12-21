@@ -17,7 +17,7 @@ use ratatui::{Frame, Terminal};
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
 use ratatui_wgpu::{Fonts, WgpuBackend};
 use std::any::TypeId;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::cmp::min;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -235,9 +235,6 @@ where
     modifiers: Modifiers,
     terminal:
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
-
-    font_ids: Vec<fontdb::ID>,
-    font_size: f64,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
@@ -353,13 +350,16 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         count: Default::default(),
         cursor: Default::default(),
         term: Some(terminal.clone()),
-        window: Some(window.clone()),
         last_render: Default::default(),
         last_event: Default::default(),
         timers: timers_ctrl,
         tasks: tasks_ctrl,
         tokio: tokio_ctrl,
         queue: ControlQueue::default(),
+        window: Some(window.clone()),
+        font_changed: Default::default(),
+        font_ids: RefCell::new(font_ids),
+        font_size: Cell::new(font_size),
     });
 
     let mut run_state = Running {
@@ -376,9 +376,6 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         window_size,
         modifiers: Default::default(),
         terminal,
-        font_ids_changed: Default::default(),
-        font_ids,
-        font_size,
     };
 
     // init state
@@ -439,13 +436,20 @@ fn process_event<'a, Global, State, Event, Error>(
         }) = event
         {
             resize_fonts(app, dy);
-            if let Some(event) = resized_event(app) {
-                app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
-            } else {
-                app.global.salsa_ctx().queue.push(Ok(Control::Changed));
-            }
+            app.global.salsa_ctx().font_changed.set(true);
             event = None;
         }
+    }
+    if app.global.salsa_ctx().font_changed.get() {
+        // reload backend font
+        reload_fonts(app);
+        app.terminal.borrow_mut().clear().expect("clear terminal");
+        if let Some(event) = resized_event(app) {
+            app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
+        } else {
+            app.global.salsa_ctx().queue.push(Ok(Control::Changed));
+        }
+        app.global.salsa_ctx().font_changed.set(false);
     }
 
     if let Some(event) = event {
@@ -585,15 +589,12 @@ fn resize_fonts<'a, Global, State, Event, Error>(
     Error: 'static + Debug + Send + From<io::Error>,
 {
     if dy > 0.0 {
-        app.font_size += 1.0;
+        app.global.salsa_ctx().font_size.update(|v| v + 1.0);
     } else {
-        if app.font_size > 7.0 {
-            app.font_size -= 1.0;
+        if app.global.salsa_ctx().font_size.get() > 7.0 {
+            app.global.salsa_ctx().font_size.update(|v| v - 1.0);
         }
     }
-
-    // reload backend font
-    reload_fonts(app);
 }
 
 fn reload_fonts<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
@@ -603,12 +604,16 @@ where
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let font_list = app
+        .global
+        .salsa_ctx()
         .font_ids
+        .borrow()
         .iter()
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
 
-    let font_size_px = (app.font_size * app.window.scale_factor()).round() as u32;
+    let font_size_px =
+        (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;
     let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
     fonts.add_fonts(font_list);
     app.terminal.borrow_mut().backend_mut().update_fonts(fonts);

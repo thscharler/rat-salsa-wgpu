@@ -1,4 +1,5 @@
 use crossbeam::channel::{SendError, Sender};
+use log::debug;
 #[allow(dead_code)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
@@ -20,6 +21,7 @@ mod thread_pool;
 #[cfg(feature = "async")]
 mod tokio_tasks;
 
+use crate::font_data::FontData;
 use crate::tasks::{Cancel, Liveness};
 use crate::thread_pool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
@@ -81,6 +83,7 @@ where
         self.salsa_ctx().last_event.get()
     }
 
+    /// Set a window title.
     fn set_window_title(&self, title: String) {
         self.window().set_title(title.as_str());
     }
@@ -265,7 +268,7 @@ where
         Error: 'static + Send,
     {
         let rt = self
-            .salsa_ctx()//
+            .salsa_ctx() //
             .tokio
             .as_ref()
             .expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
@@ -364,6 +367,31 @@ where
     fn window(&self) -> Arc<Window> {
         self.salsa_ctx().window.clone().expect("window")
     }
+
+    /// Change the font-size
+    fn set_font_size(&self, size: f64) {
+        self.salsa_ctx().font_size.set(size);
+        self.salsa_ctx().font_changed.set(true);
+    }
+
+    /// Change the font-family
+    fn set_font_family(&self, family: &str) {
+        let font_ids = FontData
+            .font_db()
+            .faces()
+            .filter_map(|info| {
+                for (v, _) in &info.families {
+                    if v.as_str() == family {
+                        debug!("use font {}", info.post_script_name);
+                        return Some(info.id);
+                    }
+                }
+                None
+            })
+            .collect::<Vec<_>>();
+        self.salsa_ctx().font_ids.replace(font_ids);
+        self.salsa_ctx().font_changed.set(true);
+    }
 }
 
 ///
@@ -381,16 +409,18 @@ where
 {
     /// Can be set to hold a Focus, if needed.
     pub(crate) focus: RefCell<Option<Focus>>,
+
     /// Last frame count rendered.
     pub(crate) count: Cell<usize>,
+
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
+
     /// Terminal area
     pub(crate) term: Option<
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
     >,
-    /// Window
-    pub(crate) window: Option<Arc<Window>>,
+
     /// Last render time.
     pub(crate) last_render: Cell<Duration>,
     /// Last event time.
@@ -406,6 +436,13 @@ where
 
     /// Queue foreground tasks.
     pub(crate) queue: framework::control_queue::ControlQueue<Event, Error>,
+
+    /// Window
+    pub(crate) window: Option<Arc<Window>>,
+
+    pub(crate) font_changed: Cell<bool>,
+    pub(crate) font_ids: RefCell<Vec<fontdb::ID>>,
+    pub(crate) font_size: Cell<f64>,
 }
 
 impl<Event, Error> Debug for SalsaAppContext<Event, Error> {
@@ -437,6 +474,8 @@ where
             cursor: Default::default(),
             term: Default::default(),
             window: Default::default(),
+            font_changed: Default::default(),
+            font_ids: Default::default(),
             last_render: Default::default(),
             last_event: Default::default(),
             timers: Default::default(),
@@ -444,6 +483,7 @@ where
             #[cfg(feature = "async")]
             tokio: Default::default(),
             queue: Default::default(),
+            font_size: Default::default(),
         }
     }
 }

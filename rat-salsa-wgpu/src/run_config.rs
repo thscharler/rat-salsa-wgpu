@@ -2,11 +2,10 @@ use crate::Control;
 use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::poll::PollEvents;
-use log::debug;
 use ratatui::Terminal;
 use ratatui::style::Color;
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
-use ratatui_wgpu::{Builder, Dimensions, Font, Viewport, WgpuBackend};
+use ratatui_wgpu::{Builder, Dimensions, WgpuBackend};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use winit::dpi::PhysicalPosition;
@@ -175,7 +174,6 @@ fn create_font_by_family(family: String) -> impl FnOnce(&fontdb::Database) -> Ve
             .filter_map(|info| {
                 for (v, _) in &info.families {
                     if v.as_str() == family.as_str() {
-                        debug!("use font {}", info.post_script_name);
                         return Some(info.id);
                     }
                 }
@@ -194,7 +192,6 @@ fn create_fonts(fontdb: &fontdb::Database) -> Vec<fontdb::ID> {
                 || info.post_script_name.contains("emoji"))
                 && info.index == 0
             {
-                debug!("use font {}", info.post_script_name);
                 Some(info.id)
             } else {
                 None
