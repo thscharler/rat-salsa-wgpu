@@ -30,6 +30,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::{Modifiers, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
+use rat_widget::text::cursor::CursorType;
 
 pub(crate) mod control_queue;
 mod poll_queue;
@@ -64,6 +65,8 @@ where
     Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<winit::error::EventLoopError> + From<io::Error>,
 {
+    rat_widget::text::cursor::set_cursor_type(CursorType::RenderedCursor);
+
     let RunConfig {
         event_loop,
         event_type,
