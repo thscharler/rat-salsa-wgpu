@@ -4,7 +4,7 @@ use rat_event::{Dialog, HandleEvent, Regular, ct_event, event_flow, try_flow};
 use rat_focus::{FocusBuilder, impl_has_focus};
 use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
-use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
+use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTick, PollTimers, PollTokio};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
@@ -17,8 +17,8 @@ use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::text::{Line, Span};
+use ratatui::style::{Modifier, Style};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
 use std::path::PathBuf;
@@ -43,8 +43,10 @@ pub fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
-            .font_family("FiraCode Nerd Font Mono")
+            // .font_family("FiraCode Nerd Font Mono")
+            .font_family("Courier New")
             .font_size(20.)
+            .poll(PollTick::new(0, 500))
             .poll(PollTimers::new())
             .poll(PollQuit)
             .poll(PollRendered)
@@ -54,40 +56,6 @@ pub fn main() -> Result<(), Error> {
 
     Ok(())
 }
-
-// fn create_fonts() {
-//     let mut fontdb = Database::new();
-//     fontdb.load_system_fonts();
-//
-//     let fonts = fontdb
-//         .faces()
-//         .filter_map(|info| {
-//             if info.monospaced {
-//                 dbg!(info);
-//             }
-//             if (info.monospaced
-//                 || info.post_script_name.contains("Emoji")
-//                 || info.post_script_name.contains("emoji"))
-//                 && info.index == 0
-//             {
-//                 Some(info.id)
-//             } else {
-//                 None
-//             }
-//         })
-//         .collect::<Vec<_>>();
-//
-//     let fonts = fonts
-//         .into_iter()
-//         .filter_map(|id| fontdb.with_face_data(id, |d, _| d.to_vec()))
-//         .collect::<Vec<_>>();
-//
-//     let fonts = fonts
-//         .iter()
-//         .filter_map(|d| Font::new(d))
-//         .collect::<Vec<_>>();
-//
-// }
 
 /// Globally accessible data/state.
 pub struct Global {
@@ -168,6 +136,7 @@ impl From<TimeOut> for AppEvent {
 pub struct Minimal {
     pub menu: MenuLineState,
     pub mouse_event: Option<crossterm::event::MouseEvent>,
+    pub font_idx: usize,
     pub error_dlg: MsgDialogState,
 }
 
@@ -205,10 +174,21 @@ pub fn render(
     .split(layout[1]);
 
     if let Some(mouse_event) = &state.mouse_event {
-        Line::from(format!(
-            "{}|{}: {:?}",
-            mouse_event.column, mouse_event.row, mouse_event.kind
-        ))
+        Text::from_iter([
+            Line::from(format!(
+                "{}|{}: {:?}",
+                mouse_event.column, mouse_event.row, mouse_event.kind
+            )),
+            Line::from("bold").style(Style::new().add_modifier(Modifier::BOLD)),
+            Line::from("italic").style(Style::new().add_modifier(Modifier::ITALIC)),
+            Line::from("dim").style(Style::new().add_modifier(Modifier::DIM)),
+            Line::from("underlined").style(Style::new().add_modifier(Modifier::UNDERLINED)),
+            Line::from("slow_blink").style(Style::new().add_modifier(Modifier::SLOW_BLINK)),
+            Line::from("rapid_blink").style(Style::new().add_modifier(Modifier::RAPID_BLINK)),
+            Line::from("reversed").style(Style::new().add_modifier(Modifier::REVERSED)),
+            Line::from("hidden").style(Style::new().add_modifier(Modifier::HIDDEN)),
+            Line::from("crossed_out").style(Style::new().add_modifier(Modifier::CROSSED_OUT)),
+        ])
         .render(layout[0], buf);
     }
 
@@ -281,6 +261,33 @@ pub fn event(
                 Control::Changed
             }
             ct_event!(key press CONTROL-'q') => Control::Quit,
+            ct_event!(keycode press F(1)) => {
+                static FONTS: &[&'static str] = &[
+                    "Courier New", //
+                    "MicMac",
+                    "Cascadia Code",
+                    "Cascadia Mono",
+                    "Consolas",
+                    "DejaVu Sans Mono",
+                    "FiraCode Nerd Font Mono",
+                    "JetBrainsMono Nerd Font Mono",
+                    "Liberation Mono",
+                    // "Lucida Console",
+                    "Lucida Sans Typewriter",
+                    "MS Gothic",
+                    // "NSimSun",
+                    // "SimSun-ExtB",
+                    // "SimSun-ExtG",
+                    "Source Code Pro",
+                ];
+
+                state.font_idx = (state.font_idx + 1) % FONTS.len();
+                let font = FONTS[state.font_idx];
+                ctx.status = format!("font {:?}", font);
+                debug!("set_font {:?}", font);
+                ctx.set_font_family(font);
+                Control::Changed
+            }
             _ => Control::Continue,
         });
 
