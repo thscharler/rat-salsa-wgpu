@@ -29,7 +29,7 @@ use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
 use winit::event::{Modifiers, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
-use winit::window::{Window, WindowId};
+use winit::window::{Window, WindowAttributes, WindowId};
 
 pub(crate) mod control_queue;
 mod poll_queue;
@@ -71,9 +71,9 @@ where
         font_size,
         bg_color,
         fg_color,
-        window_title,
         rapid_blink,
         slow_blink,
+        win_attr,
         cr_window,
         cr_term,
         poll,
@@ -131,7 +131,7 @@ where
         fg_color,
         rapid_blink,
         slow_blink,
-        window_title,
+        win_attr,
         cr_window,
         cr_term,
         event_type,
@@ -183,8 +183,8 @@ where
     slow_blink: u64,
 
     /// window callback
-    window_title: String,
-    cr_window: Box<dyn FnOnce(&ActiveEventLoop) -> Window>,
+    win_attr: WindowAttributes,
+    cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
 
     /// terminal callback
     cr_term: Box<
@@ -292,7 +292,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         fg_color,
         rapid_blink,
         slow_blink,
-        window_title,
+        win_attr,
         cr_window,
         cr_term,
         mut event_type,
@@ -309,7 +309,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     };
 
     let font_ids = cr_fonts(FontData.font_db());
-    let window = Arc::new(cr_window(event_loop));
+    let window = Arc::new(cr_window(event_loop, win_attr));
 
     let terminal = Rc::new(RefCell::new(
         cr_term(TerminalArg {
@@ -320,9 +320,6 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
             slow_blink,
         }), //
     ));
-
-    // title
-    window.set_title(window_title.as_str());
 
     // uses postscript pt for the font-size. the rest is an educated guess.
     let font_list = font_ids

@@ -5,7 +5,7 @@ use rat_focus::{FocusBuilder, impl_has_focus};
 use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTick, PollTimers, PollTokio};
-use rat_salsa_wgpu::timer::TimeOut;
+use rat_salsa_wgpu::timer::{TimeOut, TimerDef};
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::palette::Colors;
@@ -22,6 +22,7 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
 use std::path::PathBuf;
+use std::time::Duration;
 use winit::event::{ElementState, Modifiers, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
 
@@ -43,7 +44,7 @@ pub fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
-            // .font_family("FiraCode Nerd Font Mono")
+            .window_position(winit::dpi::PhysicalPosition::new(30, 30))
             .font_family("Courier New")
             .font_size(20.)
             .poll(PollTick::new(0, 500))
@@ -65,6 +66,7 @@ pub struct Global {
     pub cfg: Config,
     pub theme: SalsaTheme,
     pub status: String,
+    pub upsec: u64,
 }
 
 impl SalsaContext<AppEvent, Error> for Global {
@@ -84,6 +86,7 @@ impl Global {
             cfg,
             theme,
             status: Default::default(),
+            upsec: Default::default(),
         }
     }
 }
@@ -146,11 +149,11 @@ pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::build_for(state));
     ctx.focus().first();
 
-    // ctx.add_timer(
-    //     TimerDef::new()
-    //         .repeat_forever()
-    //         .timer(Duration::from_secs(1)),
-    // );
+    ctx.add_timer(
+        TimerDef::new()
+            .repeat_forever()
+            .timer(Duration::from_secs(1)),
+    );
 
     Ok(())
 }
@@ -168,29 +171,32 @@ pub fn render(
     .split(area);
 
     let status_layout = Layout::horizontal([
-        Constraint::Fill(61), //
-        Constraint::Fill(39),
+        Constraint::Fill(11), //
+        Constraint::Fill(89),
     ])
     .split(layout[1]);
 
-    if let Some(mouse_event) = &state.mouse_event {
-        Text::from_iter([
+    Text::from_iter([
+        if let Some(mouse_event) = &state.mouse_event {
             Line::from(format!(
                 "{}|{}: {:?}",
                 mouse_event.column, mouse_event.row, mouse_event.kind
-            )),
-            Line::from("bold").style(Style::new().add_modifier(Modifier::BOLD)),
-            Line::from("italic").style(Style::new().add_modifier(Modifier::ITALIC)),
-            Line::from("dim").style(Style::new().add_modifier(Modifier::DIM)),
-            Line::from("underlined").style(Style::new().add_modifier(Modifier::UNDERLINED)),
-            Line::from("slow_blink").style(Style::new().add_modifier(Modifier::SLOW_BLINK)),
-            Line::from("rapid_blink").style(Style::new().add_modifier(Modifier::RAPID_BLINK)),
-            Line::from("reversed").style(Style::new().add_modifier(Modifier::REVERSED)),
-            Line::from("hidden").style(Style::new().add_modifier(Modifier::HIDDEN)),
-            Line::from("crossed_out").style(Style::new().add_modifier(Modifier::CROSSED_OUT)),
-        ])
-        .render(layout[0], buf);
-    }
+            ))
+        } else {
+            Line::from("no event")
+        },
+        Line::from(""),
+        Line::from("bold").style(Style::new().add_modifier(Modifier::BOLD)),
+        Line::from("italic").style(Style::new().add_modifier(Modifier::ITALIC)),
+        Line::from("dim").style(Style::new().add_modifier(Modifier::DIM)),
+        Line::from("underlined").style(Style::new().add_modifier(Modifier::UNDERLINED)),
+        Line::from("slow_blink").style(Style::new().add_modifier(Modifier::SLOW_BLINK)),
+        Line::from("rapid_blink").style(Style::new().add_modifier(Modifier::RAPID_BLINK)),
+        Line::from("reversed").style(Style::new().add_modifier(Modifier::REVERSED)),
+        Line::from("hidden").style(Style::new().add_modifier(Modifier::HIDDEN)),
+        Line::from("crossed_out").style(Style::new().add_modifier(Modifier::CROSSED_OUT)),
+    ])
+    .render(layout[0], buf);
 
     MenuLine::new()
         .styles(ctx.theme.style(WidgetStyle::MENU))
@@ -205,13 +211,18 @@ pub fn render(
     }
 
     // Status
-    let status_color_1 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 3);
-    let status_color_2 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 2);
+    let status_color_0 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 3);
+    let status_color_1 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 2);
+    let status_color_2 = ctx.theme.p.fg_bg_style(Colors::White, 0, Colors::Blue, 1);
 
     StatusLineStacked::new()
         .style(ctx.theme.style(Style::STATUS_BASE))
         .center_margin(1)
         .center(Line::from(ctx.status.as_str()))
+        .end(
+            Span::from(ctx.upsec.to_string()).style(status_color_0),
+            Span::from(" "),
+        )
         .end(
             Span::from(format!(
                 " R({:03}){:05} ",
@@ -264,7 +275,7 @@ pub fn event(
             ct_event!(keycode press F(1)) => {
                 static FONTS: &[&'static str] = &[
                     "Courier New", //
-                    "MicMac",
+                    "Unknown",
                     "Cascadia Code",
                     "Cascadia Mono",
                     "Consolas",
@@ -316,7 +327,7 @@ pub fn event(
 
     match event {
         AppEvent::TimeOut(t) => event_flow!({
-            ctx.status = format!("{:?}", t.counter);
+            ctx.upsec = t.counter as u64;
             Control::Changed
         }),
         AppEvent::Quit => event_flow!(Control::Quit),

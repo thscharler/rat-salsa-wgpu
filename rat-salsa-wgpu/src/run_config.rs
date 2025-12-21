@@ -8,7 +8,6 @@ use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
 use ratatui_wgpu::{Builder, Dimensions, WgpuBackend};
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use winit::dpi::PhysicalPosition;
 use winit::error::EventLoopError;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowAttributes};
@@ -29,11 +28,11 @@ where
     pub(crate) font_size: f64,
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
-    pub(crate) window_title: String,
     pub(crate) rapid_blink: u64,
     pub(crate) slow_blink: u64,
+    pub(crate) win_attr: WindowAttributes,
     /// window callback
-    pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop) -> Window>,
+    pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
     /// terminal callback
     pub(crate) cr_term: Box<
         dyn FnOnce(
@@ -61,9 +60,9 @@ where
             font_size: 24.0,
             bg_color: Color::Black,
             fg_color: Color::White,
-            window_title: "rat-salsa & ratatui-wgpu".to_string(),
             rapid_blink: Default::default(),
             slow_blink: Default::default(),
+            win_attr: WindowAttributes::default().with_title("rat-salsa & ratatui-wgpu"),
             cr_window: Box::new(create_window),
             cr_term: Box::new(create_wgpu),
             poll: Default::default(),
@@ -118,14 +117,29 @@ where
         self
     }
 
-    pub fn window_title(mut self, title: String) -> Self {
-        self.window_title = title;
+    pub fn window_title(mut self, title: impl Into<String>) -> Self {
+        self.win_attr = self.win_attr.with_title(title);
+        self
+    }
+
+    pub fn window_position(mut self, pos: impl Into<winit::dpi::Position>) -> Self {
+        self.win_attr = self.win_attr.with_position(pos);
+        self
+    }
+
+    pub fn window_size(mut self, size: impl Into<winit::dpi::Size>) -> Self {
+        self.win_attr = self.win_attr.with_min_inner_size(size);
+        self
+    }
+
+    pub fn window_attr(mut self, attr: WindowAttributes) -> Self {
+        self.win_attr = attr;
         self
     }
 
     pub fn window(
         mut self,
-        window_init: impl FnOnce(&ActiveEventLoop) -> Window + 'static,
+        window_init: impl FnOnce(&ActiveEventLoop, WindowAttributes) -> Window + 'static,
     ) -> Self {
         self.cr_window = Box::new(window_init);
         self
@@ -200,11 +214,12 @@ fn create_fonts(fontdb: &fontdb::Database) -> Vec<fontdb::ID> {
         .collect::<Vec<_>>()
 }
 
-fn create_window(event_loop: &ActiveEventLoop) -> Window {
-    let attr = WindowAttributes::default()
-        .with_position(PhysicalPosition::new(0, 0))
-        .with_visible(false);
-
+fn create_window(event_loop: &ActiveEventLoop, mut attr: WindowAttributes) -> Window {
+    attr = attr.with_visible(false);
+    // let attr = WindowAttributes::default()
+    //     .with_position(PhysicalPosition::new(0, 0))
+    //     .with_min_inner_size()
+    //     .with_visible(false);
     event_loop.create_window(attr).expect("event-loop")
 }
 
