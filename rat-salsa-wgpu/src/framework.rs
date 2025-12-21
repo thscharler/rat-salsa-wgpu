@@ -225,6 +225,7 @@ where
 
     poll: Poll,
 
+    first_render: bool,
     window: Arc<Window>,
     window_size: WindowSize,
     modifiers: Modifiers,
@@ -305,28 +306,28 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     };
 
     let font_ids = cr_fonts(FontData.font_db());
+    let window = Arc::new(cr_window(event_loop));
+    let terminal = Rc::new(RefCell::new(cr_term(window.clone(), bg_color, fg_color)));
+
+    // title
+    window.set_title(window_title.as_str());
+
+    // uses postscript pt for the font-size. the rest is an educated guess.
     let font_list = font_ids
         .iter()
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
-
-    let window = Arc::new(cr_window(event_loop));
-    window.set_title(window_title.as_str());
-
-    let terminal = Rc::new(RefCell::new(cr_term(window.clone(), bg_color, fg_color)));
-
-    // uses postscript pt for the font-size. the rest is an educated guess.
     let font_size_px = (font_size / 72.0 * 96.0 * window.scale_factor()).round() as u32;
     let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
     fonts.add_fonts(font_list);
     terminal.borrow_mut().backend_mut().update_fonts(fonts);
 
+    // window-size can be determined when we have the fonts installed.
     let window_size = terminal
         .borrow_mut()
         .backend_mut()
         .window_size()
         .expect("window_size");
-
     event_type.set_window_size(window_size);
 
     global.set_salsa_ctx(SalsaAppContext {
@@ -346,29 +347,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     // init state
     init(state, global).expect("init");
 
-    // initial render
-    terminal
-        .borrow_mut()
-        .draw(&mut |frame: &mut Frame| {
-            let frame_area = frame.area();
-            let ttt = SystemTime::now();
-
-            render(frame_area, frame.buffer_mut(), state, global).expect("initial render");
-
-            global
-                .salsa_ctx()
-                .last_render
-                .set(ttt.elapsed().unwrap_or_default());
-            if let Some((cursor_x, cursor_y)) = global.salsa_ctx().cursor.get() {
-                frame.set_cursor_position((cursor_x, cursor_y));
-            }
-            global.salsa_ctx().count.set(frame.count());
-            global.salsa_ctx().cursor.set(None);
-        })
-        .expect("initial render");
-
-    // window.request_redraw();
-    window.set_visible(true);
+    window.request_redraw();
 
     // start poll
     let poll = start_poll(proxy, poll);
@@ -383,6 +362,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         quit_event,
         rendered_event,
         poll,
+        first_render: true,
         window,
         window_size,
         modifiers: Default::default(),
@@ -395,7 +375,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
 fn process_event<'a, Global, State, Event, Error>(
     app: &mut WgpuApp<'a, Global, State, Event, Error>,
     event_loop: &ActiveEventLoop,
-    event: Option<WindowEvent>,
+    mut event: Option<WindowEvent>,
     user: Option<Result<Control<Event>, Error>>,
 ) where
     Global: SalsaContext<Event, Error>,
@@ -409,74 +389,59 @@ fn process_event<'a, Global, State, Event, Error>(
     if let Some(WindowEvent::ModifiersChanged(modifiers)) = event {
         app.modifiers = modifiers;
         app.event_type.set_modifiers(app.modifiers);
+        event = None;
     }
-
     if let Some(WindowEvent::CloseRequested) = event {
         app.global.salsa_ctx().queue.push(Ok(Control::Quit));
+        event = None;
     }
-
+    if let Some(WindowEvent::RedrawRequested) = event {
+        app.global.salsa_ctx().queue.push(Ok(Control::Changed));
+        event = None;
+    }
     if let Some(WindowEvent::Resized(size)) = event {
         resize(app, size);
-
-        // // round size
-        // let dx = app.window_size.pixels.width / app.window_size.columns_rows.width;
-        // let dy = app.window_size.pixels.height / app.window_size.columns_rows.height;
-        // let px_width = app.window_size.columns_rows.width * dx;
-        // let px_height = app.window_size.columns_rows.height * dy;
-        //
-        // if px_width != app.window_size.pixels.width || px_height != app.window_size.pixels.height {
-        //     if let Some(new_size) =
-        //         app.window
-        //             .request_inner_size(winit::dpi::Size::Physical(PhysicalSize::new(
-        //                 px_width as u32,
-        //                 px_height as u32,
-        //             )))
-        //     {
-        //         resize(app, new_size);
-        //     }
-        // }
+        if let Some(event) = resized_event(app) {
+            app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
+        } else {
+            app.global.salsa_ctx().queue.push(Ok(Control::Changed));
+        }
+        event = None;
     }
-
+    // font scaling
     if app.modifiers.state().control_key() {
         if let Some(WindowEvent::MouseWheel {
             delta: MouseScrollDelta::LineDelta(_, dy),
             ..
         }) = event
         {
-            resize_ui(app, dy);
-
-            // inform app
-            let size = app.window_size.pixels;
-            let size = PhysicalSize::new(size.width as u32, size.height as u32);
-            if let Some(event) = app.event_type.convert(WindowEvent::Resized(size)) {
-                app.global
-                    .salsa_ctx()
-                    .queue
-                    .push(Ok(Control::Event(event.into())));
+            resize_fonts(app, dy);
+            if let Some(event) = resized_event(app) {
+                app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
             } else {
-                // todo: noop?
+                app.global.salsa_ctx().queue.push(Ok(Control::Changed));
             }
+            event = None;
         }
+    }
+
+    if let Some(event) = event {
+        if let Some(event) = app.event_type.convert(event) {
+            app.global
+                .salsa_ctx()
+                .queue
+                .push(Ok(Control::Event(event.into())));
+        } else {
+            // noop
+        }
+    }
+    if let Some(user) = user {
+        app.global.salsa_ctx().queue.push(user);
     }
 
     let mut was_changed = false;
     let global = &mut *app.global;
     let state = &mut *app.state;
-
-    if let Some(event) = event {
-        if let Some(event) = app.event_type.convert(event) {
-            global
-                .salsa_ctx()
-                .queue
-                .push(Ok(Control::Event(event.into())));
-        } else {
-            // todo: noop?
-        }
-    }
-    if let Some(user) = user {
-        global.salsa_ctx().queue.push(user);
-    }
-
     'ui: loop {
         // panic on worker panic
         if let Some(tasks) = &global.salsa_ctx().tasks {
@@ -528,7 +493,11 @@ fn process_event<'a, Global, State, Event, Error>(
                             global.salsa_ctx().cursor.set(None);
                         })
                         .expect("draw-frame");
-                    app.window.request_redraw();
+
+                    if app.first_render {
+                        app.window.set_visible(true);
+                        app.first_render = false;
+                    }
 
                     match r {
                         Ok(_) => {
@@ -582,7 +551,7 @@ fn process_event<'a, Global, State, Event, Error>(
     }
 }
 
-fn resize_ui<'a, Global, State, Event, Error>(
+fn resize_fonts<'a, Global, State, Event, Error>(
     app: &mut Running<'a, Global, State, Event, Error>,
     dy: f32,
 ) where
@@ -628,6 +597,19 @@ where
         .borrow_mut()
         .backend_mut()
         .resize(lsize.width as u32, lsize.height as u32);
+}
+
+fn resized_event<'a, Global, State, Event, Error>(
+    app: &mut Running<'a, Global, State, Event, Error>,
+) -> Option<Event>
+where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + From<crossterm::event::Event>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    let size = app.window_size.pixels;
+    let size = PhysicalSize::new(size.width as u32, size.height as u32);
+    app.event_type.convert(WindowEvent::Resized(size))
 }
 
 fn resize<'a, Global, State, Event, Error>(
