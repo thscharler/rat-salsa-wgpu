@@ -2082,6 +2082,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pal-edit"
+version = "1.6.0"
+dependencies = [
+ "anyhow",
+ "cli-clipboard",
+ "configparser",
+ "crossterm",
+ "dirs",
+ "fern",
+ "indexmap",
+ "log",
+ "pure-rust-locales",
+ "rat-salsa",
+ "rat-salsa-wgpu",
+ "rat-theme4",
+ "rat-widget",
+ "rat-widget-extra",
+ "ratatui",
+ "serde_json",
+ "sys-locale",
+ "try_as_traits",
+]
+
+[[package]]
 name = "palette"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2529,6 +2553,35 @@ name = "rat-reloc"
 version = "1.4.0"
 dependencies = [
  "ratatui",
+]
+
+[[package]]
+name = "rat-salsa"
+version = "3.0.0"
+dependencies = [
+ "anyhow",
+ "cli-clipboard",
+ "configparser",
+ "crossbeam",
+ "crossterm",
+ "dirs",
+ "fern",
+ "indexmap",
+ "log",
+ "pure-rust-locales",
+ "rand 0.9.2",
+ "rat-event",
+ "rat-focus",
+ "rat-theme4",
+ "rat-widget",
+ "ratatui",
+ "regex-cursor",
+ "ropey",
+ "sys-locale",
+ "sysinfo 0.37.2",
+ "tokio",
+ "try_as_traits",
+ "unicode-segmentation",
 ]
 
 [[package]]
