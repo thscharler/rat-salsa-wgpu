@@ -245,7 +245,7 @@ fn to_crossterm_event(
             // winit::event::WindowEvent::DroppedFile(_) => {}
             // winit::event::WindowEvent::HoveredFile(_) => {}
             // winit::event::WindowEvent::HoveredFileCancelled => {}
-            // winit::event::WindowEvent::ModifiersChanged(_) => {}
+            // DONE winit::event::WindowEvent::ModifiersChanged(_) => {}
             // winit::event::WindowEvent::Ime(_) => {}
             // winit::event::WindowEvent::CursorEntered { .. } => {}
             // winit::event::WindowEvent::CursorLeft { .. } => {}
@@ -259,7 +259,7 @@ fn to_crossterm_event(
             // winit::event::WindowEvent::ScaleFactorChanged { .. } => {}
             // winit::event::WindowEvent::ThemeChanged(_) => {}
             // winit::event::WindowEvent::Occluded(_) => {}
-            // winit::event::WindowEvent::RedrawRequested => {}
+            // DONE winit::event::WindowEvent::RedrawRequested => {}
             _ => None,
         }
     }
