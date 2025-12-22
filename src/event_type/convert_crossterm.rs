@@ -121,8 +121,8 @@ fn to_crossterm_event(
 
                 match logical_key {
                     winit::keyboard::Key::Character(c) => {
-                        state.dead_key_release = None;
-                        state.dead_key_press = None;
+                        state.dead_key_released = None;
+                        state.dead_key_pressed = None;
 
                         let c = c.as_str().chars().next().expect("char");
                         Some(crossterm::event::Event::Key(
@@ -135,8 +135,8 @@ fn to_crossterm_event(
                         ))
                     }
                     winit::keyboard::Key::Named(nk) => {
-                        state.dead_key_release = None;
-                        state.dead_key_press = None;
+                        state.dead_key_released = None;
+                        state.dead_key_pressed = None;
 
                         if let Some(kc) = map_key_code(*nk, *location, &state) {
                             Some(crossterm::event::Event::Key(
@@ -154,7 +154,7 @@ fn to_crossterm_event(
                     winit::keyboard::Key::Dead(v) => {
                         if *element_state == winit::event::ElementState::Pressed {
                             track_dead_key(
-                                &mut state.dead_key_press,
+                                &mut state.dead_key_pressed,
                                 *v,
                                 ct_key_modifiers,
                                 ct_key_event_kind,
@@ -162,7 +162,7 @@ fn to_crossterm_event(
                             )
                         } else {
                             track_dead_key(
-                                &mut state.dead_key_release,
+                                &mut state.dead_key_released,
                                 *v,
                                 ct_key_modifiers,
                                 ct_key_event_kind,
@@ -180,7 +180,7 @@ fn to_crossterm_event(
 
                 let ct_key_modifiers = map_modifiers(&state);
 
-                if state.left_pressed {
+                if state.left_pressed() {
                     Some(crossterm::event::Event::Mouse(
                         crossterm::event::MouseEvent {
                             kind: crossterm::event::MouseEventKind::Drag(
@@ -191,7 +191,7 @@ fn to_crossterm_event(
                             modifiers: ct_key_modifiers,
                         },
                     ))
-                } else if state.right_pressed {
+                } else if state.right_pressed() {
                     Some(crossterm::event::Event::Mouse(
                         crossterm::event::MouseEvent {
                             kind: crossterm::event::MouseEventKind::Drag(
@@ -202,7 +202,7 @@ fn to_crossterm_event(
                             modifiers: ct_key_modifiers,
                         },
                     ))
-                } else if state.middle_pressed {
+                } else if state.middle_pressed() {
                     Some(crossterm::event::Event::Mouse(
                         crossterm::event::MouseEvent {
                             kind: crossterm::event::MouseEventKind::Drag(
@@ -332,16 +332,16 @@ fn track_dead_key(
 
 fn map_modifiers(state: &WinitEventState) -> crossterm::event::KeyModifiers {
     let mut m = crossterm::event::KeyModifiers::empty();
-    if state.m_ctrl {
+    if state.ctrl_pressed() {
         m |= crossterm::event::KeyModifiers::CONTROL;
     }
-    if state.m_shift {
+    if state.shift_pressed() {
         m |= crossterm::event::KeyModifiers::SHIFT;
     }
-    if state.m_alt {
+    if state.alt_pressed() {
         m |= crossterm::event::KeyModifiers::ALT;
     }
-    if state.m_super {
+    if state.super_pressed() {
         m |= crossterm::event::KeyModifiers::SUPER;
     }
     m
@@ -378,7 +378,7 @@ fn map_key_code(
     let key_code = match named_key {
         winit::keyboard::NamedKey::Enter => crossterm::event::KeyCode::Enter,
         winit::keyboard::NamedKey::Tab => {
-            if state.m_shift {
+            if state.shift_pressed() {
                 crossterm::event::KeyCode::BackTab
             } else {
                 crossterm::event::KeyCode::Tab

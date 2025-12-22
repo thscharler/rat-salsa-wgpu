@@ -1,5 +1,4 @@
 use crate::event_type::{CompositeWinitEvent, ConvertEvent, WinitEventState};
-use std::sync::{Arc, RwLock};
 
 /// Does a noop conversion to CompositWinitEvent, that
 /// only adds the tracked modifier-state and window-size.

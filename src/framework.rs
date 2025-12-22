@@ -1,4 +1,4 @@
-use crate::event_type::ConvertEvent;
+use crate::event_type::{ConvertEvent, WinitEventState};
 use crate::font_data::FontData;
 use crate::framework::control_queue::ControlQueue;
 use crate::framework::poll_queue::PollQueue;
@@ -9,6 +9,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
+use log::debug;
 use rat_widget::text::cursor::CursorType;
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
@@ -429,12 +430,13 @@ fn process_event<'a, Global, State, Event, Error>(
         event = None;
     }
     // font scaling
-    if app.event_type.state().m_ctrl {
+    if app.event_type.state().ctrl_pressed() {
         if let Some(WindowEvent::MouseWheel {
             delta: MouseScrollDelta::LineDelta(_, dy),
             ..
         }) = event
         {
+            debug!("cccc {}", size_of::<WinitEventState>());
             resize_fonts(app, dy);
             app.global.salsa_ctx().font_changed.set(true);
             event = None;
