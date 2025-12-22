@@ -123,6 +123,9 @@ fn to_crossterm_event(
 
                 match logical_key {
                     winit::keyboard::Key::Character(c) => {
+                        state.dead_key_release = None;
+                        state.dead_key_press = None;
+
                         let c = c.as_str().chars().next().expect("char");
                         Some(crossterm::event::Event::Key(
                             crossterm::event::KeyEvent::new_with_kind_and_state(
@@ -134,6 +137,9 @@ fn to_crossterm_event(
                         ))
                     }
                     winit::keyboard::Key::Named(nk) => {
+                        state.dead_key_release = None;
+                        state.dead_key_press = None;
+
                         if let Some(kc) = map_key_code(*nk, *location, &state) {
                             Some(crossterm::event::Event::Key(
                                 crossterm::event::KeyEvent::new_with_kind_and_state(
@@ -148,22 +154,22 @@ fn to_crossterm_event(
                         }
                     }
                     winit::keyboard::Key::Dead(v) => {
-                        if state.dead_key == *v {
-                            if let Some(v) = v {
-                                Some(crossterm::event::Event::Key(
-                                    crossterm::event::KeyEvent::new_with_kind_and_state(
-                                        crossterm::event::KeyCode::Char(*v),
-                                        ct_key_modifiers,
-                                        ct_key_event_kind,
-                                        ct_key_event_state,
-                                    ),
-                                ))
-                            } else {
-                                None
-                            }
+                        if *element_state == winit::event::ElementState::Pressed {
+                            track_dead_key(
+                                &mut state.dead_key_press,
+                                *v,
+                                ct_key_modifiers,
+                                ct_key_event_kind,
+                                ct_key_event_state,
+                            )
                         } else {
-                            state.dead_key = *v;
-                            None
+                            track_dead_key(
+                                &mut state.dead_key_release,
+                                *v,
+                                ct_key_modifiers,
+                                ct_key_event_kind,
+                                ct_key_event_state,
+                            )
                         }
                     }
                     winit::keyboard::Key::Unidentified(_) => None,
@@ -286,6 +292,42 @@ fn to_crossterm_event(
             winit::event::WindowEvent::ThemeChanged(_) => None,
             winit::event::WindowEvent::Occluded(_) => None,
             winit::event::WindowEvent::RedrawRequested => None,
+        }
+    }
+}
+
+fn track_dead_key(
+    dead_key: &mut Option<char>,
+    v: Option<char>,
+    ct_key_modifiers: crossterm::event::KeyModifiers,
+    ct_key_event_kind: crossterm::event::KeyEventKind,
+    ct_key_event_state: crossterm::event::KeyEventState,
+) -> Option<crossterm::event::Event> {
+    if let Some(dk) = *dead_key {
+        if let Some(v) = v {
+            if v == dk {
+                *dead_key = None;
+                Some(crossterm::event::Event::Key(
+                    crossterm::event::KeyEvent::new_with_kind_and_state(
+                        crossterm::event::KeyCode::Char(v),
+                        ct_key_modifiers,
+                        ct_key_event_kind,
+                        ct_key_event_state,
+                    ),
+                ))
+            } else {
+                *dead_key = Some(v);
+                None
+            }
+        } else {
+            unreachable!();
+        }
+    } else {
+        if let Some(v) = v {
+            *dead_key = Some(v);
+            None
+        } else {
+            None
         }
     }
 }

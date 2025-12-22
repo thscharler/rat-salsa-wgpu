@@ -115,7 +115,9 @@ pub struct WinitEventState {
     /// Modifiers
     pub m_super: bool,
     /// Pending dead key
-    pub dead_key: Option<char>,
+    pub dead_key_press: Option<char>,
+    /// Pending dead key
+    pub dead_key_release: Option<char>,
     /// Window sizes.
     pub window_size_px: ratatui::layout::Size,
     /// Window sizes in rendered cells.
