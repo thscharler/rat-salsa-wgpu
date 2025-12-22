@@ -1,5 +1,4 @@
 use crate::event_type::{CompositeWinitEvent, ConvertEvent, WinitEventState};
-use std::sync::{Arc, RwLock};
 
 /// Convert winit-events to crossterm-events.
 #[derive(Debug, Default)]
@@ -11,7 +10,7 @@ pub struct ConvertCrossterm {
 /// Any unconvertible events will be sent as winit-events.
 #[derive(Debug, Default)]
 pub struct ConvertCrosstermEx {
-    state: Arc<RwLock<WinitEventState>>,
+    state: WinitEventState,
 }
 
 impl ConvertCrossterm {
@@ -30,6 +29,10 @@ where
 
     fn update_state(&mut self, event: &winit::event::WindowEvent) {
         self.state.update_state(event)
+    }
+
+    fn state(&self) -> &WinitEventState {
+        &self.state
     }
 
     fn convert(&mut self, w_event: winit::event::WindowEvent) -> Option<Event> {
@@ -53,24 +56,19 @@ where
     Event: 'static + From<crossterm::event::Event> + From<CompositeWinitEvent>,
 {
     fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
-        self.state
-            .write()
-            .expect("rw-lock write")
-            .set_window_size(window_size);
+        self.state.set_window_size(window_size);
     }
 
     fn update_state(&mut self, event: &winit::event::WindowEvent) {
-        self.state
-            .write()
-            .expect("rw-lock write")
-            .update_state(event)
+        self.state.update_state(event)
+    }
+
+    fn state(&self) -> &WinitEventState {
+        &self.state
     }
 
     fn convert(&mut self, w_event: winit::event::WindowEvent) -> Option<Event> {
-        let ct_event = {
-            let mut state = self.state.write().expect("rw-lock write");
-            to_crossterm_event(&mut *state, &w_event)
-        };
+        let ct_event = { to_crossterm_event(&mut self.state, &w_event) };
 
         if let Some(ct_event) = ct_event {
             Some(ct_event.into())
@@ -78,7 +76,7 @@ where
             Some(
                 CompositeWinitEvent {
                     event: w_event,
-                    state: Arc::clone(&self.state),
+                    state: self.state.clone(),
                 }
                 .into(),
             )

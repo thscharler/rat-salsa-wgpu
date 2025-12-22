@@ -1,5 +1,3 @@
-use std::sync::{Arc, RwLock};
-
 pub mod convert_crossterm;
 pub mod convert_winit;
 
@@ -11,6 +9,8 @@ pub trait ConvertEvent<Event> {
     fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize);
     /// Update some states.
     fn update_state(&mut self, event: &winit::event::WindowEvent);
+    /// Query the current state.
+    fn state(&self) -> &WinitEventState;
 
     /// Convert winit event.
     fn convert(&mut self, event: winit::event::WindowEvent) -> Option<Event>;
@@ -20,91 +20,10 @@ pub trait ConvertEvent<Event> {
 #[derive(Debug, Clone)]
 pub struct CompositeWinitEvent {
     pub event: winit::event::WindowEvent,
-    pub state: Arc<RwLock<WinitEventState>>,
+    pub state: WinitEventState,
 }
 
-impl CompositeWinitEvent {
-    pub fn shift_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").m_shift
-    }
-
-    pub fn alt_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").m_shift
-    }
-
-    pub fn ctrl_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").m_shift
-    }
-
-    pub fn super_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").m_shift
-    }
-
-    pub fn window_size(&self) -> ratatui::layout::Size {
-        self.state.read().expect("rw-lock read").window_size
-    }
-
-    pub fn window_size_px(&self) -> ratatui::layout::Size {
-        self.state.read().expect("rw-lock read").window_size_px
-    }
-
-    pub fn cell_width_px(&self) -> u16 {
-        self.state.read().expect("rw-lock read").cell_width_px
-    }
-
-    pub fn cell_height_px(&self) -> u16 {
-        self.state.read().expect("rw-lock read").cell_height_px
-    }
-
-    pub fn x(&self) -> u16 {
-        self.state.read().expect("rw-lock read").x
-    }
-
-    pub fn y(&self) -> u16 {
-        self.state.read().expect("rw-lock read").y
-    }
-
-    pub fn x_px(&self) -> f64 {
-        self.state.read().expect("rw-lock read").x_px
-    }
-
-    pub fn y_px(&self) -> f64 {
-        self.state.read().expect("rw-lock read").y_px
-    }
-
-    pub fn left_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").left_pressed
-    }
-
-    pub fn right_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").right_pressed
-    }
-
-    pub fn middle_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").middle_pressed
-    }
-
-    pub fn back_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").back_pressed
-    }
-
-    pub fn forward_pressed(&self) -> bool {
-        self.state.read().expect("rw-lock read").forward_pressed
-    }
-
-    pub fn other_pressed(&self, n: usize) -> bool {
-        let v = self
-            .state
-            .read()
-            .expect("rw-lock read")
-            .other_pressed
-            .get(n)
-            .cloned();
-        v.unwrap_or(false)
-    }
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct WinitEventState {
     /// Modifiers.
     pub m_shift: bool,
@@ -144,8 +63,6 @@ pub struct WinitEventState {
     pub back_pressed: bool,
     /// Mouse button state
     pub forward_pressed: bool,
-    /// Mouse button state
-    pub other_pressed: Vec<bool>,
 }
 
 impl WinitEventState {
@@ -206,11 +123,8 @@ impl WinitEventState {
                     winit::event::MouseButton::Forward => {
                         self.forward_pressed = pressed;
                     }
-                    winit::event::MouseButton::Other(n) => {
-                        while self.other_pressed.len() <= (n + 1) as usize {
-                            self.other_pressed.push(false);
-                        }
-                        self.other_pressed[*n as usize] = pressed;
+                    winit::event::MouseButton::Other(_) => {
+                        // noop
                     }
                 }
             }

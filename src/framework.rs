@@ -28,7 +28,7 @@ use std::time::{Duration, SystemTime};
 use std::{io, mem, thread};
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalSize;
-use winit::event::{Modifiers, MouseScrollDelta, WindowEvent};
+use winit::event::{MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
 
@@ -235,7 +235,6 @@ where
 
     window: Arc<Window>,
     window_size: WindowSize,
-    modifiers: Modifiers,
     terminal:
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
 }
@@ -374,7 +373,6 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         poll,
         window,
         window_size,
-        modifiers: Default::default(),
         terminal,
     };
 
@@ -431,7 +429,7 @@ fn process_event<'a, Global, State, Event, Error>(
         event = None;
     }
     // font scaling
-    if app.modifiers.state().control_key() {
+    if app.event_type.state().m_ctrl {
         if let Some(WindowEvent::MouseWheel {
             delta: MouseScrollDelta::LineDelta(_, dy),
             ..
