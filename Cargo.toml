@@ -1,7 +1,15 @@
 [package]
 name = "rat-salsa-wgpu"
 version = "0.1.0"
+authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2024"
+description = "ratatui + wgpu + winit event-loop and widgets"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/rat-salsa-wgpu"
+readme = "readme.md"
+keywords = ["ratatui", "input", "event-loop", "wgpu"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
 
 [features]
 default = ["dialog_widgets", "async"]
