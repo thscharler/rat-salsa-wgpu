@@ -25,6 +25,7 @@ where
     /// font loading callback
     pub(crate) cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
     /// font size
+    pub(crate) font_family: String,
     pub(crate) font_size: f64,
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
@@ -57,6 +58,7 @@ where
             event_loop: EventLoop::with_user_event().build()?,
             event_type: Box::new(event_type),
             cr_fonts: Box::new(create_fonts),
+            font_family: "CascadiaMono-Regular".to_string(),
             font_size: 24.0,
             bg_color: Color::Black,
             fg_color: Color::White,
@@ -70,7 +72,9 @@ where
     }
 
     pub fn font_family(mut self, font_family: impl Into<String>) -> Self {
-        self.cr_fonts = Box::new(create_font_by_family(font_family.into()));
+        let font_family = font_family.into();
+        self.font_family = font_family.clone();
+        self.cr_fonts = Box::new(create_font_by_family(font_family));
         self
     }
 
@@ -78,6 +82,7 @@ where
         mut self,
         font_init: impl FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static,
     ) -> Self {
+        self.font_family = "<Custom Font List>".to_string();
         self.cr_fonts = Box::new(font_init);
         self
     }
@@ -216,10 +221,6 @@ fn create_fonts(fontdb: &fontdb::Database) -> Vec<fontdb::ID> {
 
 fn create_window(event_loop: &ActiveEventLoop, mut attr: WindowAttributes) -> Window {
     attr = attr.with_visible(false);
-    // let attr = WindowAttributes::default()
-    //     .with_position(PhysicalPosition::new(0, 0))
-    //     .with_min_inner_size()
-    //     .with_visible(false);
     event_loop.create_window(attr).expect("event-loop")
 }
 

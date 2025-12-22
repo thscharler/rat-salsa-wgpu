@@ -374,8 +374,13 @@ where
         self.salsa_ctx().font_changed.set(true);
     }
 
+    fn font_size(&self) -> f64 {
+        self.salsa_ctx().font_size.get()
+    }
+
     /// Change the font-family
     fn set_font_family(&self, family: &str) {
+        *self.salsa_ctx().font_family.borrow_mut() = family.to_string();
         let font_ids = FontData
             .font_db()
             .faces()
@@ -391,6 +396,10 @@ where
             .collect::<Vec<_>>();
         self.salsa_ctx().font_ids.replace(font_ids);
         self.salsa_ctx().font_changed.set(true);
+    }
+
+    fn font_family(&self) -> String {
+        self.salsa_ctx().font_family.borrow().clone()
     }
 }
 
@@ -442,6 +451,7 @@ where
 
     pub(crate) font_changed: Cell<bool>,
     pub(crate) font_ids: RefCell<Vec<fontdb::ID>>,
+    pub(crate) font_family: RefCell<String>,
     pub(crate) font_size: Cell<f64>,
 }
 
@@ -484,6 +494,7 @@ where
             tokio: Default::default(),
             queue: Default::default(),
             font_size: Default::default(),
+            font_family: Default::default(),
         }
     }
 }

@@ -72,6 +72,7 @@ where
         event_loop,
         event_type,
         cr_fonts,
+        font_family,
         font_size,
         bg_color,
         fg_color,
@@ -130,6 +131,7 @@ where
         global,
         state,
         cr_fonts,
+        font_family,
         font_size,
         bg_color,
         fg_color,
@@ -180,6 +182,7 @@ where
 
     /// font loading callback
     cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
+    font_family: String,
     font_size: f64,
     bg_color: Color,
     fg_color: Color,
@@ -290,6 +293,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         global,
         state,
         cr_fonts,
+        font_family,
         font_size,
         bg_color,
         fg_color,
@@ -359,10 +363,11 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         window: Some(window.clone()),
         font_changed: Default::default(),
         font_ids: RefCell::new(font_ids),
+        font_family: RefCell::new(font_family),
         font_size: Cell::new(font_size),
     });
 
-    let mut run_state = Running {
+    let run_state = Running {
         render,
         event,
         error,
@@ -381,8 +386,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     init(run_state.state, run_state.global).expect("init");
 
     // initial render
-    render_tui(&mut run_state);
     run_state.window.set_visible(true);
+    run_state.window.request_redraw();
 
     // set up running state.
     *app = WgpuApp::Running(run_state);
