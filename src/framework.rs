@@ -9,6 +9,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
+use rat_widget::text::cursor::CursorType;
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -30,7 +31,6 @@ use winit::dpi::PhysicalSize;
 use winit::event::{Modifiers, MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
-use rat_widget::text::cursor::CursorType;
 
 pub(crate) mod control_queue;
 mod poll_queue;
@@ -406,10 +406,8 @@ fn process_event<'a, Global, State, Event, Error>(
         panic!("not initialized");
     };
 
-    if let Some(WindowEvent::ModifiersChanged(modifiers)) = event {
-        app.modifiers = modifiers;
-        app.event_type.set_modifiers(app.modifiers);
-        event = None;
+    if let Some(event) = &event {
+        app.event_type.update_state(event);
     }
     if let Some(WindowEvent::CloseRequested) = event {
         app.global.salsa_ctx().queue.push(Ok(Control::Quit));
@@ -426,6 +424,10 @@ fn process_event<'a, Global, State, Event, Error>(
         } else {
             app.global.salsa_ctx().queue.push(Ok(Control::Changed));
         }
+        event = None;
+    }
+    if let Some(WindowEvent::ScaleFactorChanged { .. }) = event {
+        app.global.salsa_ctx().font_changed.set(true);
         event = None;
     }
     // font scaling
@@ -621,7 +623,10 @@ where
     // only a resize of the backend works.
     // and only a really extreme shrink removes all the artifacts, it seems ...
     let lsize = app.window_size.pixels;
-    app.terminal.borrow_mut().backend_mut().resize(1, 1);
+    app.terminal //
+        .borrow_mut()
+        .backend_mut()
+        .resize(1, 1);
     app.terminal
         .borrow_mut()
         .backend_mut()
@@ -660,6 +665,7 @@ fn resize<'a, Global, State, Event, Error>(
         .backend_mut()
         .window_size()
         .expect("window_size");
+
     app.event_type.set_window_size(app.window_size);
 }
 

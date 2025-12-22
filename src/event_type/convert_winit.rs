@@ -1,50 +1,36 @@
-use crate::event_type::ConvertEvent;
-
-/// Winit event with extra tracked modifier-state and window-size.
-pub struct CompositeWinitEvent {
-    pub modifiers: winit::event::Modifiers,
-    pub window_size: ratatui::backend::WindowSize,
-    pub event: winit::event::WindowEvent,
-}
+use crate::event_type::{CompositeWinitEvent, ConvertEvent, WinitEventState};
+use std::sync::{Arc, RwLock};
 
 /// Does a noop conversion to CompositWinitEvent, that
 /// only adds the tracked modifier-state and window-size.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConvertWinit {
-    modifiers: winit::event::Modifiers,
-    window_size: ratatui::backend::WindowSize,
-}
-
-impl Default for ConvertWinit {
-    fn default() -> Self {
-        Self {
-            modifiers: Default::default(),
-            window_size: ratatui::backend::WindowSize {
-                columns_rows: Default::default(),
-                pixels: Default::default(),
-            },
-        }
-    }
+    state: Arc<RwLock<WinitEventState>>,
 }
 
 impl<Event> ConvertEvent<Event> for ConvertWinit
 where
     Event: 'static + From<CompositeWinitEvent>,
 {
-    fn set_modifiers(&mut self, modifiers: winit::event::Modifiers) {
-        self.modifiers = modifiers;
+    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
+        self.state
+            .write()
+            .expect("rw-lock write")
+            .set_window_size(window_size);
     }
 
-    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
-        self.window_size = window_size;
+    fn update_state(&mut self, event: &winit::event::WindowEvent) {
+        self.state
+            .write()
+            .expect("rw-lock write")
+            .update_state(event)
     }
 
     fn convert(&mut self, event: winit::event::WindowEvent) -> Option<Event> {
         Some(
             CompositeWinitEvent {
-                modifiers: self.modifiers,
-                window_size: self.window_size,
                 event,
+                state: Arc::clone(&self.state),
             }
             .into(),
         )

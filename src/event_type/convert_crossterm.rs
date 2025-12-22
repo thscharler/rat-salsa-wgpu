@@ -1,65 +1,17 @@
-use crate::event_type::ConvertEvent;
+use crate::event_type::{CompositeWinitEvent, ConvertEvent, WinitEventState};
+use std::sync::{Arc, RwLock};
 
 /// Convert winit-events to crossterm-events.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConvertCrossterm {
-    /// Modifiers
-    pub modifiers: winit::event::Modifiers,
-    /// Window-size
-    pub window_size: ratatui::backend::WindowSize,
-    /// Cell width
-    pub cell_width: u16,
-    /// Cell height
-    pub cell_height: u16,
-    /// Mouse cursor
-    pub x: u16,
-    /// Mouse cursor
-    pub y: u16,
-    /// Mouse button state
-    pub left_pressed: bool,
-    /// Mouse button state
-    pub middle_pressed: bool,
-    /// Mouse button state
-    pub right_pressed: bool,
+    state: WinitEventState,
 }
 
-impl Default for ConvertCrossterm {
-    fn default() -> Self {
-        Self {
-            modifiers: Default::default(),
-            window_size: ratatui::backend::WindowSize {
-                columns_rows: Default::default(),
-                pixels: Default::default(),
-            },
-            cell_width: Default::default(),
-            cell_height: Default::default(),
-            x: Default::default(),
-            y: Default::default(),
-            left_pressed: Default::default(),
-            middle_pressed: Default::default(),
-            right_pressed: Default::default(),
-        }
-    }
-}
-
-impl<Event> ConvertEvent<Event> for ConvertCrossterm
-where
-    Event: 'static + From<crossterm::event::Event>,
-{
-    fn set_modifiers(&mut self, modifiers: winit::event::Modifiers) {
-        self.modifiers = modifiers;
-    }
-
-    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
-        self.window_size = window_size;
-        self.cell_width = window_size.pixels.width / window_size.columns_rows.width;
-        self.cell_height = window_size.pixels.height / window_size.columns_rows.height;
-    }
-
-    fn convert(&mut self, event: winit::event::WindowEvent) -> Option<Event> {
-        let event = to_crossterm_event(self, event, self.modifiers, self.window_size);
-        event.map(|e| e.into())
-    }
+/// Convert winit-events to crossterm-events.
+/// Any unconvertible events will be sent as winit-events.
+#[derive(Debug, Default)]
+pub struct ConvertCrosstermEx {
+    state: Arc<RwLock<WinitEventState>>,
 }
 
 impl ConvertCrossterm {
@@ -68,21 +20,87 @@ impl ConvertCrossterm {
     }
 }
 
+impl<Event> ConvertEvent<Event> for ConvertCrossterm
+where
+    Event: 'static + From<crossterm::event::Event>,
+{
+    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
+        self.state.set_window_size(window_size);
+    }
+
+    fn update_state(&mut self, event: &winit::event::WindowEvent) {
+        self.state.update_state(event)
+    }
+
+    fn convert(&mut self, w_event: winit::event::WindowEvent) -> Option<Event> {
+        let ct_event = to_crossterm_event(&mut self.state, &w_event);
+        if let Some(ct_event) = ct_event {
+            Some(ct_event.into())
+        } else {
+            None
+        }
+    }
+}
+
+impl ConvertCrosstermEx {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<Event> ConvertEvent<Event> for ConvertCrosstermEx
+where
+    Event: 'static + From<crossterm::event::Event> + From<CompositeWinitEvent>,
+{
+    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
+        self.state
+            .write()
+            .expect("rw-lock write")
+            .set_window_size(window_size);
+    }
+
+    fn update_state(&mut self, event: &winit::event::WindowEvent) {
+        self.state
+            .write()
+            .expect("rw-lock write")
+            .update_state(event)
+    }
+
+    fn convert(&mut self, w_event: winit::event::WindowEvent) -> Option<Event> {
+        let ct_event = {
+            let mut state = self.state.write().expect("rw-lock write");
+            to_crossterm_event(&mut *state, &w_event)
+        };
+
+        if let Some(ct_event) = ct_event {
+            Some(ct_event.into())
+        } else {
+            Some(
+                CompositeWinitEvent {
+                    event: w_event,
+                    state: Arc::clone(&self.state),
+                }
+                .into(),
+            )
+        }
+    }
+}
+
 #[allow(dead_code)]
 fn to_crossterm_event(
-    state: &mut ConvertCrossterm,
-    event: winit::event::WindowEvent,
-    modifiers: winit::event::Modifiers,
-    window_size: ratatui::backend::WindowSize,
+    state: &mut WinitEventState,
+    event: &winit::event::WindowEvent,
 ) -> Option<crossterm::event::Event> {
     'm: {
         match event {
-            winit::event::WindowEvent::Resized(_) => Some(crossterm::event::Event::Resize(
-                window_size.columns_rows.width,
-                window_size.columns_rows.height,
-            )),
+            winit::event::WindowEvent::Resized(_) => {
+                Some(crossterm::event::Event::Resize(
+                    state.window_size.width,
+                    state.window_size.height,
+                )) //
+            }
             winit::event::WindowEvent::Focused(v) => {
-                if v {
+                if *v {
                     Some(crossterm::event::Event::FocusGained)
                 } else {
                     Some(crossterm::event::Event::FocusLost)
@@ -93,15 +111,15 @@ fn to_crossterm_event(
                     winit::event::KeyEvent {
                         logical_key,
                         location,
-                        state,
+                        state: element_state,
                         repeat,
                         ..
                     },
                 ..
             } => {
-                let ct_key_modifiers = map_modifiers(modifiers);
-                let ct_key_event_kind = map_key_state(state, repeat);
-                let ct_key_event_state = map_key_location(location);
+                let ct_key_modifiers = map_modifiers(state);
+                let ct_key_event_kind = map_key_state(*element_state, *repeat);
+                let ct_key_event_state = map_key_location(*location);
 
                 match logical_key {
                     winit::keyboard::Key::Character(c) => {
@@ -116,7 +134,7 @@ fn to_crossterm_event(
                         ))
                     }
                     winit::keyboard::Key::Named(nk) => {
-                        if let Some(kc) = map_key_code(nk, location, modifiers) {
+                        if let Some(kc) = map_key_code(*nk, *location, &state) {
                             Some(crossterm::event::Event::Key(
                                 crossterm::event::KeyEvent::new_with_kind_and_state(
                                     kc,
@@ -129,18 +147,34 @@ fn to_crossterm_event(
                             None
                         }
                     }
-                    _ => None,
+                    winit::keyboard::Key::Dead(v) => {
+                        if state.dead_key == *v {
+                            if let Some(v) = v {
+                                Some(crossterm::event::Event::Key(
+                                    crossterm::event::KeyEvent::new_with_kind_and_state(
+                                        crossterm::event::KeyCode::Char(*v),
+                                        ct_key_modifiers,
+                                        ct_key_event_kind,
+                                        ct_key_event_state,
+                                    ),
+                                ))
+                            } else {
+                                None
+                            }
+                        } else {
+                            state.dead_key = *v;
+                            None
+                        }
+                    }
+                    winit::keyboard::Key::Unidentified(_) => None,
                 }
             }
-            winit::event::WindowEvent::CursorMoved { position, .. } => {
-                if state.cell_width == 0 || state.cell_height == 0 {
+            winit::event::WindowEvent::CursorMoved { .. } => {
+                if state.cell_width_px == 0 || state.cell_height_px == 0 {
                     break 'm None;
                 }
 
-                state.x = position.x as u16 / state.cell_width;
-                state.y = position.y as u16 / state.cell_height;
-
-                let ct_key_modifiers = map_modifiers(modifiers);
+                let ct_key_modifiers = map_modifiers(&state);
 
                 if state.left_pressed {
                     Some(crossterm::event::Event::Mouse(
@@ -187,14 +221,18 @@ fn to_crossterm_event(
                 }
             }
             winit::event::WindowEvent::MouseWheel {
+                delta: winit::event::MouseScrollDelta::PixelDelta(_),
+                ..
+            } => None,
+            winit::event::WindowEvent::MouseWheel {
                 delta: winit::event::MouseScrollDelta::LineDelta(_horizontal, vertical),
                 ..
             } => {
-                let ct_key_modifiers = map_modifiers(modifiers);
+                let ct_key_modifiers = map_modifiers(&state);
 
                 Some(crossterm::event::Event::Mouse(
                     crossterm::event::MouseEvent {
-                        kind: if vertical > 0. {
+                        kind: if *vertical > 0.0 {
                             crossterm::event::MouseEventKind::ScrollUp
                         } else {
                             crossterm::event::MouseEventKind::ScrollDown
@@ -210,23 +248,11 @@ fn to_crossterm_event(
                 button,
                 ..
             } => {
-                let pressed = map_mouse_state(mouse_state);
-                let Some(ct_button) = map_mouse_button(button) else {
+                let pressed = map_mouse_state(*mouse_state);
+                let Some(ct_button) = map_mouse_button(*button) else {
                     break 'm None;
                 };
-                let ct_key_modifiers = map_modifiers(modifiers);
-
-                match ct_button {
-                    crossterm::event::MouseButton::Left => {
-                        state.left_pressed = pressed;
-                    }
-                    crossterm::event::MouseButton::Right => {
-                        state.right_pressed = pressed;
-                    }
-                    crossterm::event::MouseButton::Middle => {
-                        state.middle_pressed = pressed;
-                    }
-                }
+                let ct_key_modifiers = map_modifiers(&state);
 
                 Some(crossterm::event::Event::Mouse(
                     crossterm::event::MouseEvent {
@@ -238,45 +264,44 @@ fn to_crossterm_event(
                 ))
             }
 
-            // winit::event::WindowEvent::ActivationTokenDone { .. } => {}
-            // winit::event::WindowEvent::Moved(v) => {}
-            // winit::event::WindowEvent::CloseRequested => {}
-            // winit::event::WindowEvent::Destroyed => {}
-            // winit::event::WindowEvent::DroppedFile(_) => {}
-            // winit::event::WindowEvent::HoveredFile(_) => {}
-            // winit::event::WindowEvent::HoveredFileCancelled => {}
-            // DONE winit::event::WindowEvent::ModifiersChanged(_) => {}
-            // winit::event::WindowEvent::Ime(_) => {}
-            // winit::event::WindowEvent::CursorEntered { .. } => {}
-            // winit::event::WindowEvent::CursorLeft { .. } => {}
-            // winit::event::WindowEvent::PinchGesture { .. } => {}
-            // winit::event::WindowEvent::PanGesture { .. } => {}
-            // winit::event::WindowEvent::DoubleTapGesture { .. } => {}
-            // winit::event::WindowEvent::RotationGesture { .. } => {}
-            // winit::event::WindowEvent::TouchpadPressure { .. } => {}
-            // winit::event::WindowEvent::AxisMotion { .. } => {}
-            // winit::event::WindowEvent::Touch(_) => {}
-            // winit::event::WindowEvent::ScaleFactorChanged { .. } => {}
-            // winit::event::WindowEvent::ThemeChanged(_) => {}
-            // winit::event::WindowEvent::Occluded(_) => {}
-            // DONE winit::event::WindowEvent::RedrawRequested => {}
-            _ => None,
+            winit::event::WindowEvent::ActivationTokenDone { .. } => None,
+            winit::event::WindowEvent::Moved(_) => None,
+            winit::event::WindowEvent::CloseRequested => None,
+            winit::event::WindowEvent::Destroyed => None,
+            winit::event::WindowEvent::DroppedFile(_) => None,
+            winit::event::WindowEvent::HoveredFile(_) => None,
+            winit::event::WindowEvent::HoveredFileCancelled => None,
+            winit::event::WindowEvent::ModifiersChanged(_) => None,
+            winit::event::WindowEvent::Ime(_) => None,
+            winit::event::WindowEvent::CursorEntered { .. } => None,
+            winit::event::WindowEvent::CursorLeft { .. } => None,
+            winit::event::WindowEvent::PinchGesture { .. } => None,
+            winit::event::WindowEvent::PanGesture { .. } => None,
+            winit::event::WindowEvent::DoubleTapGesture { .. } => None,
+            winit::event::WindowEvent::RotationGesture { .. } => None,
+            winit::event::WindowEvent::TouchpadPressure { .. } => None,
+            winit::event::WindowEvent::AxisMotion { .. } => None,
+            winit::event::WindowEvent::Touch(_) => None,
+            winit::event::WindowEvent::ScaleFactorChanged { .. } => None,
+            winit::event::WindowEvent::ThemeChanged(_) => None,
+            winit::event::WindowEvent::Occluded(_) => None,
+            winit::event::WindowEvent::RedrawRequested => None,
         }
     }
 }
 
-fn map_modifiers(modifiers: winit::event::Modifiers) -> crossterm::event::KeyModifiers {
+fn map_modifiers(state: &WinitEventState) -> crossterm::event::KeyModifiers {
     let mut m = crossterm::event::KeyModifiers::empty();
-    if modifiers.state().control_key() {
+    if state.m_ctrl {
         m |= crossterm::event::KeyModifiers::CONTROL;
     }
-    if modifiers.state().shift_key() {
+    if state.m_shift {
         m |= crossterm::event::KeyModifiers::SHIFT;
     }
-    if modifiers.state().alt_key() {
+    if state.m_alt {
         m |= crossterm::event::KeyModifiers::ALT;
     }
-    if modifiers.state().super_key() {
+    if state.m_super {
         m |= crossterm::event::KeyModifiers::SUPER;
     }
     m
@@ -308,12 +333,12 @@ fn map_key_location(location: winit::keyboard::KeyLocation) -> crossterm::event:
 fn map_key_code(
     named_key: winit::keyboard::NamedKey,
     key_location: winit::keyboard::KeyLocation,
-    modifiers: winit::event::Modifiers,
+    state: &WinitEventState,
 ) -> Option<crossterm::event::KeyCode> {
     let key_code = match named_key {
         winit::keyboard::NamedKey::Enter => crossterm::event::KeyCode::Enter,
         winit::keyboard::NamedKey::Tab => {
-            if modifiers.state().shift_key() {
+            if state.m_shift {
                 crossterm::event::KeyCode::BackTab
             } else {
                 crossterm::event::KeyCode::Tab

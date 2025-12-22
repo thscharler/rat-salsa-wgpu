@@ -3,7 +3,8 @@ use log::{debug, error};
 use rat_event::{Dialog, HandleEvent, Regular, ct_event, event_flow, try_flow};
 use rat_focus::{FocusBuilder, impl_has_focus};
 use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
-use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa_wgpu::event_type::CompositeWinitEvent;
+use rat_salsa_wgpu::event_type::convert_crossterm::{ConvertCrossterm, ConvertCrosstermEx};
 use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTick, PollTimers, PollTokio};
 use rat_salsa_wgpu::timer::{TimeOut, TimerDef};
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
@@ -43,7 +44,7 @@ pub fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(ConvertCrossterm::new())?
+        RunConfig::new(ConvertCrosstermEx::new())?
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
             .font_family("Courier New")
             .font_size(20.)
@@ -98,7 +99,7 @@ pub struct Config {}
 #[derive(Debug)]
 pub enum AppEvent {
     NoOp,
-    Event((WindowEvent, Modifiers)),
+    Event(CompositeWinitEvent),
     CtEvent(crossterm::event::Event),
     TimeOut(TimeOut),
     Quit,
@@ -111,8 +112,8 @@ impl From<crossterm::event::Event> for AppEvent {
     }
 }
 
-impl From<(WindowEvent, Modifiers)> for AppEvent {
-    fn from(value: (WindowEvent, Modifiers)) -> Self {
+impl From<CompositeWinitEvent> for AppEvent {
+    fn from(value: CompositeWinitEvent) -> Self {
         AppEvent::Event(value)
     }
 }
@@ -247,14 +248,16 @@ pub fn event(
     ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
     if let AppEvent::Event(event) = event {
-        try_flow!(match &event {
-            (WindowEvent::Resized(_), _) => {
+        try_flow!(match &event.event {
+            WindowEvent::Resized(_) => {
                 Control::Changed
             }
-            (WindowEvent::KeyboardInput { event, .. }, modifiers) => {
-                if event.state == ElementState::Pressed
-                    && modifiers.state().control_key()
-                    && event.logical_key == Key::Character(SmolStr::new_static("q"))
+            WindowEvent::KeyboardInput {
+                event: winevent, ..
+            } => {
+                if winevent.state == ElementState::Pressed
+                    && event.ctrl_pressed()
+                    && winevent.logical_key == Key::Character(SmolStr::new_static("q"))
                 {
                     Control::Quit
                 } else {
