@@ -46,7 +46,8 @@ pub fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrosstermEx::new())?
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
-            .font_family("Courier New")
+            // .font_family("JetBrainsMono Nerd Font Mono")
+            // .font_family("Courier New")
             .font_size(20.)
             .poll(PollTick::new(0, 500))
             .poll(PollTimers::new())
@@ -196,6 +197,12 @@ pub fn render(
         Line::from("reversed").style(Style::new().add_modifier(Modifier::REVERSED)),
         Line::from("hidden").style(Style::new().add_modifier(Modifier::HIDDEN)),
         Line::from("crossed_out").style(Style::new().add_modifier(Modifier::CROSSED_OUT)),
+        Line::from(" ...").style(Style::new()),
+        Line::from(" ..").style(Style::new()),
+        Line::from(" .").style(Style::new()),
+        Line::from(" ///").style(Style::new()),
+        Line::from(" ///").style(Style::new()),
+        Line::from(" /").style(Style::new()),
     ])
     .render(layout[0], buf);
 
@@ -256,7 +263,7 @@ pub fn event(
                 event: winevent, ..
             } => {
                 if winevent.state == ElementState::Pressed
-                    && event.ctrl_pressed()
+                    && event.state.ctrl_pressed()
                     && winevent.logical_key == Key::Character(SmolStr::new_static("q"))
                 {
                     Control::Quit
