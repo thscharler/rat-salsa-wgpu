@@ -92,7 +92,7 @@ impl Global {
             .collect::<Vec<_>>();
         fonts.sort();
         fonts.dedup();
-        fonts.push("<Fallback>".to_string());
+        fonts.insert(0, "<Fallback>".to_string());
 
         Self {
             ctx: Default::default(),
@@ -348,11 +348,11 @@ static BLOCKS: &'static [(char, char, &'static str)] = &[
     ('\u{2E00}', '\u{2E7F}', "Interpunktionen, Zusatz"),
     // ('\u{2E80}', '\u{2EFF}', "CJK-Radikale, Ergänzung"),
     // ('\u{2F00}', '\u{2FDF}', "Kangxi-Radikale"),
-    (
-        '\u{2FF0}',
-        '\u{2FFF}',
-        "Ideographische Beschreibungszeichen",
-    ),
+    // (
+    //     '\u{2FF0}',
+    //     '\u{2FFF}',
+    //     "Ideographische Beschreibungszeichen",
+    // ),
     // ('\u{3000}', '\u{303F}', "CJK-Symbole und -Interpunktionen"),
     // ('\u{3040}', '\u{309F}', "Hiragana"),
     // ('\u{30A0}', '\u{30FF}', "Katakana"),
@@ -448,10 +448,10 @@ static BLOCKS: &'static [(char, char, &'static str)] = &[
     // ('\u{10860}', '\u{1087F}', "Palmyrenisch"),
     // ('\u{10880}', '\u{108AF}', "Nabatäisch"),
     // ('\u{108E0}', '\u{108FF}', "Hatran"),
-    // ('\u{10900}', '\u{1091F}', "Phönizisch"),
-    // ('\u{10920}', '\u{1093F}', "Lydisch"),
-    // ('\u{10980}', '\u{1099F}', "Meroitische Hieroglyphen"),
-    // ('\u{109A0}', '\u{109FF}', "Meroitisch-demotisch"),
+    ('\u{10900}', '\u{1091F}', "Phönizisch"),
+    ('\u{10920}', '\u{1093F}', "Lydisch"),
+    ('\u{10980}', '\u{1099F}', "Meroitische Hieroglyphen"),
+    ('\u{109A0}', '\u{109FF}', "Meroitisch-demotisch"),
     // ('\u{10A00}', '\u{10A5F}', "Kharoshthi"),
     // ('\u{10A60}', '\u{10A7F}', "Altsüdarabisch"),
     // ('\u{10A80}', '\u{10A9F}', "Altnordarabisch"),
@@ -501,20 +501,20 @@ static BLOCKS: &'static [(char, char, &'static str)] = &[
     // ('\u{11EE0}', '\u{11EFF}', "Makasar"),
     // ('\u{11FB0}', '\u{11FBF}', "Lisu Supplement"),
     // ('\u{11FC0}', '\u{11FFF}', "Tamil Supplement"),
-    // ('\u{12000}', '\u{123FF}', "Keilschrift"),
-    // (
-    //     '\u{12400}',
-    //     '\u{1247F}',
-    //     "Keilschrift-Zahlzeichen und -Interpunktionen",
-    // ),
-    // ('\u{12480}', '\u{1254F}', "Frühe Keilschrift"),
-    // ('\u{13000}', '\u{1342F}', "Ägyptische Hieroglyphen"),
-    // (
-    //     '\u{13430}',
-    //     '\u{1343F}',
-    //     "Egyptian Hieroglyph Format Controls",
-    // ),
-    // ('\u{14400}', '\u{1467F}', "Anatolische Hieroglyphen"),
+    ('\u{12000}', '\u{123FF}', "Keilschrift"),
+    (
+        '\u{12400}',
+        '\u{1247F}',
+        "Keilschrift-Zahlzeichen und -Interpunktionen",
+    ),
+    ('\u{12480}', '\u{1254F}', "Frühe Keilschrift"),
+    ('\u{13000}', '\u{1342F}', "Ägyptische Hieroglyphen"),
+    (
+        '\u{13430}',
+        '\u{1343F}',
+        "Egyptian Hieroglyph Format Controls",
+    ),
+    ('\u{14400}', '\u{1467F}', "Anatolische Hieroglyphen"),
     // ('\u{16800}', '\u{16A3F}', "Bamum, Ergänzung"),
     // ('\u{16A40}', '\u{16A6F}', "Mro"),
     // ('\u{16AD0}', '\u{16AFF}', "Bassa Vah"),
@@ -596,11 +596,11 @@ static BLOCKS: &'static [(char, char, &'static str)] = &[
         "Symbols and Pictographs Extended-A",
     ),
     ('\u{1FB00}', '\u{1FBFF}', "Symbols for Legacy Computing"),
-    (
-        '\u{20000}',
-        '\u{2A6DF}',
-        "Vereinheitlichte CJK-Ideogramme, Erweiterung B",
-    ),
+    // (
+    //     '\u{20000}',
+    //     '\u{2A6DF}',
+    //     "Vereinheitlichte CJK-Ideogramme, Erweiterung B",
+    // ),
     // (
     //     '\u{2A700}',
     //     '\u{2B73F}',
@@ -631,7 +631,7 @@ static BLOCKS: &'static [(char, char, &'static str)] = &[
     //     '\u{3134F}',
     //     "CJK Unified Ideographs Extension G",
     // ),
-    ('\u{E0000}', '\u{E007F}', "Tags"),
+    // ('\u{E0000}', '\u{E007F}', "Tags"),
     // ('\u{E0100}', '\u{E01EF}', "Variantenselektoren, Ergänzung"),
     (
         '\u{F0000}',
