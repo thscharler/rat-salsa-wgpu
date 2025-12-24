@@ -11,6 +11,9 @@ keywords = ["ratatui", "input", "event-loop", "wgpu"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
 
+[lints]
+workspace = true
+
 [features]
 default = ["dialog_widgets", "async"]
 # Async support.
@@ -26,7 +29,7 @@ crossbeam = "0.8"
 crossterm = "0.28"
 try_as_traits = { version = "0.1", optional = true }
 ratatui = { version = "0.29", features = [] }
-ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
+ratatui-wgpu = { version = "0.4", features = [] }
 winit = "0.30"
 fontdb = "0.23.0"
 append-only-vec = "0.1.8"
@@ -51,12 +54,7 @@ ropey = "1.6.1"
 sys-locale = "0.3"
 sysinfo = "0.37"
 unicode-segmentation = "1.11"
+image = "0.25"
 
 rat-widget = { version = "2.10", path = "../rat-salsa/rat-widget", features = ["user_directories"] }
 rat-theme4 = { version = "4.3", path = "../rat-salsa/rat-theme4" }
-
-
-[lints]
-workspace = true
-
-

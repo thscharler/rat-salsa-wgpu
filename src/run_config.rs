@@ -122,6 +122,16 @@ where
         self
     }
 
+    /// Creates an icon from 32bpp RGBA data.
+    ///
+    /// The length of `rgba` must be divisible by 4, and `width * height` must equal
+    /// `rgba.len() / 4`. Otherwise, this will return a `BadIcon` error.    
+    pub fn window_icon(mut self, bytes: Vec<u8>, width: u32, height: u32) -> Self {
+        let icon = winit::window::Icon::from_rgba(bytes, width, height).expect("valid icon");
+        self.win_attr = self.win_attr.with_window_icon(Some(icon));
+        self
+    }
+
     pub fn window_title(mut self, title: impl Into<String>) -> Self {
         self.win_attr = self.win_attr.with_title(title);
         self
@@ -221,6 +231,7 @@ fn create_fonts(fontdb: &fontdb::Database) -> Vec<fontdb::ID> {
 
 fn create_window(event_loop: &ActiveEventLoop, mut attr: WindowAttributes) -> Window {
     attr = attr.with_visible(false);
+    // attr = attr.with_window_icon()
     event_loop.create_window(attr).expect("event-loop")
 }
 
