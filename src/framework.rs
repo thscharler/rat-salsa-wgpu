@@ -9,7 +9,7 @@ use crate::tasks::Cancel;
 use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
-use crate::{Control, RunConfig, SalsaAppContext, SalsaContext, PostProcess};
+use crate::{Control, PostProcess, RunConfig, SalsaAppContext, SalsaContext};
 use rat_widget::text::cursor::CursorType;
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
@@ -312,12 +312,7 @@ where
     cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
 
     /// terminal callback
-    cr_term: Box<
-        dyn FnOnce(
-            TermInit,
-        )
-            -> Terminal<WgpuBackend<'static, 'static, PostProcess>>,
-    >,
+    cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProcess>>>,
 
     event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
@@ -364,8 +359,7 @@ where
 
     window: Arc<Window>,
     window_size: WindowSize,
-    terminal:
-        Rc<RefCell<Terminal<WgpuBackend<'static, 'static, PostProcess>>>>,
+    terminal: Rc<RefCell<Terminal<WgpuBackend<'static, 'static, PostProcess>>>>,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
@@ -464,12 +458,16 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     })));
 
     // setup fonts
+    let mut fallback = Vec::new();
+    fallback.push(FontData.fallback_font());
+    fallback.push(symbol_font.clone());
+    fallback.push(emoji_font.clone());
     let font_list = font_ids
         .iter()
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
     if !font_list.is_empty() {
-        let mut fonts = Fonts::new(fallback_font.clone(), font_size_px);
+        let mut fonts = Fonts::new_with_fallbacks(fallback, font_size_px);
         fonts.add_fonts(font_list);
         terminal.borrow_mut().backend_mut().update_fonts(fonts);
     }
@@ -756,7 +754,14 @@ where
     Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let fallback_font = app.fallback_font.clone();
+    let mut fallback = Vec::new();
+    fallback.push(FontData.fallback_font());
+    if let Some(font) = app.symbol_font.clone() {
+        fallback.push(font.clone());
+    }
+    if let Some(font) = app.emoji_font.clone() {
+        fallback.push(font.clone());
+    }
     let font_list = app
         .global
         .salsa_ctx()
@@ -767,7 +772,7 @@ where
         .collect::<Vec<_>>();
     let font_size_px =
         (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;
-    let mut fonts = Fonts::new(fallback_font, font_size_px);
+    let mut fonts = Fonts::new_with_fallbacks(fallback, font_size_px);
     fonts.add_fonts(font_list);
     app.terminal.borrow_mut().backend_mut().update_fonts(fonts);
 

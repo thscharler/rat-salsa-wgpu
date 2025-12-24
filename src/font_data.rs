@@ -18,6 +18,10 @@ static SYMBOL_FONT: OnceLock<ratatui_wgpu::Font<'static>> = OnceLock::new();
 static EMOJI_DATA: &[u8] = include_bytes!("font_data/OpenMoji-black-glyf.ttf");
 #[cfg(feature = "fallback_emoji_font")]
 static EMOJI_FONT: OnceLock<ratatui_wgpu::Font<'static>> = OnceLock::new();
+#[cfg(feature = "fallback_color_emoji_font")]
+static EMOJI_DATA: &[u8] = include_bytes!("NotoColorEmoji-Regular.ttf");
+#[cfg(feature = "fallback_color_emoji_font")]
+static EMOJI_FONT: OnceLock<ratatui_wgpu::Font<'static>> = OnceLock::new();
 
 static FONTDB: OnceLock<fontdb::Database> = OnceLock::new();
 static FONT_DATA: AppendOnlyVec<(fontdb::ID, Box<[u8]>)> = AppendOnlyVec::new();
