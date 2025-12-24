@@ -9,6 +9,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
+use log::debug;
 use rat_widget::text::cursor::CursorType;
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
@@ -376,6 +377,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         queue: ControlQueue::default(),
         window: Some(window.clone()),
         font_changed: Default::default(),
+        font_size_changed: Default::default(),
         font_ids: RefCell::new(font_ids),
         font_family: RefCell::new(font_family),
         font_size: Cell::new(font_size),
@@ -439,6 +441,7 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if let Some(WindowEvent::Resized(size)) = event {
         resize(app, size);
+        app.terminal.borrow_mut().clear().expect("clear terminal");
         if let Some(event) = resized_event(app) {
             app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
         } else {
@@ -447,7 +450,7 @@ fn process_event<'a, Global, State, Event, Error>(
         event = None;
     }
     if let Some(WindowEvent::ScaleFactorChanged { .. }) = event {
-        app.global.salsa_ctx().font_changed.set(true);
+        app.global.salsa_ctx().font_size_changed.set(true);
         event = None;
     }
     // font scaling
@@ -457,12 +460,19 @@ fn process_event<'a, Global, State, Event, Error>(
             ..
         }) = event
         {
-            resize_fonts(app, dy);
-            app.global.salsa_ctx().font_changed.set(true);
+            if dy > 0.0 {
+                app.global.salsa_ctx().font_size.update(|v| v + 1.0);
+            } else {
+                if app.global.salsa_ctx().font_size.get() > 7.0 {
+                    app.global.salsa_ctx().font_size.update(|v| v - 1.0);
+                }
+            }
+            app.global.salsa_ctx().font_size_changed.set(true);
             event = None;
         }
     }
     if app.global.salsa_ctx().font_changed.get() {
+        let tt = SystemTime::now();
         // reload backend font
         reload_fonts(app);
         app.terminal.borrow_mut().clear().expect("clear terminal");
@@ -472,6 +482,21 @@ fn process_event<'a, Global, State, Event, Error>(
             app.global.salsa_ctx().queue.push(Ok(Control::Changed));
         }
         app.global.salsa_ctx().font_changed.set(false);
+        app.global.salsa_ctx().font_size_changed.set(false);
+        debug!("reload_fonts {:?}", tt.elapsed());
+    }
+    if app.global.salsa_ctx().font_size_changed.get() {
+        let tt = SystemTime::now();
+        // reload backend
+        reload_fonts(app);
+        app.terminal.borrow_mut().clear().expect("clear terminal");
+        if let Some(event) = resized_event(app) {
+            app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
+        } else {
+            app.global.salsa_ctx().queue.push(Ok(Control::Changed));
+        }
+        app.global.salsa_ctx().font_size_changed.set(false);
+        debug!("reload_fonts {:?}", tt.elapsed());
     }
 
     if let Some(event) = event {
@@ -602,23 +627,6 @@ where
     }
 }
 
-fn resize_fonts<'a, Global, State, Event, Error>(
-    app: &mut Running<'a, Global, State, Event, Error>,
-    dy: f32,
-) where
-    Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
-    Error: 'static + Debug + Send + From<io::Error>,
-{
-    if dy > 0.0 {
-        app.global.salsa_ctx().font_size.update(|v| v + 1.0);
-    } else {
-        if app.global.salsa_ctx().font_size.get() > 7.0 {
-            app.global.salsa_ctx().font_size.update(|v| v - 1.0);
-        }
-    }
-}
-
 fn reload_fonts<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
 where
     Global: SalsaContext<Event, Error>,
@@ -654,6 +662,11 @@ where
         .borrow_mut()
         .backend_mut()
         .resize(1, 1);
+    app.terminal
+        .borrow_mut()
+        .backend_mut()
+        .resize(lsize.width as u32, lsize.height as u32);
+
     app.terminal
         .borrow_mut()
         .backend_mut()

@@ -200,7 +200,7 @@ pub fn render(
         tmp.push(cc);
         tmp.push(' ');
     }
-    txt.push_line(Line::from(tmp.clone()));
+    txt.push_line(Line::from(tmp.clone()).style(Style::new().bold()));
     txt.render(layout[0], buf);
 
     Ok(())
@@ -650,7 +650,6 @@ pub fn event(
     state: &mut Minimal,
     ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
-    debug!("event {:?}", event);
     if let AppEvent::CtEvent(event) = event {
         try_flow!(match &event {
             ct_event!(resized) => {

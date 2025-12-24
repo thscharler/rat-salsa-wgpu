@@ -371,7 +371,8 @@ where
     /// Change the font-size
     fn set_font_size(&self, size: f64) {
         self.salsa_ctx().font_size.set(size);
-        self.salsa_ctx().font_changed.set(true);
+        self.salsa_ctx().font_size_changed.set(true);
+        self.salsa_ctx().window().request_redraw();
     }
 
     fn font_size(&self) -> f64 {
@@ -396,6 +397,7 @@ where
             .collect::<Vec<_>>();
         self.salsa_ctx().font_ids.replace(font_ids);
         self.salsa_ctx().font_changed.set(true);
+        self.salsa_ctx().window().request_redraw();
     }
 
     fn font_family(&self) -> String {
@@ -450,6 +452,7 @@ where
     pub(crate) window: Option<Arc<Window>>,
 
     pub(crate) font_changed: Cell<bool>,
+    pub(crate) font_size_changed: Cell<bool>,
     pub(crate) font_ids: RefCell<Vec<fontdb::ID>>,
     pub(crate) font_family: RefCell<String>,
     pub(crate) font_size: Cell<f64>,
@@ -485,6 +488,7 @@ where
             term: Default::default(),
             window: Default::default(),
             font_changed: Default::default(),
+            font_size_changed: Default::default(),
             font_ids: Default::default(),
             last_render: Default::default(),
             last_event: Default::default(),
