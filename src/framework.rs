@@ -237,7 +237,9 @@ where
     global: &'a mut Global,
     state: &'a mut State,
 
+    #[allow(unused)]
     symbol_font: Option<ratatui_wgpu::Font<'static>>,
+    #[allow(unused)]
     emoji_font: Option<ratatui_wgpu::Font<'static>>,
 
     event_type: Box<dyn ConvertEvent<Event>>,
@@ -340,16 +342,21 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     ));
 
     // setup fonts
-    let mut font_list = Vec::new();
-    if let Some(font) = emoji_font.clone() {
-        font_list.push(font.clone());
-    }
+    let mut fallback = Vec::new();
+    fallback.push(FontData.fallback_font());
     if let Some(font) = symbol_font.clone() {
-        font_list.push(font.clone());
+        fallback.push(font.clone());
     }
-    font_list.extend(font_ids.iter().filter_map(|id| FontData.load_font(*id)));
+    if let Some(font) = emoji_font.clone() {
+        fallback.push(font.clone());
+    }
+    let font_list = font_ids
+        .iter()
+        .filter_map(|id| FontData.load_font(*id))
+        .collect::<Vec<_>>();
+
     let font_size_px = (font_size * window.scale_factor()).round() as u32;
-    let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
+    let mut fonts = Fonts::new_with_fallbacks(fallback, font_size_px);
     fonts.add_fonts(font_list);
     terminal.borrow_mut().backend_mut().update_fonts(fonts);
 
@@ -633,25 +640,26 @@ where
     Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let mut font_list = Vec::new();
-    if let Some(font) = app.emoji_font.clone() {
-        font_list.push(font.clone());
-    }
+    let mut fallback = Vec::new();
+    fallback.push(FontData.fallback_font());
     if let Some(font) = app.symbol_font.clone() {
-        font_list.push(font.clone());
+        fallback.push(font.clone());
     }
-    font_list.extend(
-        app.global
-            .salsa_ctx()
-            .font_ids
-            .borrow()
-            .iter()
-            .filter_map(|id| FontData.load_font(*id)),
-    );
+    if let Some(font) = app.emoji_font.clone() {
+        fallback.push(font.clone());
+    }
+    let font_list = app
+        .global
+        .salsa_ctx()
+        .font_ids
+        .borrow()
+        .iter()
+        .filter_map(|id| FontData.load_font(*id))
+        .collect::<Vec<_>>();
 
     let font_size_px =
         (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;
-    let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
+    let mut fonts = Fonts::new_with_fallbacks(fallback, font_size_px);
     fonts.add_fonts(font_list);
     app.terminal.borrow_mut().backend_mut().update_fonts(fonts);
 

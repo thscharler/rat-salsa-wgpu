@@ -23,7 +23,11 @@ dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
 dialog_widgets = ["dialog", "rat-widget"]
 # Add NotoEmoji-Regular as default emoji font.
+# You can only choose either fallback_emoji_font or fallback_color_emoji_font.
 fallback_emoji_font = []
+# Add NotoColorEmoji-Regular as default emoji font.
+# You can only choose either fallback_emoji_font or fallback_color_emoji_font.
+fallback_color_emoji_font = []
 # Add NotoSansSymbols2-Regular as default symbol font.
 fallback_symbol_font = []
 
