@@ -5,7 +5,7 @@ use crate::poll::PollEvents;
 use ratatui::Terminal;
 use ratatui::style::Color;
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
-use ratatui_wgpu::{Builder, Dimensions, WgpuBackend};
+use ratatui_wgpu::{Builder, ColorTable, Dimensions, WgpuBackend};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use winit::error::EventLoopError;
@@ -240,12 +240,32 @@ fn create_wgpu(
 ) -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>> {
     let size = arg.window.inner_size();
 
+    let colors = ColorTable {
+        BLACK: [0, 0, 0],
+        RED: [170, 0, 0],
+        GREEN: [0, 170, 0],
+        YELLOW: [170, 85, 0],
+        BLUE: [0, 0, 170],
+        MAGENTA: [170, 0, 170],
+        CYAN: [0, 170, 170],
+        GRAY: [170, 170, 170],
+        DARKGRAY: [85, 85, 85],
+        LIGHTRED: [255, 85, 85],
+        LIGHTGREEN: [85, 255, 85],
+        LIGHTYELLOW: [255, 255, 85],
+        LIGHTBLUE: [85, 85, 255],
+        LIGHTMAGENTA: [255, 85, 255],
+        LIGHTCYAN: [85, 255, 255],
+        WHITE: [255, 255, 255],
+    };
+
     let backend = futures_lite::future::block_on({
         let mut b = Builder::from_font(FontData.fallback_font())
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
                 height: NonZeroU32::new(size.height).expect("non-zero-height"),
             })
+            .with_color_table(colors)
             .with_bg_color(arg.bg_color)
             .with_fg_color(arg.fg_color);
         if arg.rapid_blink > 0 {
