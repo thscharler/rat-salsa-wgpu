@@ -612,7 +612,7 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if app.global.salsa_ctx().font_size_changed.get() {
         // reload backend
-        reload_fonts(app);
+        change_font_size(app);
         app.terminal.borrow_mut().clear().expect("clear terminal");
         if let Some(event) = resized_event(app) {
             app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
@@ -774,14 +774,14 @@ where
     // only a resize of the backend works.
     // and only a really extreme shrink removes all the artifacts, it seems ...
     let lsize = app.window_size.pixels;
-    app.terminal //
-        .borrow_mut()
-        .backend_mut()
-        .resize(1, 1);
-    app.terminal
-        .borrow_mut()
-        .backend_mut()
-        .resize(lsize.width as u32, lsize.height as u32);
+    // app.terminal //
+    //     .borrow_mut()
+    //     .backend_mut()
+    //     .resize(1, 1);
+    // app.terminal
+    //     .borrow_mut()
+    //     .backend_mut()
+    //     .resize(lsize.width as u32, lsize.height as u32);
 
     app.window_size = app
         .terminal
@@ -790,6 +790,21 @@ where
         .window_size()
         .expect("window_size");
     app.event_type.set_window_size(app.window_size);
+}
+
+fn change_font_size<'a, Global, State, Event, Error>(
+    app: &mut Running<'a, Global, State, Event, Error>,
+) where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + From<crossterm::event::Event>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    let font_size_px =
+        (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;
+    app.terminal
+        .borrow_mut()
+        .backend_mut()
+        .update_font_size(font_size_px);
 }
 
 fn resized_event<'a, Global, State, Event, Error>(

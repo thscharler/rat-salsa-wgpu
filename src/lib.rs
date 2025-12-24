@@ -503,6 +503,10 @@ where
             cursor: Default::default(),
             term: Default::default(),
             clear_terminal: Cell::new(false),
+            window: Default::default(),
+            font_changed: Default::default(),
+            font_size_changed: Default::default(),
+            font_ids: Default::default(),
             last_render: Default::default(),
             last_event: Default::default(),
             timers: Default::default(),
@@ -510,10 +514,6 @@ where
             #[cfg(feature = "async")]
             tokio: Default::default(),
             queue: Default::default(),
-            window: Default::default(),
-            font_changed: Default::default(),
-            font_size_changed: Default::default(),
-            font_ids: Default::default(),
             font_size: Default::default(),
             font_family: Default::default(),
         }
