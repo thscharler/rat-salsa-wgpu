@@ -15,13 +15,17 @@ exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
 workspace = true
 
 [features]
-default = ["dialog_widgets", "async"]
+default = ["dialog_widgets", "async", "fallback_emoji_font", "fallback_symbol_font"]
 # Async support.
 async = ["dep:tokio"]
 # Add support for dialog windows.
 dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
 dialog_widgets = ["dialog", "rat-widget"]
+# Add NotoEmoji-Regular as default emoji font.
+fallback_emoji_font = []
+# Add NotoSansSymbols2-Regular as default symbol font.
+fallback_symbol_font = []
 
 [dependencies]
 log = "0.4"
@@ -29,7 +33,7 @@ crossbeam = "0.8"
 crossterm = "0.28"
 try_as_traits = { version = "0.1", optional = true }
 ratatui = { version = "0.29", features = [] }
-ratatui-wgpu = { version = "0.4", features = [] }
+ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu"}
 winit = "0.30"
 fontdb = "0.23.0"
 append-only-vec = "0.1.8"

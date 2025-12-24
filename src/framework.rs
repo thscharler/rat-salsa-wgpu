@@ -1,4 +1,4 @@
-use crate::event_type::{ConvertEvent, WinitEventState};
+use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::framework::control_queue::ControlQueue;
 use crate::framework::poll_queue::PollQueue;
@@ -9,7 +9,6 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::debug;
 use rat_widget::text::cursor::CursorType;
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
@@ -74,6 +73,8 @@ where
         cr_fonts,
         font_family,
         font_size,
+        symbol_font,
+        emoji_font,
         bg_color,
         fg_color,
         rapid_blink,
@@ -133,6 +134,8 @@ where
         cr_fonts,
         font_family,
         font_size,
+        symbol_font,
+        emoji_font,
         bg_color,
         fg_color,
         rapid_blink,
@@ -184,6 +187,8 @@ where
     cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
     font_family: String,
     font_size: f64,
+    symbol_font: Option<ratatui_wgpu::Font<'static>>,
+    emoji_font: Option<ratatui_wgpu::Font<'static>>,
     bg_color: Color,
     fg_color: Color,
     rapid_blink: u64,
@@ -230,6 +235,9 @@ where
 
     global: &'a mut Global,
     state: &'a mut State,
+
+    symbol_font: Option<ratatui_wgpu::Font<'static>>,
+    emoji_font: Option<ratatui_wgpu::Font<'static>>,
 
     event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
@@ -295,6 +303,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         cr_fonts,
         font_family,
         font_size,
+        symbol_font,
+        emoji_font,
         bg_color,
         fg_color,
         rapid_blink,
@@ -328,11 +338,15 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         }), //
     ));
 
-    // uses postscript pt for the font-size. the rest is an educated guess.
-    let font_list = font_ids
-        .iter()
-        .filter_map(|id| FontData.load_font(*id))
-        .collect::<Vec<_>>();
+    // setup fonts
+    let mut font_list = Vec::new();
+    if let Some(font) = emoji_font.clone() {
+        font_list.push(font.clone());
+    }
+    if let Some(font) = symbol_font.clone() {
+        font_list.push(font.clone());
+    }
+    font_list.extend(font_ids.iter().filter_map(|id| FontData.load_font(*id)));
     let font_size_px = (font_size * window.scale_factor()).round() as u32;
     let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
     fonts.add_fonts(font_list);
@@ -373,6 +387,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         error,
         global,
         state,
+        symbol_font,
+        emoji_font,
         event_type,
         quit_event,
         rendered_event,
@@ -441,7 +457,6 @@ fn process_event<'a, Global, State, Event, Error>(
             ..
         }) = event
         {
-            debug!("cccc {}", size_of::<WinitEventState>());
             resize_fonts(app, dy);
             app.global.salsa_ctx().font_changed.set(true);
             event = None;
@@ -610,14 +625,21 @@ where
     Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let font_list = app
-        .global
-        .salsa_ctx()
-        .font_ids
-        .borrow()
-        .iter()
-        .filter_map(|id| FontData.load_font(*id))
-        .collect::<Vec<_>>();
+    let mut font_list = Vec::new();
+    if let Some(font) = app.emoji_font.clone() {
+        font_list.push(font.clone());
+    }
+    if let Some(font) = app.symbol_font.clone() {
+        font_list.push(font.clone());
+    }
+    font_list.extend(
+        app.global
+            .salsa_ctx()
+            .font_ids
+            .borrow()
+            .iter()
+            .filter_map(|id| FontData.load_font(*id)),
+    );
 
     let font_size_px =
         (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;

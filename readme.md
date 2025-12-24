@@ -44,9 +44,63 @@ RunConfig::new(ConvertCrossterm::new())?
 
 This is 0.1 btw. 
 
+## Dual use
+
+If you want to compile with either rat-salsa or rat-salsa-wgpu I found 
+this approach.
+
+* define two features 
+ 
+```
+[features]
+default = ["wgpu"]
+wgpu = ["dep:rat-salsa-wgpu"]
+crossterm = ["dep:rat-salsa"]
+```
+and use the crates optionally. 
+
+```
+rat-salsa = { version = "3.0", optional = true }
+rat-salsa-wgpu = { version = "0.1", optional = true }
+```
+
+In your main 
+
+```
+#[cfg(feature = "crossterm")]
+pub(crate) use rat_salsa;
+#[cfg(feature = "wgpu")]
+pub(crate) use rat_salsa_wgpu as rat_salsa;
+```
+
+Where ever you are using rat-salsa, refer to the crate-wide alias.
+
+```
+use crate::rat_salsa::{Control, SalsaContext};
+```
+
+## Included Fonts
+
+* [OpenMoji-black-glyf][refOpenMoji]  (CC-BY-SA-4.0 license)
+* NotoSansSymbols2-Regular (OFL license)
+* CascadiaMono-Regular (OFL License)
+
+The first two fonts are embedded when you use the feature flags `fallback_emoji_font`
+and `fallback_symbol_font` and are always included when setting a font-family.
+
+The third font is always embedded and used as a absolute fallback.
+
+## Icons
+
+If you want to use an icon, there is `img_icon` in the examples, 
+that will dump the image as a raw rgba file that can be directly `include!`d. 
+
 
 ![image][refFilesGif]
 ![image][refMDEditGif]
+
+
+[refOpenMoji]: https://github.com/hfg-gmuend/openmoji/tree/master/font/OpenMoji-black-glyf
 
 [refFilesGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa-wgpu/files.gif?raw=true
 

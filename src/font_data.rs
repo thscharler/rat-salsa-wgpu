@@ -4,6 +4,14 @@ use std::sync::OnceLock;
 /// Some fallback font data.
 static FALLBACK_DATA: &[u8] = include_bytes!("CascadiaMono-Regular.ttf");
 static FALLBACK_FONT: OnceLock<ratatui_wgpu::Font<'static>> = OnceLock::new();
+#[cfg(feature = "fallback_symbol_font")]
+static SYMBOL_DATA: &[u8] = include_bytes!("NotoSansSymbols2-Regular.ttf");
+#[cfg(feature = "fallback_symbol_font")]
+static SYMBOL_FONT: OnceLock<ratatui_wgpu::Font<'static>> = OnceLock::new();
+#[cfg(feature = "fallback_emoji_font")]
+static EMOJI_DATA: &[u8] = include_bytes!("OpenMoji-black-glyf.ttf");
+#[cfg(feature = "fallback_emoji_font")]
+static EMOJI_FONT: OnceLock<ratatui_wgpu::Font<'static>> = OnceLock::new();
 
 static FONTDB: OnceLock<fontdb::Database> = OnceLock::new();
 static FONT_DATA: AppendOnlyVec<(fontdb::ID, Box<[u8]>)> = AppendOnlyVec::new();
@@ -16,6 +24,34 @@ impl FontData {
         FALLBACK_FONT
             .get_or_init(|| ratatui_wgpu::Font::new(FALLBACK_DATA).expect("valid_font"))
             .clone()
+    }
+
+    #[cfg(feature = "fallback_emoji_font")]
+    pub fn fallback_emoji_font(self) -> Option<ratatui_wgpu::Font<'static>> {
+        Some(
+            EMOJI_FONT
+                .get_or_init(|| ratatui_wgpu::Font::new(EMOJI_DATA).expect("valid_font"))
+                .clone(),
+        )
+    }
+
+    #[cfg(not(feature = "fallback_emoji_font"))]
+    pub fn fallback_emoji_font(self) -> Option<ratatui_wgpu::Font<'static>> {
+        None
+    }
+
+    #[cfg(feature = "fallback_symbol_font")]
+    pub fn fallback_symbol_font(self) -> Option<ratatui_wgpu::Font<'static>> {
+        Some(
+            SYMBOL_FONT
+                .get_or_init(|| ratatui_wgpu::Font::new(SYMBOL_DATA).expect("valid_font"))
+                .clone(),
+        )
+    }
+
+    #[cfg(not(feature = "fallback_symbol_font"))]
+    pub fn fallback_symbol_font(self) -> Option<ratatui_wgpu::Font<'static>> {
+        None
     }
 
     pub fn font_db(self) -> &'static fontdb::Database {

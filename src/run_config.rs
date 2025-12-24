@@ -27,6 +27,8 @@ where
     /// font size
     pub(crate) font_family: String,
     pub(crate) font_size: f64,
+    pub(crate) symbol_font: Option<ratatui_wgpu::Font<'static>>,
+    pub(crate) emoji_font: Option<ratatui_wgpu::Font<'static>>,
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
     pub(crate) rapid_blink: u64,
@@ -60,6 +62,8 @@ where
             cr_fonts: Box::new(create_fonts),
             font_family: "CascadiaMono-Regular".to_string(),
             font_size: 24.0,
+            symbol_font: FontData.fallback_symbol_font(),
+            emoji_font: FontData.fallback_emoji_font(),
             bg_color: Color::Black,
             fg_color: Color::White,
             rapid_blink: Default::default(),
@@ -75,6 +79,16 @@ where
         let font_family = font_family.into();
         self.font_family = font_family.clone();
         self.cr_fonts = Box::new(create_font_by_family(font_family));
+        self
+    }
+
+    pub fn symbol_font(mut self, symbol_font: ratatui_wgpu::Font<'static>) -> Self {
+        self.symbol_font = Some(symbol_font);
+        self
+    }
+
+    pub fn emoji_font(mut self, emoji_font: ratatui_wgpu::Font<'static>) -> Self {
+        self.emoji_font = Some(emoji_font);
         self
     }
 
