@@ -1,12 +1,14 @@
 use anyhow::Error;
+use crossterm::event::MouseEventKind;
 use log::{debug, error};
 use rat_event::{Dialog, HandleEvent, Regular, ct_event, event_flow, try_flow};
 use rat_focus::{FocusBuilder, impl_has_focus};
 use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::event_type::CompositeWinitEvent;
-use rat_salsa_wgpu::event_type::convert_crossterm::{ConvertCrossterm, ConvertCrosstermEx};
-use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTasks, PollTick, PollTimers, PollTokio};
-use rat_salsa_wgpu::timer::{TimeOut, TimerDef};
+use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrosstermEx;
+use rat_salsa_wgpu::font_data::FontData;
+use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTick, PollTimers};
+use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::palette::Colors;
@@ -23,8 +25,8 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
 use std::path::PathBuf;
-use std::time::Duration;
-use winit::event::{ElementState, Modifiers, WindowEvent};
+use std::time::SystemTime;
+use winit::event::{ElementState, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
 
 pub fn main() -> Result<(), Error> {
@@ -35,8 +37,6 @@ pub fn main() -> Result<(), Error> {
     let mut global = Global::new(config, theme);
     let mut state = Minimal::default();
 
-    let rt = tokio::runtime::Runtime::new()?;
-
     run_tui(
         init, //
         render,
@@ -46,15 +46,14 @@ pub fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrosstermEx::new())?
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
-            // .font_family("JetBrainsMono Nerd Font Mono")
-            // .font_family("Courier New")
-            .font_size(20.)
+            .font_family("Hack Nerd Font Mono")
+            .font_size(22.)
+            .rapid_blink_millis(500)
+            .slow_blink_millis(1000)
             .poll(PollTick::new(0, 500))
             .poll(PollTimers::new())
             .poll(PollQuit)
-            .poll(PollRendered)
-            .poll(PollTasks::new(2))
-            .poll(PollTokio::new(rt)),
+            .poll(PollRendered),
     )?;
 
     Ok(())
@@ -67,6 +66,7 @@ pub struct Global {
 
     pub cfg: Config,
     pub theme: SalsaTheme,
+    pub fonts: Vec<String>,
     pub status: String,
     pub upsec: u64,
 }
@@ -87,6 +87,7 @@ impl Global {
             ctx: Default::default(),
             cfg,
             theme,
+            fonts: FontData.installed_fonts().clone(),
             status: Default::default(),
             upsec: Default::default(),
         }
@@ -151,11 +152,11 @@ pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
     ctx.set_focus(FocusBuilder::build_for(state));
     ctx.focus().first();
 
-    ctx.add_timer(
-        TimerDef::new()
-            .repeat_forever()
-            .timer(Duration::from_secs(1)),
-    );
+    // ctx.add_timer(
+    //     TimerDef::new()
+    //         .repeat_forever()
+    //         .timer(Duration::from_secs(1)),
+    // );
 
     Ok(())
 }
@@ -171,12 +172,6 @@ pub fn render(
         Constraint::Length(1),
     ])
     .split(area);
-
-    let status_layout = Layout::horizontal([
-        Constraint::Fill(11), //
-        Constraint::Fill(89),
-    ])
-    .split(layout[1]);
 
     Text::from_iter([
         if let Some(mouse_event) = &state.mouse_event {
@@ -206,11 +201,17 @@ pub fn render(
     ])
     .render(layout[0], buf);
 
-    MenuLine::new()
+    let mut status_area = layout[1];
+    let menu = MenuLine::new()
         .styles(ctx.theme.style(WidgetStyle::MENU))
         .title("-!-")
-        .item_parsed("_Quit")
-        .render(status_layout[0], buf, &mut state.menu);
+        .item_parsed("_Next font|F1")
+        .item_parsed("_Prev font|Shift+F1")
+        .item_parsed("_Quit");
+    let m_len = menu.width();
+    status_area.x = m_len;
+    status_area.width -= m_len;
+    menu.render(layout[1], buf, &mut state.menu);
 
     if state.error_dlg.active() {
         MsgDialog::new()
@@ -244,7 +245,7 @@ pub fn render(
             Span::from(format!(" E{:05} ", format!("{:.0?}", ctx.last_event())))
                 .style(status_color_2),
         )
-        .render(status_layout[1], buf);
+        .render(status_area, buf);
 
     Ok(())
 }
@@ -278,36 +279,14 @@ pub fn event(
     if let AppEvent::CtEvent(event) = event {
         try_flow!(match &event {
             ct_event!(resized) => {
-                debug!(">> resized");
                 Control::Changed
             }
             ct_event!(key press CONTROL-'q') => Control::Quit,
             ct_event!(keycode press F(1)) => {
-                static FONTS: &[&'static str] = &[
-                    "Courier New", //
-                    "Unknown",
-                    "Cascadia Code",
-                    "Cascadia Mono",
-                    "Consolas",
-                    "DejaVu Sans Mono",
-                    "FiraCode Nerd Font Mono",
-                    "JetBrainsMono Nerd Font Mono",
-                    "Liberation Mono",
-                    // "Lucida Console",
-                    "Lucida Sans Typewriter",
-                    "MS Gothic",
-                    // "NSimSun",
-                    // "SimSun-ExtB",
-                    // "SimSun-ExtG",
-                    "Source Code Pro",
-                ];
-
-                state.font_idx = (state.font_idx + 1) % FONTS.len();
-                let font = FONTS[state.font_idx];
-                ctx.status = format!("font {:?}", font);
-                debug!("set_font {:?}", font);
-                ctx.set_font_family(font);
-                Control::Changed
+                next_font(state, ctx)
+            }
+            ct_event!(keycode press SHIFT-F(1)) => {
+                prev_font(state, ctx)
             }
             _ => Control::Continue,
         });
@@ -323,14 +302,18 @@ pub fn event(
         ctx.handle_focus(event);
 
         if let crossterm::event::Event::Mouse(m) = event {
-            event_flow!({
-                state.mouse_event = Some(m.clone());
-                Control::Changed
-            });
+            if m.kind != MouseEventKind::Moved {
+                event_flow!({
+                    state.mouse_event = Some(m.clone());
+                    Control::Changed
+                });
+            }
         }
 
         try_flow!(match state.menu.handle(event, Regular) {
-            MenuOutcome::Activated(0) => Control::Quit,
+            MenuOutcome::Activated(0) => next_font(state, ctx),
+            MenuOutcome::Activated(1) => prev_font(state, ctx),
+            MenuOutcome::Activated(2) => Control::Quit,
             v => v.into(),
         });
     }
@@ -357,6 +340,32 @@ pub fn event(
     // }
 
     Ok(Control::Continue)
+}
+
+fn next_font(state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
+    if state.font_idx + 1 < ctx.fonts.len() {
+        state.font_idx += 1;
+    } else {
+        state.font_idx = 0;
+    }
+    let font = ctx.fonts[state.font_idx].as_str();
+    ctx.status = format!("font {:?}", font);
+    debug!("set_font {:?}", font);
+    ctx.set_font_family(font);
+    Control::Changed
+}
+
+fn prev_font(state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
+    if state.font_idx > 0 {
+        state.font_idx -= 1;
+    } else {
+        state.font_idx = ctx.fonts.len().saturating_sub(1);
+    }
+    let font = ctx.fonts[state.font_idx].as_str();
+    ctx.status = format!("font {:?}", font);
+    debug!("set_font {:?}", font);
+    ctx.set_font_family(font);
+    Control::Changed
 }
 
 pub fn error(
