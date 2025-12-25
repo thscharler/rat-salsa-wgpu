@@ -50,8 +50,8 @@ pub fn main() -> Result<(), Error> {
             .font_size(22.)
             .rapid_blink_millis(500)
             .slow_blink_millis(1000)
-            .poll(PollTick::new(0, 500))
-            .poll(PollTimers::new())
+            // .poll(PollTick::new(0, 500))
+            // .poll(PollTimers::new())
             .poll(PollQuit)
             .poll(PollRendered),
     )?;
@@ -174,14 +174,8 @@ pub fn render(
     .split(area);
 
     Text::from_iter([
-        if let Some(mouse_event) = &state.mouse_event {
-            Line::from(format!(
-                "{}|{}: {:?}",
-                mouse_event.column, mouse_event.row, mouse_event.kind
-            ))
-        } else {
-            Line::from("no event")
-        },
+        Line::from(""),
+        Line::from(format!("** {} **", ctx.font_family())),
         Line::from(""),
         Line::from("bold").style(Style::new().add_modifier(Modifier::BOLD)),
         Line::from("italic").style(Style::new().add_modifier(Modifier::ITALIC)),
@@ -205,12 +199,14 @@ pub fn render(
     let menu = MenuLine::new()
         .styles(ctx.theme.style(WidgetStyle::MENU))
         .title("-!-")
-        .item_parsed("_Next font|F1")
-        .item_parsed("_Prev font|Shift+F1")
+        .item_parsed("_Next font")
+        .item_parsed("_Prev font")
+        .item_parsed("_+Size")
+        .item_parsed("_-Size")
         .item_parsed("_Quit");
     let m_len = menu.width();
     status_area.x = m_len;
-    status_area.width -= m_len;
+    status_area.width = status_area.width.saturating_sub(m_len).max(15);
     menu.render(layout[1], buf, &mut state.menu);
 
     if state.error_dlg.active() {
@@ -229,7 +225,15 @@ pub fn render(
         .center_margin(1)
         .center(Line::from(ctx.status.as_str()))
         .end(
-            Span::from(ctx.upsec.to_string()).style(status_color_0),
+            if let Some(mouse_event) = &state.mouse_event {
+                Span::from(format!(
+                    "{}|{}: {:?}",
+                    mouse_event.column, mouse_event.row, mouse_event.kind
+                ))
+            } else {
+                Span::from("no event")
+            }
+            .style(status_color_0),
             Span::from(" "),
         )
         .end(
@@ -288,6 +292,12 @@ pub fn event(
             ct_event!(keycode press SHIFT-F(1)) => {
                 prev_font(state, ctx)
             }
+            ct_event!(key press CONTROL-'+') => {
+                incr_font(state, ctx)
+            }
+            ct_event!(key press CONTROL-'-') => {
+                decr_font(state, ctx)
+            }
             _ => Control::Continue,
         });
 
@@ -313,7 +323,9 @@ pub fn event(
         try_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => next_font(state, ctx),
             MenuOutcome::Activated(1) => prev_font(state, ctx),
-            MenuOutcome::Activated(2) => Control::Quit,
+            MenuOutcome::Activated(2) => incr_font(state, ctx),
+            MenuOutcome::Activated(3) => decr_font(state, ctx),
+            MenuOutcome::Activated(4) => Control::Quit,
             v => v.into(),
         });
     }
@@ -342,6 +354,16 @@ pub fn event(
     Ok(Control::Continue)
 }
 
+fn incr_font(_state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
+    ctx.set_font_size(ctx.font_size() + 1.0);
+    Control::Changed
+}
+
+fn decr_font(_state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
+    ctx.set_font_size(ctx.font_size() - 1.0);
+    Control::Changed
+}
+
 fn next_font(state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
     if state.font_idx + 1 < ctx.fonts.len() {
         state.font_idx += 1;
@@ -349,7 +371,6 @@ fn next_font(state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
         state.font_idx = 0;
     }
     let font = ctx.fonts[state.font_idx].as_str();
-    ctx.status = format!("font {:?}", font);
     debug!("set_font {:?}", font);
     ctx.set_font_family(font);
     Control::Changed
@@ -362,7 +383,6 @@ fn prev_font(state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
         state.font_idx = ctx.fonts.len().saturating_sub(1);
     }
     let font = ctx.fonts[state.font_idx].as_str();
-    ctx.status = format!("font {:?}", font);
     debug!("set_font {:?}", font);
     ctx.set_font_family(font);
     Control::Changed
