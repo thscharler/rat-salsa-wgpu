@@ -35,8 +35,8 @@ crossbeam = "0.8"
 crossterm = "0.28"
 try_as_traits = { version = "0.1", optional = true }
 ratatui = { version = "0.29", features = [] }
-# ratatui-wgpu = { version = "0.4", features = [], git = "https://github.com/thscharler/ratatui-wgpu/tree/main" }
-ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
+ratatui-wgpu = { version = "0.4", features = [], git = "https://github.com/thscharler/ratatui-wgpu" }
+#ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
 winit = "0.30"
 fontdb = "0.23.0"
 append-only-vec = "0.1.8"
