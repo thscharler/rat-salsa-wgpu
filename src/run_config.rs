@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::Control;
 use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
@@ -5,7 +6,7 @@ use crate::poll::PollEvents;
 use ratatui::Terminal;
 use ratatui::style::Color;
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
-use ratatui_wgpu::{Builder, ColorTable, Dimensions, WgpuBackend};
+use ratatui_wgpu::{Builder, ColorTable, Dimensions, Font, WgpuBackend};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use winit::error::EventLoopError;
@@ -24,22 +25,30 @@ where
     pub(crate) event_type: Box<dyn ConvertEvent<Event>>,
     /// font loading callback
     pub(crate) cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
+    /// fallback font
+    pub(crate) fallback_font: Option<(String, Font<'static>)>,
+    /// font family
+    pub(crate) font_family: Option<String>,
     /// font size
-    pub(crate) font_family: String,
-    pub(crate) font_size: f64,
-    pub(crate) symbol_font: Option<ratatui_wgpu::Font<'static>>,
-    pub(crate) emoji_font: Option<ratatui_wgpu::Font<'static>>,
+    pub(crate) font_size: Option<f64>,
+    /// fallback symbol font
+    pub(crate) symbol_font: Option<Font<'static>>,
+    /// fallback emoji font
+    pub(crate) emoji_font: Option<Font<'static>>,
+    /// terminal colors
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
+    /// blinking stuff.
     pub(crate) rapid_blink: u64,
     pub(crate) slow_blink: u64,
+    /// window attributes
     pub(crate) win_attr: WindowAttributes,
     /// window callback
     pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
     /// terminal callback
     pub(crate) cr_term: Box<
         dyn FnOnce(
-            TerminalArg,
+            TermInit,
         )
             -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
     >,
@@ -59,9 +68,12 @@ where
         Ok(Self {
             event_loop: EventLoop::with_user_event().build()?,
             event_type: Box::new(event_type),
-            cr_fonts: Box::new(create_fonts),
-            font_family: "CascadiaMono-Regular".to_string(),
-            font_size: 24.0,
+            cr_fonts: Box::new(mock_create_fonts),
+            fallback_font: FontData
+                .fallback_font()
+                .map(|f| ("CascadiaMono-Regular".to_string(), f)),
+            font_family: None,
+            font_size: None,
             symbol_font: FontData.fallback_symbol_font(),
             emoji_font: FontData.fallback_emoji_font(),
             bg_color: Color::Black,
@@ -75,44 +87,78 @@ where
         })
     }
 
-    pub fn font_family(mut self, font_family: impl Into<String>) -> Self {
-        let font_family = font_family.into();
-        self.font_family = font_family.clone();
-        self.cr_fonts = Box::new(create_font_by_family(font_family));
+    /// Set the primary fallback font.
+    ///
+    /// If you don't load any fonts, this one will be used.
+    ///
+    /// If a glyph can not be found in any of the regular fonts
+    /// the fallback order is:
+    /// * this fallback font
+    /// * the [symbol_font]
+    /// * the [emoji_font]
+    ///
+    /// __Note__
+    ///
+    /// The default-feature `fallback_font` will embed `CascadiaMono-Regular`
+    /// as fallback font. If this feature is set, it will be used automatically.
+    /// You only need this function if you want to set your own fallback.
+    /// In that case you probably want to deactivate the feature and save 560KB
+    /// of binary size.
+    ///
+    pub fn fallback_font(mut self, font_name: String, fallback_font: Font<'static>) -> Self {
+        self.fallback_font = Some((font_name, fallback_font));
         self
     }
 
-    pub fn symbol_font(mut self, symbol_font: ratatui_wgpu::Font<'static>) -> Self {
+    /// Set the fallback symbol-font.
+    /// When glyphs are not found in the other installed fonts
+    /// this is one of the fallback fonts.
+    pub fn symbol_font(mut self, symbol_font: Font<'static>) -> Self {
         self.symbol_font = Some(symbol_font);
         self
     }
 
-    pub fn emoji_font(mut self, emoji_font: ratatui_wgpu::Font<'static>) -> Self {
+    /// Set the fallback emoji-font.
+    /// When glyphs are not found in the other installed fonts
+    /// this is one of the fallback fonts.
+    pub fn emoji_font(mut self, emoji_font: Font<'static>) -> Self {
         self.emoji_font = Some(emoji_font);
         self
     }
 
+    /// Set the name of the font family that should be loaded as
+    /// regular fonts.
+    pub fn font_family(mut self, font_family: impl Into<String>) -> Self {
+        let font_family = font_family.into();
+        self.font_family = Some(font_family.clone());
+        self.cr_fonts = Box::new(create_font_by_family(font_family));
+        self
+    }
+
+    /// Set a constructor for the regular fonts.
     pub fn fonts(
         mut self,
         font_init: impl FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static,
     ) -> Self {
-        self.font_family = "<Custom Font List>".to_string();
+        self.font_family = None;
         self.cr_fonts = Box::new(font_init);
         self
     }
 
-    /// Set the initial font size in pixel.
+    /// Set the initial font size in pixel. Defaults to 22px.
     /// This will be adjusted by the scaling factor of the system.
     pub fn font_size(mut self, pt_size: f64) -> Self {
-        self.font_size = pt_size;
+        self.font_size = Some(pt_size);
         self
     }
 
+    /// Set the terminal bg color.
     pub fn bg_color(mut self, color: Color) -> Self {
         self.bg_color = color;
         self
     }
 
+    /// Set the terminal fg color.
     pub fn fg_color(mut self, color: Color) -> Self {
         self.fg_color = color;
         self
@@ -139,33 +185,45 @@ where
     /// Creates an icon from 32bpp RGBA data.
     ///
     /// The length of `rgba` must be divisible by 4, and `width * height` must equal
-    /// `rgba.len() / 4`. Otherwise, this will return a `BadIcon` error.    
-    pub fn window_icon(mut self, bytes: Vec<u8>, width: u32, height: u32) -> Self {
-        let icon = winit::window::Icon::from_rgba(bytes, width, height).expect("valid icon");
+    /// `rgba.len() / 4`. Otherwise, this will panic.
+    ///
+    /// > In the examples you can find 'img_icon' that can convert images to this
+    /// > format. You can then use `include_bytes!` to embed the icon.
+    pub fn window_icon(mut self, rgba: Vec<u8>, width: u32, height: u32) -> Self {
+        let icon = winit::window::Icon::from_rgba(rgba, width, height).expect("valid icon");
         self.win_attr = self.win_attr.with_window_icon(Some(icon));
         self
     }
 
+    /// Set the window title.
     pub fn window_title(mut self, title: impl Into<String>) -> Self {
         self.win_attr = self.win_attr.with_title(title);
         self
     }
 
+    /// Set the initial window position.
     pub fn window_position(mut self, pos: impl Into<winit::dpi::Position>) -> Self {
         self.win_attr = self.win_attr.with_position(pos);
         self
     }
 
+    /// Set the initial window size.
     pub fn window_size(mut self, size: impl Into<winit::dpi::Size>) -> Self {
         self.win_attr = self.win_attr.with_inner_size(size);
         self
     }
 
+    /// Set all the other window attributes.
     pub fn window_attr(mut self, attr: WindowAttributes) -> Self {
         self.win_attr = attr;
         self
     }
 
+    /// If you absolutely must, you can set a window constructor here.
+    ///
+    /// You should create the window with `with_visible(false)` otherwise
+    /// it might flicker at startup. The window will be set visible after
+    /// the first render.
     pub fn window(
         mut self,
         window_init: impl FnOnce(&ActiveEventLoop, WindowAttributes) -> Window + 'static,
@@ -176,16 +234,11 @@ where
 
     /// Create the WgpuBackend.
     ///
-    /// wgpu_init:
-    /// - window
-    /// - list of fonts
-    /// - font-size
-    /// - bg-color
-    /// - fg-color
+    /// This gets a [TermInit] struct with all the collected parameters.
     pub fn terminal(
         mut self,
         wgpu_init: impl FnOnce(
-            TerminalArg,
+            TermInit,
         ) -> Terminal<
             WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>,
         > + 'static,
@@ -202,12 +255,23 @@ where
 }
 
 /// Parameters passed to the terminal init function.
-pub struct TerminalArg {
+pub struct TermInit {
+    /// The fallback-font to use.
+    pub fallback_font: Font<'static>,
+    /// Premultiplied font-size.
+    pub font_size_px: u32,
+    /// The window instance.
     pub window: Arc<Window>,
+    /// Terminal fg color.
     pub fg_color: Color,
+    /// Terminal bg color.
     pub bg_color: Color,
+    /// Rapid blink rate.
     pub rapid_blink: u64,
+    /// Slow blink rate.
     pub slow_blink: u64,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 fn create_font_by_family(family: String) -> impl FnOnce(&fontdb::Database) -> Vec<fontdb::ID> {
@@ -226,34 +290,21 @@ fn create_font_by_family(family: String) -> impl FnOnce(&fontdb::Database) -> Ve
     }
 }
 
-fn create_fonts(fontdb: &fontdb::Database) -> Vec<fontdb::ID> {
-    fontdb
-        .faces()
-        .filter_map(|info| {
-            if (info.monospaced
-                || info.post_script_name.contains("Emoji")
-                || info.post_script_name.contains("emoji"))
-                && info.index == 0
-            {
-                Some(info.id)
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<_>>()
+fn mock_create_fonts(_: &fontdb::Database) -> Vec<fontdb::ID> {
+    Vec::default()
 }
 
 fn create_window(event_loop: &ActiveEventLoop, mut attr: WindowAttributes) -> Window {
     attr = attr.with_visible(false);
-    // attr = attr.with_window_icon()
     event_loop.create_window(attr).expect("event-loop")
 }
 
 fn create_wgpu(
-    arg: TerminalArg,
+    arg: TermInit,
 ) -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>> {
     let size = arg.window.inner_size();
 
+    // VGA base 16 colors.
     let colors = ColorTable {
         BLACK: [0, 0, 0],
         RED: [170, 0, 0],
@@ -274,14 +325,15 @@ fn create_wgpu(
     };
 
     let backend = futures_lite::future::block_on({
-        let mut b = Builder::from_font(FontData.fallback_font())
+        let mut b = Builder::from_font(arg.fallback_font)
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
                 height: NonZeroU32::new(size.height).expect("non-zero-height"),
             })
             .with_color_table(colors)
             .with_bg_color(arg.bg_color)
-            .with_fg_color(arg.fg_color);
+            .with_fg_color(arg.fg_color)
+            .with_font_size_px(arg.font_size_px);
         if arg.rapid_blink > 0 {
             b = b.with_rapid_blink_millis(arg.rapid_blink);
         }

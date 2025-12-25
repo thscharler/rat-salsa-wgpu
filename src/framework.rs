@@ -1,9 +1,10 @@
+use crate::_private::NonExhaustive;
 use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::framework::control_queue::ControlQueue;
 use crate::framework::poll_queue::PollQueue;
 use crate::poll::{PollEvents, PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
-use crate::run_config::TerminalArg;
+use crate::run_config::TermInit;
 use crate::tasks::Cancel;
 use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
@@ -17,13 +18,13 @@ use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::{Frame, Terminal};
 use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
-use ratatui_wgpu::{Fonts, WgpuBackend};
+use ratatui_wgpu::{Font, Fonts, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::cmp::min;
 use std::fmt::Debug;
 use std::rc::Rc;
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
 use std::{io, mem, thread};
@@ -36,6 +37,115 @@ use winit::window::{Window, WindowAttributes, WindowId};
 pub(crate) mod control_queue;
 mod poll_queue;
 
+/// Start the UI and run the event-loop.
+///
+/// This is the same as in rat-salsa, just using a different RunConfig.
+///
+/// ```rust no_run
+/// use anyhow::{anyhow, Error};
+/// use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
+/// use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, mock, run_tui};
+/// use rat_widget::event::ct_event;
+/// use ratatui::buffer::Buffer;
+/// use ratatui::layout::Rect;
+/// use ratatui::style::Stylize;
+/// use ratatui::text::{Line, Span};
+/// use ratatui::widgets::Widget;
+///
+/// fn main() -> Result<(), Error> {
+///     run_tui(
+///         mock::init,
+///         render,
+///         event,
+///         error,
+///         &mut Global::default(),
+///         &mut Ultra,
+///         RunConfig::new(ConvertCrossterm::default())?,
+///     )
+/// }
+///
+/// #[derive(Debug, Default)]
+/// pub struct Global {
+///     ctx: SalsaAppContext<UltraEvent, Error>,
+///     pub err_cnt: u32,
+///     pub err_msg: String,
+/// }
+///
+/// impl SalsaContext<UltraEvent, Error> for Global {
+///     fn set_salsa_ctx(&mut self, app_ctx: SalsaAppContext<UltraEvent, Error>) {
+///         self.ctx = app_ctx;
+///     }
+///
+///     fn salsa_ctx(&self) -> &SalsaAppContext<UltraEvent, Error> {
+///         &self.ctx
+///     }
+/// }
+///
+/// #[derive(Debug, PartialEq, Eq, Clone)]
+/// pub enum UltraEvent {
+///     Event(crossterm::event::Event),
+/// }
+///
+/// impl From<crossterm::event::Event> for UltraEvent {
+///     fn from(value: crossterm::event::Event) -> Self {
+///         Self::Event(value)
+///     }
+/// }
+///
+/// pub struct Ultra;
+///
+/// fn render(area: Rect, buf: &mut Buffer, _state: &mut Ultra, ctx: &mut Global) -> Result<(), Error> {
+///     Line::from_iter([Span::from("'q' to quit, 'e' for error, 'r' for repair")])
+///         .render(Rect::new(area.x, area.y, area.width, 1), buf);
+///     Line::from_iter([
+///         Span::from("Hello world!").green(),
+///         Span::from(" Status: "),
+///         if ctx.err_cnt > 0 {
+///             Span::from(&ctx.err_msg).red().underlined()
+///         } else {
+///             Span::from(&ctx.err_msg).cyan().underlined()
+///         },
+///     ])
+///     .render(Rect::new(area.x, area.y + 2, area.width, 1), buf);
+///     Ok(())
+/// }
+///
+/// fn event(
+///     event: &UltraEvent,
+///     _state: &mut Ultra,
+///     ctx: &mut Global,
+/// ) -> Result<Control<UltraEvent>, Error> {
+///     match event {
+///         UltraEvent::Event(event) => match event {
+///             ct_event!(key press 'q') => Ok(Control::Quit),
+///             ct_event!(key press 'e') => return Err(anyhow!("An error occured.")),
+///             ct_event!(key press 'r') => {
+///                 if ctx.err_cnt > 1 {
+///                     ctx.err_cnt -= 1;
+///                     ctx.err_msg = format!("#{}# One error repaired.", ctx.err_cnt).to_string();
+///                 } else if ctx.err_cnt == 1 {
+///                     ctx.err_cnt -= 1;
+///                     ctx.err_msg = "All within norms.".to_string();
+///                 } else {
+///                     ctx.err_cnt = 1;
+///                     ctx.err_msg = format!("#{}# Over-repaired.", ctx.err_cnt).to_string();
+///                 }
+///                 Ok(Control::Changed)
+///             }
+///             _ => Ok(Control::Continue),
+///         },
+///     }
+/// }
+///
+/// fn error(event: Error, _state: &mut Ultra, ctx: &mut Global) -> Result<Control<UltraEvent>, Error> {
+///     ctx.err_cnt += 1;
+///     ctx.err_msg = format!("#{}# {}", ctx.err_cnt, event).to_string();
+///     Ok(Control::Changed)
+/// }
+/// ```
+///
+/// Maybe `templates/minimal.rs` is more useful.
+///
 pub fn run_tui<Global, State, Event, Error>(
     init: fn(
         state: &mut State, //
@@ -72,6 +182,7 @@ where
         event_loop,
         event_type,
         cr_fonts,
+        fallback_font,
         font_family,
         font_size,
         symbol_font,
@@ -123,6 +234,7 @@ where
         }
         tmp
     };
+
     let proxy = event_loop.create_proxy();
 
     let mut app = WgpuApp::Startup(Startup {
@@ -133,6 +245,7 @@ where
         global,
         state,
         cr_fonts,
+        fallback_font,
         font_family,
         font_size,
         symbol_font,
@@ -186,10 +299,11 @@ where
 
     /// font loading callback
     cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
-    font_family: String,
-    font_size: f64,
-    symbol_font: Option<ratatui_wgpu::Font<'static>>,
-    emoji_font: Option<ratatui_wgpu::Font<'static>>,
+    fallback_font: Option<(String, Font<'static>)>,
+    font_family: Option<String>,
+    font_size: Option<f64>,
+    symbol_font: Option<Font<'static>>,
+    emoji_font: Option<Font<'static>>,
     bg_color: Color,
     fg_color: Color,
     rapid_blink: u64,
@@ -202,7 +316,7 @@ where
     /// terminal callback
     cr_term: Box<
         dyn FnOnce(
-            TerminalArg,
+            TermInit,
         )
             -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
     >,
@@ -238,9 +352,11 @@ where
     state: &'a mut State,
 
     #[allow(unused)]
-    symbol_font: Option<ratatui_wgpu::Font<'static>>,
+    fallback_font: Font<'static>,
     #[allow(unused)]
-    emoji_font: Option<ratatui_wgpu::Font<'static>>,
+    symbol_font: Option<Font<'static>>,
+    #[allow(unused)]
+    emoji_font: Option<Font<'static>>,
 
     event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
@@ -304,6 +420,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         global,
         state,
         cr_fonts,
+        fallback_font,
         font_family,
         font_size,
         symbol_font,
@@ -328,32 +445,36 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         panic!()
     };
 
+    let (fallback_family, fallback_font) = fallback_font.expect("fallback font");
+
+    let font_size = font_size.unwrap_or(22.0);
     let font_ids = cr_fonts(FontData.font_db());
     let window = Arc::new(cr_window(event_loop, win_attr));
 
-    let terminal = Rc::new(RefCell::new(
-        cr_term(TerminalArg {
-            window: window.clone(),
-            bg_color,
-            fg_color,
-            rapid_blink,
-            slow_blink,
-        }), //
-    ));
+    let font_size_px = (font_size * window.scale_factor()).round() as u32;
+    let font_family = font_family.unwrap_or(fallback_family);
+
+    let terminal = Rc::new(RefCell::new(cr_term(TermInit {
+        fallback_font: fallback_font.clone(),
+        font_size_px,
+        window: window.clone(),
+        bg_color,
+        fg_color,
+        rapid_blink,
+        slow_blink,
+        non_exhaustive: NonExhaustive,
+    })));
 
     // setup fonts
-    let mut font_list = Vec::new();
-    // if let Some(font) = emoji_font.clone() {
-    //     font_list.push(font.clone());
-    // }
-    // if let Some(font) = symbol_font.clone() {
-    //     font_list.push(font.clone());
-    // }
-    font_list.extend(font_ids.iter().filter_map(|id| FontData.load_font(*id)));
-    let font_size_px = (font_size * window.scale_factor()).round() as u32;
-    let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
-    fonts.add_fonts(font_list);
-    terminal.borrow_mut().backend_mut().update_fonts(fonts);
+    let font_list = font_ids
+        .iter()
+        .filter_map(|id| FontData.load_font(*id))
+        .collect::<Vec<_>>();
+    if !font_list.is_empty() {
+        let mut fonts = Fonts::new(fallback_font.clone(), font_size_px);
+        fonts.add_fonts(font_list);
+        terminal.borrow_mut().backend_mut().update_fonts(fonts);
+    }
 
     // window-size can be determined when we have the fonts installed.
     let window_size = terminal
@@ -371,6 +492,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         count: Default::default(),
         cursor: Default::default(),
         term: Some(terminal.clone()),
+        clear_terminal: Default::default(),
         last_render: Default::default(),
         last_event: Default::default(),
         timers: timers_ctrl,
@@ -391,6 +513,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         error,
         global,
         state,
+        fallback_font,
         symbol_font,
         emoji_font,
         event_type,
@@ -473,8 +596,11 @@ fn process_event<'a, Global, State, Event, Error>(
             event = None;
         }
     }
+    if app.global.salsa_ctx().clear_terminal.get() {
+        app.terminal.borrow_mut().clear().expect("clear terminal");
+        app.global.salsa_ctx().clear_terminal.set(false);
+    }
     if app.global.salsa_ctx().font_changed.get() {
-        let tt = SystemTime::now();
         // reload backend font
         reload_fonts(app);
         app.terminal.borrow_mut().clear().expect("clear terminal");
@@ -485,10 +611,8 @@ fn process_event<'a, Global, State, Event, Error>(
         }
         app.global.salsa_ctx().font_changed.set(false);
         app.global.salsa_ctx().font_size_changed.set(false);
-        debug!("reload_fonts {:?}", tt.elapsed());
     }
     if app.global.salsa_ctx().font_size_changed.get() {
-        let tt = SystemTime::now();
         // reload backend
         reload_fonts(app);
         app.terminal.borrow_mut().clear().expect("clear terminal");
@@ -498,7 +622,6 @@ fn process_event<'a, Global, State, Event, Error>(
             app.global.salsa_ctx().queue.push(Ok(Control::Changed));
         }
         app.global.salsa_ctx().font_size_changed.set(false);
-        debug!("reload_fonts {:?}", tt.elapsed());
     }
 
     if let Some(event) = event {
@@ -635,25 +758,18 @@ where
     Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let mut font_list = Vec::new();
-    // if let Some(font) = app.emoji_font.clone() {
-    //     font_list.push(font.clone());
-    // }
-    // if let Some(font) = app.symbol_font.clone() {
-    //     font_list.push(font.clone());
-    // }
-    font_list.extend(
-        app.global
-            .salsa_ctx()
-            .font_ids
-            .borrow()
-            .iter()
-            .filter_map(|id| FontData.load_font(*id)),
-    );
-
+    let fallback_font = app.fallback_font.clone();
+    let font_list = app
+        .global
+        .salsa_ctx()
+        .font_ids
+        .borrow()
+        .iter()
+        .filter_map(|id| FontData.load_font(*id))
+        .collect::<Vec<_>>();
     let font_size_px =
         (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;
-    let mut fonts = Fonts::new(FontData.fallback_font(), font_size_px);
+    let mut fonts = Fonts::new(fallback_font, font_size_px);
     fonts.add_fonts(font_list);
     app.terminal.borrow_mut().backend_mut().update_fonts(fonts);
 
@@ -664,11 +780,6 @@ where
         .borrow_mut()
         .backend_mut()
         .resize(1, 1);
-    app.terminal
-        .borrow_mut()
-        .backend_mut()
-        .resize(lsize.width as u32, lsize.height as u32);
-
     app.terminal
         .borrow_mut()
         .backend_mut()

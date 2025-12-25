@@ -28,7 +28,7 @@ use crate::timer::{TimerDef, TimerHandle, Timers};
 use crate::tokio_tasks::TokioTasks;
 pub use control::Control;
 pub use framework::run_tui;
-pub use run_config::RunConfig;
+pub use run_config::{RunConfig, TermInit};
 
 #[cfg(feature = "dialog")]
 pub mod dialog_stack;
@@ -362,6 +362,13 @@ where
         self.salsa_ctx().term.clone().expect("terminal")
     }
 
+    /// Clear the terminal and do a full redraw before the next draw.
+    #[inline]
+    fn clear_terminal(&mut self) {
+        self.salsa_ctx().clear_terminal.set(true);
+        self.salsa_ctx().window().request_redraw();
+    }
+
     /// Access the window.
     #[inline]
     fn window(&self) -> Arc<Window> {
@@ -420,18 +427,16 @@ where
 {
     /// Can be set to hold a Focus, if needed.
     pub(crate) focus: RefCell<Option<Focus>>,
-
     /// Last frame count rendered.
     pub(crate) count: Cell<usize>,
-
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
-
     /// Terminal area
     pub(crate) term: Option<
         Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
     >,
-
+    /// Clear terminal before next draw.
+    pub(crate) clear_terminal: Cell<bool>,
     /// Last render time.
     pub(crate) last_render: Cell<Duration>,
     /// Last event time.
@@ -444,7 +449,6 @@ where
     /// Background tasks.
     #[cfg(feature = "async")]
     pub(crate) tokio: Option<Arc<TokioTasks<Event, Error>>>,
-
     /// Queue foreground tasks.
     pub(crate) queue: framework::control_queue::ControlQueue<Event, Error>,
 
@@ -464,13 +468,22 @@ impl<Event, Error> Debug for SalsaAppContext<Event, Error> {
         ff.field("focus", &self.focus)
             .field("count", &self.count)
             .field("cursor", &self.cursor)
+            .field("clear_terminal", &self.clear_terminal.get())
+            .field("last_render", &self.last_render.get())
+            .field("last_event", &self.last_event.get())
             .field("timers", &self.timers)
             .field("tasks", &self.tasks)
-            .field("queue", &self.queue);
+            .field("queue", &self.queue)
+            .field("font_changed", &self.font_changed.get())
+            .field("font_size_changed", &self.font_size_changed.get())
+            .field("font_ids", &self.font_ids.borrow())
+            .field("font_family", &self.font_family.borrow())
+            .field("font_size", &self.font_size.get());
         #[cfg(feature = "async")]
         {
             ff.field("tokio", &self.tokio);
         }
+
         ff.finish()
     }
 }
@@ -486,10 +499,7 @@ where
             count: Default::default(),
             cursor: Default::default(),
             term: Default::default(),
-            window: Default::default(),
-            font_changed: Default::default(),
-            font_size_changed: Default::default(),
-            font_ids: Default::default(),
+            clear_terminal: Cell::new(false),
             last_render: Default::default(),
             last_event: Default::default(),
             timers: Default::default(),
@@ -497,6 +507,10 @@ where
             #[cfg(feature = "async")]
             tokio: Default::default(),
             queue: Default::default(),
+            window: Default::default(),
+            font_changed: Default::default(),
+            font_size_changed: Default::default(),
+            font_ids: Default::default(),
             font_size: Default::default(),
             font_family: Default::default(),
         }
@@ -520,7 +534,6 @@ where
 }
 
 mod _private {
-    #[allow(dead_code)]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct NonExhaustive;
 }

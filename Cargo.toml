@@ -15,13 +15,15 @@ exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
 workspace = true
 
 [features]
-default = ["dialog_widgets", "async"]
+default = ["dialog_widgets", "async", "fallback_font"]
 # Async support.
 async = ["dep:tokio"]
 # Add support for dialog windows.
 dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
 dialog_widgets = ["dialog", "rat-widget"]
+# Add CascadiaMono-Regular as fallback font.
+fallback_font = []
 # Add NotoEmoji-Regular as default emoji font.
 fallback_emoji_font = []
 # Add NotoSansSymbols2-Regular as default symbol font.
