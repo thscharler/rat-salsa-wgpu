@@ -783,6 +783,14 @@ where
         .borrow_mut()
         .backend_mut()
         .resize(lsize.width as u32, lsize.height as u32);
+
+    app.window_size = app
+        .terminal
+        .borrow_mut()
+        .backend_mut()
+        .window_size()
+        .expect("window_size");
+    app.event_type.set_window_size(app.window_size);
 }
 
 fn resized_event<'a, Global, State, Event, Error>(
