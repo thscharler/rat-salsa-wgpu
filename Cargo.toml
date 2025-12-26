@@ -15,7 +15,7 @@ exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
 workspace = true
 
 [features]
-default = ["dialog_widgets", "async", "fallback_font"]
+default = ["dialog_widgets", "async", "fallback_font", "preserve_aspect_ratio"]
 # Async support.
 async = ["dep:tokio"]
 # Add support for dialog windows.

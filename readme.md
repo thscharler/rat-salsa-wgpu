@@ -42,7 +42,7 @@ RunConfig::new(ConvertCrossterm::new())?
 
 ## Quirks
 
-This is 0.1 btw. 
+> This is 0.1 btw. 
 
 ## Dual use
 
@@ -80,6 +80,9 @@ use crate::rat_salsa::{Control, SalsaContext};
 ```
 
 ## Included Fonts
+
+> This is currently pending, there are a few PR's waiting. 
+> But there is a fallback font if you don't set anything. 
 
 * [OpenMoji-black-glyf][refOpenMoji]  (CC-BY-SA-4.0 license)
 * NotoSansSymbols2-Regular (OFL license)
