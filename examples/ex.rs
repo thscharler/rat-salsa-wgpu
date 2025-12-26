@@ -20,7 +20,7 @@ use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fs;
@@ -48,6 +48,9 @@ pub fn main() -> Result<(), Error> {
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
             .font_family("Hack Nerd Font Mono")
             .font_size(22.)
+            // .viewport(ratatui_wgpu::Viewport::Shrink { width: 40, height: 40 })
+            // .bg_color(Color::Red)
+            // .fg_color(Color::White)
             .rapid_blink_millis(500)
             .slow_blink_millis(1000)
             // .poll(PollTick::new(0, 500))
@@ -173,6 +176,8 @@ pub fn render(
     ])
     .split(area);
 
+    buf.set_style(area, Style::new().white().on_dark_gray());
+
     Text::from_iter([
         Line::from(""),
         Line::from(format!("** {} **", ctx.font_family())),
@@ -186,6 +191,7 @@ pub fn render(
         Line::from("reversed").style(Style::new().add_modifier(Modifier::REVERSED)),
         Line::from("hidden").style(Style::new().add_modifier(Modifier::HIDDEN)),
         Line::from("crossed_out").style(Style::new().add_modifier(Modifier::CROSSED_OUT)),
+        Line::from(" H̴̢͕̠͖͇̻͓̙̞͔͕͓̰͋͛͂̃̌͂͆͜͠").style(Style::new()),
         Line::from(" ...").style(Style::new()),
         Line::from(" ..").style(Style::new()),
         Line::from(" .").style(Style::new()),
@@ -311,15 +317,6 @@ pub fn event(
 
         ctx.handle_focus(event);
 
-        if let crossterm::event::Event::Mouse(m) = event {
-            if m.kind != MouseEventKind::Moved {
-                event_flow!({
-                    state.mouse_event = Some(m.clone());
-                    Control::Changed
-                });
-            }
-        }
-
         try_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => next_font(state, ctx),
             MenuOutcome::Activated(1) => prev_font(state, ctx),
@@ -328,6 +325,13 @@ pub fn event(
             MenuOutcome::Activated(4) => Control::Quit,
             v => v.into(),
         });
+
+        if let crossterm::event::Event::Mouse(m) = event {
+            if m.kind != MouseEventKind::Moved {
+                state.mouse_event = Some(m.clone());
+                ctx.queue(Control::Changed)
+            }
+        }
     }
 
     match event {

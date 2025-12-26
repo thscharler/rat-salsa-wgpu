@@ -1,11 +1,10 @@
 use crate::_private::NonExhaustive;
-use crate::Control;
 use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::poll::PollEvents;
+use crate::{Control, PostProcess};
 use ratatui::Terminal;
 use ratatui::style::Color;
-use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
 use ratatui_wgpu::{Builder, ColorTable, Dimensions, Font, WgpuBackend};
 use std::num::NonZeroU32;
 use std::sync::Arc;
@@ -46,12 +45,8 @@ where
     /// window callback
     pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
     /// terminal callback
-    pub(crate) cr_term: Box<
-        dyn FnOnce(
-            TermInit,
-        )
-            -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
-    >,
+    pub(crate) cr_term:
+        Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProcess>>>,
 
     /// List of all event-handlers for the application.
     ///
@@ -237,11 +232,8 @@ where
     /// This gets a [TermInit] struct with all the collected parameters.
     pub fn terminal(
         mut self,
-        wgpu_init: impl FnOnce(
-            TermInit,
-        ) -> Terminal<
-            WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>,
-        > + 'static,
+        wgpu_init: impl FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProcess>>
+        + 'static,
     ) -> Self {
         self.cr_term = Box::new(wgpu_init);
         self
@@ -299,9 +291,7 @@ fn create_window(event_loop: &ActiveEventLoop, mut attr: WindowAttributes) -> Wi
     event_loop.create_window(attr).expect("event-loop")
 }
 
-fn create_wgpu(
-    arg: TermInit,
-) -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>> {
+fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProcess>> {
     let size = arg.window.inner_size();
 
     // VGA base 16 colors.

@@ -5,7 +5,7 @@ use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
 use ratatui::Terminal;
 use ratatui_wgpu::WgpuBackend;
-use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
+use ratatui_wgpu::shaders::{DefaultPostProcessor};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -13,6 +13,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::task::AbortHandle;
 use winit::window::Window;
+
+#[cfg(not(feature = "preserve_aspect_ratio"))]
+pub(crate) type PostProcess = DefaultPostProcessor<false>;
+#[cfg(feature = "preserve_aspect_ratio")]
+pub(crate) type PostProcess = DefaultPostProcessor<true>;
 
 mod control;
 mod framework;
@@ -357,8 +362,7 @@ where
     #[inline]
     fn terminal(
         &self,
-    ) -> Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>
-    {
+    ) -> Rc<RefCell<Terminal<WgpuBackend<'static, 'static, PostProcess>>>> {
         self.salsa_ctx().term.clone().expect("terminal")
     }
 
@@ -432,9 +436,8 @@ where
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
-    pub(crate) term: Option<
-        Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
-    >,
+    pub(crate) term:
+        Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static, PostProcess>>>>>,
     /// Clear terminal before next draw.
     pub(crate) clear_terminal: Cell<bool>,
     /// Last render time.

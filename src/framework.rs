@@ -9,14 +9,13 @@ use crate::tasks::Cancel;
 use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
-use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
+use crate::{Control, RunConfig, SalsaAppContext, SalsaContext, PostProcess};
 use rat_widget::text::cursor::CursorType;
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::{Frame, Terminal};
-use ratatui_wgpu::shaders::AspectPreservingDefaultPostProcessor;
 use ratatui_wgpu::{Font, Fonts, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
@@ -317,7 +316,7 @@ where
         dyn FnOnce(
             TermInit,
         )
-            -> Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>,
+            -> Terminal<WgpuBackend<'static, 'static, PostProcess>>,
     >,
 
     event_type: Box<dyn ConvertEvent<Event>>,
@@ -366,7 +365,7 @@ where
     window: Arc<Window>,
     window_size: WindowSize,
     terminal:
-        Rc<RefCell<Terminal<WgpuBackend<'static, 'static, AspectPreservingDefaultPostProcessor>>>>,
+        Rc<RefCell<Terminal<WgpuBackend<'static, 'static, PostProcess>>>>,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
