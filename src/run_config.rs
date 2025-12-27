@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::poll::PollEvents;
-use crate::{Control, PostProcess};
+use crate::{Control, PostProcessorBuilder};
 use ratatui::Terminal;
 use ratatui::style::Color;
 use ratatui_wgpu::{Builder, ColorTable, Dimensions, Font, WgpuBackend};
@@ -45,8 +45,7 @@ where
     /// window callback
     pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
     /// terminal callback
-    pub(crate) cr_term:
-        Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProcess>>>,
+    pub(crate) cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>>>,
 
     /// List of all event-handlers for the application.
     ///
@@ -232,8 +231,7 @@ where
     /// This gets a [TermInit] struct with all the collected parameters.
     pub fn terminal(
         mut self,
-        wgpu_init: impl FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProcess>>
-        + 'static,
+        wgpu_init: impl FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>> + 'static,
     ) -> Self {
         self.cr_term = Box::new(wgpu_init);
         self
@@ -248,8 +246,10 @@ where
 
 /// Parameters passed to the terminal init function.
 pub struct TermInit {
-    /// The fallback-font to use.
-    pub fallback_font: Font<'static>,
+    /// The fallback fonts to use.
+    pub fallback_fonts: Vec<Font<'static>>,
+    /// The regular fonts to use.
+    pub fonts: Vec<Font<'static>>,
     /// Premultiplied font-size.
     pub font_size_px: u32,
     /// The window instance.
@@ -291,7 +291,7 @@ fn create_window(event_loop: &ActiveEventLoop, mut attr: WindowAttributes) -> Wi
     event_loop.create_window(attr).expect("event-loop")
 }
 
-fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProcess>> {
+fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
     let size = arg.window.inner_size();
 
     // VGA base 16 colors.
@@ -315,7 +315,7 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProc
     };
 
     let backend = futures_lite::future::block_on({
-        let mut b = Builder::from_font(arg.fallback_font)
+        let mut b = Builder::<PostProcessorBuilder>::from_fallback_fonts(arg.fallback_fonts)
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
                 height: NonZeroU32::new(size.height).expect("non-zero-height"),
@@ -323,6 +323,7 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProc
             .with_color_table(colors)
             .with_bg_color(arg.bg_color)
             .with_fg_color(arg.fg_color)
+            .with_fonts(arg.fonts)
             .with_font_size_px(arg.font_size_px);
         if arg.rapid_blink > 0 {
             b = b.with_rapid_blink_millis(arg.rapid_blink);

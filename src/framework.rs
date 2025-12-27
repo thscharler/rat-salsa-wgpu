@@ -9,14 +9,14 @@ use crate::tasks::Cancel;
 use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
-use crate::{Control, PostProcess, RunConfig, SalsaAppContext, SalsaContext};
+use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_widget::text::cursor::CursorType;
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
 use ratatui::{Frame, Terminal};
-use ratatui_wgpu::{Font, Fonts, WgpuBackend};
+use ratatui_wgpu::{Font, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::cmp::min;
@@ -312,7 +312,7 @@ where
     cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
 
     /// terminal callback
-    cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static, PostProcess>>>,
+    cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>>>,
 
     event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
@@ -344,13 +344,6 @@ where
     global: &'a mut Global,
     state: &'a mut State,
 
-    #[allow(unused)]
-    fallback_font: Font<'static>,
-    #[allow(unused)]
-    symbol_font: Option<Font<'static>>,
-    #[allow(unused)]
-    emoji_font: Option<Font<'static>>,
-
     event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
@@ -359,7 +352,7 @@ where
 
     window: Arc<Window>,
     window_size: WindowSize,
-    terminal: Rc<RefCell<Terminal<WgpuBackend<'static, 'static, PostProcess>>>>,
+    terminal: Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
@@ -437,7 +430,12 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         panic!()
     };
 
-    let (fallback_family, fallback_font) = fallback_font.expect("fallback font");
+    let (fallback_family, fallback_font) =
+        if let Some((fallback_family, fallback_font)) = fallback_font {
+            (fallback_family, Some(fallback_font))
+        } else {
+            (String::default(), None)
+        };
 
     let font_size = font_size.unwrap_or(22.0);
     let font_ids = cr_fonts(FontData.font_db());
@@ -446,8 +444,26 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     let font_size_px = (font_size * window.scale_factor()).round() as u32;
     let font_family = font_family.unwrap_or(fallback_family);
 
+    // setup fonts
+    let mut fallback_fonts = Vec::new();
+    if let Some(font) = fallback_font {
+        fallback_fonts.push(font);
+    }
+    if let Some(font) = symbol_font {
+        fallback_fonts.push(font);
+    }
+    if let Some(font) = emoji_font {
+        fallback_fonts.push(font);
+    }
+
+    let fonts = font_ids
+        .iter()
+        .filter_map(|id| FontData.load_font(*id))
+        .collect::<Vec<_>>();
+
     let terminal = Rc::new(RefCell::new(cr_term(TermInit {
-        fallback_font: fallback_font.clone(),
+        fallback_fonts: fallback_fonts.clone(),
+        fonts,
         font_size_px,
         window: window.clone(),
         bg_color,
@@ -456,21 +472,6 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         slow_blink,
         non_exhaustive: NonExhaustive,
     })));
-
-    // setup fonts
-    let mut fallback = Vec::new();
-    fallback.push(FontData.fallback_font());
-    fallback.push(symbol_font.clone());
-    fallback.push(emoji_font.clone());
-    let font_list = font_ids
-        .iter()
-        .filter_map(|id| FontData.load_font(*id))
-        .collect::<Vec<_>>();
-    if !font_list.is_empty() {
-        let mut fonts = Fonts::new_with_fallbacks(fallback, font_size_px);
-        fonts.add_fonts(font_list);
-        terminal.borrow_mut().backend_mut().update_fonts(fonts);
-    }
 
     // window-size can be determined when we have the fonts installed.
     let window_size = terminal
@@ -509,9 +510,6 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         error,
         global,
         state,
-        fallback_font,
-        symbol_font,
-        emoji_font,
         event_type,
         quit_event,
         rendered_event,
@@ -754,15 +752,7 @@ where
     Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let mut fallback = Vec::new();
-    fallback.push(FontData.fallback_font());
-    if let Some(font) = app.symbol_font.clone() {
-        fallback.push(font.clone());
-    }
-    if let Some(font) = app.emoji_font.clone() {
-        fallback.push(font.clone());
-    }
-    let font_list = app
+    let font_vec = app
         .global
         .salsa_ctx()
         .font_ids
@@ -770,15 +760,20 @@ where
         .iter()
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
+    app.terminal
+        .borrow_mut()
+        .backend_mut()
+        .update_font_vec(font_vec);
     let font_size_px =
         (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;
-    let mut fonts = Fonts::new_with_fallbacks(fallback, font_size_px);
-    fonts.add_fonts(font_list);
-    app.terminal.borrow_mut().backend_mut().update_fonts(fonts);
+    app.terminal
+        .borrow_mut()
+        .backend_mut()
+        .update_font_size(font_size_px);
 
     // only a resize of the backend works.
     // and only a really extreme shrink removes all the artifacts, it seems ...
-    let lsize = app.window_size.pixels;
+    // let lsize = app.window_size.pixels;
     // app.terminal //
     //     .borrow_mut()
     //     .backend_mut()
@@ -810,6 +805,14 @@ fn change_font_size<'a, Global, State, Event, Error>(
         .borrow_mut()
         .backend_mut()
         .update_font_size(font_size_px);
+
+    app.window_size = app
+        .terminal
+        .borrow_mut()
+        .backend_mut()
+        .window_size()
+        .expect("window_size");
+    app.event_type.set_window_size(app.window_size);
 }
 
 fn resized_event<'a, Global, State, Event, Error>(
