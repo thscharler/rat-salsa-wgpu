@@ -2,9 +2,9 @@ use crate::{Control, SalsaContext};
 use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
 use rat_widget::layout::LayoutOuter;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::widgets::StatefulWidget;
 use std::any::Any;
 use try_as_traits::TryAsRef;
 

@@ -6,7 +6,7 @@ pub mod convert_winit;
 ///
 pub trait ConvertEvent<Event> {
     /// Window size changed.
-    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize);
+    fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize);
     /// Update some states.
     fn update_state(&mut self, event: &winit::event::WindowEvent);
     /// Query the current state.
@@ -32,9 +32,9 @@ pub struct WinitEventState {
     /// Pending dead key
     dead_key_released: Option<char>,
     /// Window size in pixel.
-    window_size_px: ratatui::layout::Size,
+    window_size_px: ratatui_core::layout::Size,
     /// Window size in rendered cells.
-    window_size: ratatui::layout::Size,
+    window_size: ratatui_core::layout::Size,
     /// Rendered text cell width.
     cell_width_px: u16,
     /// Rendered text cell height.
@@ -104,15 +104,15 @@ impl WinitEventState {
         }
     }
 
-    pub fn window_size(&self) -> ratatui::layout::Size {
+    pub fn window_size(&self) -> ratatui_core::layout::Size {
         self.window_size
     }
 
-    pub fn window_size_px(&self) -> ratatui::layout::Size {
+    pub fn window_size_px(&self) -> ratatui_core::layout::Size {
         self.window_size_px
     }
 
-    pub fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
+    pub fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize) {
         self.window_size = window_size.columns_rows;
         self.window_size_px = window_size.pixels;
         self.cell_width_px = window_size.pixels.width / window_size.columns_rows.width;

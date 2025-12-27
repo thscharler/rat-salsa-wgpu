@@ -3,7 +3,6 @@ use log::debug;
 #[allow(dead_code)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
-use ratatui::Terminal;
 use ratatui_wgpu::WgpuBackend;
 use ratatui_wgpu::shaders::{ DefaultPostProcessorBuilder};
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -11,6 +10,7 @@ use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
+use ratatui_core::terminal::Terminal;
 use tokio::task::AbortHandle;
 use winit::window::Window;
 

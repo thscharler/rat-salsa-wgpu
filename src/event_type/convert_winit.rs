@@ -11,7 +11,7 @@ impl<Event> ConvertEvent<Event> for ConvertWinit
 where
     Event: 'static + From<CompositeWinitEvent>,
 {
-    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
+    fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize) {
         self.state.set_window_size(window_size);
     }
 

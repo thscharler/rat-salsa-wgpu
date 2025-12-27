@@ -13,9 +13,9 @@ use rat_theme4::{WidgetStyle, create_salsa_theme};
 use rat_widget::event::{Dialog, HandleEvent, ct_event, try_flow};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::{Constraint, Direction, Layout, Rect};
+use ratatui_core::widgets::StatefulWidget;
 use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
@@ -224,12 +224,13 @@ pub mod themes {
     use rat_widget::table::selection::RowSelection;
     use rat_widget::table::{Table, TableContext, TableDataIter, TableState};
     use rat_widget::view::{View, ViewState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::text::Span;
-    use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Layout, Rect};
+    use ratatui_core::text::Span;
     use std::fmt::Debug;
     use std::slice;
+    use ratatui_core::widgets::{StatefulWidget, Widget};
+    use ratatui_widgets::block::{Block, Padding};
 
     #[derive(Debug)]
     pub struct Themes {
@@ -420,11 +421,11 @@ pub mod show_scheme {
     use rat_theme4::StyleName;
     use rat_theme4::palette::{Colors, Palette};
     use rat_theme4::theme::SalsaTheme;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::style::{Color, Style};
-    use ratatui::text::{Line, Span};
-    use ratatui::widgets::Widget;
+    use ratatui_core::buffer::Buffer;
+    use ratatui_core::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui_core::style::{Color, Style};
+    use ratatui_core::text::{Line, Span};
+    use ratatui_core::widgets::Widget;
 
     #[derive(Debug)]
     pub struct ShowScheme<'a> {

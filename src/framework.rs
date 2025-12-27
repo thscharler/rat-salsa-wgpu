@@ -11,11 +11,11 @@ use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
 use rat_widget::text::cursor::CursorType;
-use ratatui::backend::{Backend, WindowSize};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Color;
-use ratatui::{Frame, Terminal};
+use ratatui_core::backend::{Backend, WindowSize};
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Color;
+use ratatui_core::terminal::{Frame, Terminal};
 use ratatui_wgpu::{Font, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
@@ -171,7 +171,7 @@ pub fn run_tui<Global, State, Event, Error>(
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<winit::error::EventLoopError> + From<io::Error>,
 {
     rat_widget::text::cursor::set_cursor_type(CursorType::RenderedCursor);
@@ -369,7 +369,7 @@ impl<'a, Global, State, Event, Error> ApplicationHandler<Result<Control<Event>, 
     for WgpuApp<'a, Global, State, Event, Error>
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -390,7 +390,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     if !matches!(app, WgpuApp::Startup(_)) {
@@ -540,7 +540,7 @@ fn process_event<'a, Global, State, Event, Error>(
     user: Option<Result<Control<Event>, Error>>,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let WgpuApp::Running(app) = app else {
@@ -712,7 +712,7 @@ fn process_event<'a, Global, State, Event, Error>(
 fn render_tui<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let mut r = Ok(());
@@ -749,7 +749,7 @@ where
 fn reload_fonts<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let font_vec = app
@@ -796,7 +796,7 @@ fn change_font_size<'a, Global, State, Event, Error>(
     app: &mut Running<'a, Global, State, Event, Error>,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let font_size_px =
@@ -820,7 +820,7 @@ fn resized_event<'a, Global, State, Event, Error>(
 ) -> Option<Event>
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let size = app.window_size.pixels;
@@ -833,7 +833,7 @@ fn resize<'a, Global, State, Event, Error>(
     size: PhysicalSize<u32>,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     app.terminal
@@ -856,7 +856,7 @@ fn shutdown<'a, Global, State, Event, Error>(
     event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send + From<crossterm::event::Event>,
+    Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     app.poll.shutdown();

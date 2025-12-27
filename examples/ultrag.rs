@@ -2,11 +2,11 @@ use anyhow::{Error, anyhow};
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, mock, run_tui};
 use rat_widget::event::ct_event;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Stylize;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::Widget;
+use ratatui_core::buffer::Buffer;
+use ratatui_core::layout::Rect;
+use ratatui_core::style::Stylize;
+use ratatui_core::text::{Line, Span};
+use ratatui_core::widgets::Widget;
 
 type Global = SalsaAppContext<UltraEvent, Error>;
 

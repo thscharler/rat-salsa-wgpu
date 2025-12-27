@@ -23,7 +23,7 @@ impl<Event> ConvertEvent<Event> for ConvertCrossterm
 where
     Event: 'static + From<crossterm::event::Event>,
 {
-    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
+    fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize) {
         self.state.set_window_size(window_size);
     }
 
@@ -55,7 +55,7 @@ impl<Event> ConvertEvent<Event> for ConvertCrosstermEx
 where
     Event: 'static + From<crossterm::event::Event> + From<CompositeWinitEvent>,
 {
-    fn set_window_size(&mut self, window_size: ratatui::backend::WindowSize) {
+    fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize) {
         self.state.set_window_size(window_size);
     }
 
