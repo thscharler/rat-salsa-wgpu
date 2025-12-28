@@ -6,8 +6,9 @@ use configparser::ini::Ini;
 use crossterm::event::Event;
 use dirs::config_dir;
 use log::{debug, warn};
+use rat_salsa_wgpu::event::QuitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
-use rat_salsa_wgpu::poll::{PollTasks, PollTimers};
+use rat_salsa_wgpu::poll::{PollQuit, PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
@@ -66,7 +67,8 @@ fn main() -> Result<(), Error> {
 
     let mut run_config = RunConfig::new(ConvertCrossterm::new())?
         .poll(PollTimers::new())
-        .poll(PollTasks::new(2));
+        .poll(PollTasks::new(2))
+        .poll(PollQuit);
     run_config = run_config.window_icon(IMG.into(), 64, 64);
     run_config = run_config.window_title(format!("log/scroll {:?}", current));
     if let Some(window) = config.window {
@@ -255,6 +257,7 @@ impl GlobalState {
 #[derive(Debug)]
 pub enum LogScrollEvent {
     Event(Event),
+    Quit,
     TimeOut(TimeOut),
     Message(String),
     Status(usize, String),
@@ -265,6 +268,12 @@ pub enum LogScrollEvent {
 
     Cursor,
     StoreCfg,
+}
+
+impl From<QuitEvent> for LogScrollEvent {
+    fn from(_value: QuitEvent) -> Self {
+        Self::Quit
+    }
 }
 
 impl From<Event> for LogScrollEvent {
@@ -387,6 +396,10 @@ pub fn event(
             ctx.queue(f);
 
             r
+        }
+        LogScrollEvent::Quit => {
+            store_config(ctx, &ctx.cfg)?;
+            Control::Quit
         }
         LogScrollEvent::Message(s) => {
             state.error_dlg.append(s.as_str());
@@ -1196,27 +1209,30 @@ static HELP_TEXT: &str = r#"
 
 ### HELP ###
 
-F1      show this
-F2      change split position
-F3      jump to find / toggle find
-F4      jump to end of log
-F5      truncate log
-F8      next theme
-Ctrl+Q  quit
+F1 ............ show this
+F2 ............ change split position
+F3 ............ jump to find / toggle find
+F4 ............ jump to end of log
+F5 ............ truncate log
+
+F8 ............ next theme
+Ctrl+F8 ....... next font
+Ctrl+Scroll ... font-size
+Ctrl+Q ........ quit
 
 ### Navigation ###
 
 Tab/
-Shift-Tab   standard navigation
+Shift-Tab ..... standard navigation
 
 ### Find ###
 
 Use '|' to separate search terms.
 
 ### Log ###
-Ctrl+End    jump to end of log and stick there
-...         standard navigation with arrow-keys etc
-Ctrl+C      copy to clipboard
-Alt+W       toggle text-wrap
+Ctrl+End ...... jump to end of log and stick there
+...             standard navigation with arrow-keys etc
+Ctrl+C ........ copy to clipboard
+Alt+W ......... toggle text-wrap
 
 "#;
