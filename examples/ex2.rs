@@ -9,22 +9,23 @@ use rat_salsa_wgpu::poll::{PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
-use rat_theme4::create_salsa_theme;
 use rat_theme4::theme::SalsaTheme;
+use rat_theme4::{StyleName, create_salsa_theme};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::{Style, Stylize};
-use ratatui_core::text::{Line, Text};
+use ratatui_core::text::{Line, Span, Text};
 use ratatui_core::widgets::Widget;
 use std::fmt::Write;
 use std::fs;
 use std::path::PathBuf;
+use unicode_width::UnicodeWidthChar;
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_salsa_theme("Imperial Shell");
+    let theme = create_salsa_theme("Nord");
     let mut global = Global::new(config, theme);
     let mut state = Minimal::default();
 
@@ -67,33 +68,8 @@ impl SalsaContext<AppEvent, Error> for Global {
 
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
-        let font_db = FontData.font_db();
-        let mut fonts = font_db
-            .faces()
-            .filter_map(|info| {
-                if info.monospaced {
-                    if let Some((family, _)) = info.families.first() {
-                        if family != "Lucida Console"
-                            && family != "NSimSun"
-                            && family != "SimSun-ExtB"
-                            && family != "SimSun-ExtG"
-                        {
-                            Some(family.clone())
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        fonts.sort();
-        fonts.dedup();
+        let mut fonts = FontData.installed_fonts().clone();
         fonts.insert(0, "<Fallback>".to_string());
-
         Self {
             ctx: Default::default(),
             cfg,
@@ -168,6 +144,8 @@ pub fn render(
     ])
     .split(area);
 
+    buf.set_style(area, ctx.theme.style_style(Style::CONTAINER_BASE));
+
     let (block_start, block_end, block) = BLOCKS[state.range_idx];
 
     let mut txt = Text::default();
@@ -179,28 +157,60 @@ pub fn render(
         block_start as u32, block_end as u32
     ));
 
-    let mut tmp = String::new();
-    _ = write!(
-        tmp,
-        "{:#5x} - {:#5x}",
+    const CLUSTER: u32 = 16;
+
+    // let mut tmp1 = Line::default();
+    let mut tmp2 = Line::default();
+
+    let byte_span = format!(
+        "{:#5x} - {:#5x} ",
         block_start as u32,
-        block_start as u32 + 16
+        block_start as u32 + CLUSTER
     );
+    // tmp1.push_span(Span::from(" ".repeat(byte_span.len())));
+    tmp2.push_span(Span::from(byte_span));
 
     for cc in block_start..=block_end {
         let off = cc as u32 - block_start as u32;
-        if off != 0 && off % 16 == 0 {
-            txt.push_line(Line::from(tmp.clone()).style(Style::new().bold()));
-            tmp.clear();
 
-            _ = write!(tmp, "{:#5x} - {:#5x}", cc as u32, cc as u32 + 16);
+        if off != 0 && off % CLUSTER == 0 {
+            // txt.push_line(tmp1);
+            txt.push_line(tmp2);
+
+            let byte_span = format!(
+                "{:#5x} - {:#5x} ",
+                block_start as u32,
+                block_start as u32 + CLUSTER
+            );
+            // tmp1 = Line::default();
+            // tmp1.push_span(Span::from(" ".repeat(byte_span.len())));
+            tmp2 = Line::default();
+            tmp2.push_span(Span::from(byte_span));
         }
 
-        tmp.push(' ');
-        tmp.push(cc);
-        tmp.push(' ');
+        // tmp1.push_span(" ");
+        // match cc.width() {
+        //     None => {
+        //         tmp1.push_span("?");
+        //     }
+        //     Some(1) => {
+        //         tmp1.push_span("1");
+        //     }
+        //     Some(2) => {
+        //         tmp1.push_span("2 ");
+        //     }
+        //     Some(n) => {
+        //         tmp1.push_span(n.to_string());
+        //     }
+        // }
+        // tmp1.push_span(" ");
+
+        tmp2.push_span(" ");
+        tmp2.push_span(Span::from(cc.to_string()).style(ctx.theme.style_style(Style::KEY_BINDING)));
     }
-    txt.push_line(Line::from(tmp.clone()).style(Style::new().bold()));
+
+    // txt.push_line(tmp1);
+    txt.push_line(tmp2);
     txt.render(layout[0], buf);
 
     Ok(())

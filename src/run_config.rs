@@ -315,7 +315,7 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
     };
 
     let backend = futures_lite::future::block_on({
-        let mut b = Builder::<PostProcessorBuilder>::from_fallback_fonts(arg.fallback_fonts)
+        let mut b = Builder::<PostProcessorBuilder>::from_fonts(arg.fallback_fonts)
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
                 height: NonZeroU32::new(size.height).expect("non-zero-height"),
