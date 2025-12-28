@@ -9,6 +9,7 @@ use rat_salsa_wgpu::poll::{PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
+use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
 use ratatui_core::buffer::Buffer;
@@ -149,7 +150,7 @@ pub fn render(
     let (block_start, block_end, block) = BLOCKS[state.range_idx];
 
     let mut txt = Text::default();
-    txt.push_line(format!("  :: {}", ctx.font_family()));
+    txt.push_line(Line::from(format!("  :: {}", ctx.font_family())).bold());
     txt.push_line(format!("  :: {}", ctx.font_size()));
     txt.push_line(format!("  :: {}", block));
     txt.push_line(format!(
@@ -167,49 +168,31 @@ pub fn render(
         block_start as u32,
         block_start as u32 + CLUSTER
     );
-    // tmp1.push_span(Span::from(" ".repeat(byte_span.len())));
     tmp2.push_span(Span::from(byte_span));
 
     for cc in block_start..=block_end {
         let off = cc as u32 - block_start as u32;
 
         if off != 0 && off % CLUSTER == 0 {
-            // txt.push_line(tmp1);
             txt.push_line(tmp2);
 
             let byte_span = format!(
                 "{:#5x} - {:#5x} ",
-                block_start as u32,
-                block_start as u32 + CLUSTER
+                block_start as u32 + off,
+                block_start as u32 + off + CLUSTER
             );
-            // tmp1 = Line::default();
-            // tmp1.push_span(Span::from(" ".repeat(byte_span.len())));
             tmp2 = Line::default();
             tmp2.push_span(Span::from(byte_span));
         }
 
-        // tmp1.push_span(" ");
-        // match cc.width() {
-        //     None => {
-        //         tmp1.push_span("?");
-        //     }
-        //     Some(1) => {
-        //         tmp1.push_span("1");
-        //     }
-        //     Some(2) => {
-        //         tmp1.push_span("2 ");
-        //     }
-        //     Some(n) => {
-        //         tmp1.push_span(n.to_string());
-        //     }
-        // }
-        // tmp1.push_span(" ");
-
         tmp2.push_span(" ");
-        tmp2.push_span(Span::from(cc.to_string()).style(ctx.theme.style_style(Style::KEY_BINDING)));
+        tmp2.push_span(Span::from(cc.to_string()).style(ctx.theme.p.high_bg_style(
+            Colors::Gray,
+            Colors::Blue,
+            3,
+        )));
     }
 
-    // txt.push_line(tmp1);
     txt.push_line(tmp2);
     txt.render(layout[0], buf);
 
@@ -217,6 +200,9 @@ pub fn render(
 }
 
 static BLOCKS: &'static [(char, char, &'static str)] = &[
+    ('\u{27F0}', '\u{27FF}', "Pfeile, Zusatz A"),
+    ('\u{2900}', '\u{297F}', "Pfeile, Zusatz B"),
+    ('\u{1F800}', '\u{1F8FF}', "Pfeile, Zusatz C"),
     ('\u{0000}', '\u{007F}', "Lateinisch, Basis"),
     ('\u{0080}', '\u{00FF}', "Lateinisch, Ergänzung"),
     ('\u{0100}', '\u{017F}', "Lateinisch, Erweiterung A"),
@@ -681,13 +667,16 @@ pub fn event(
                 ctx.set_font_family(font);
                 Control::Changed
             }
-
-            ct_event!(keycode press PageDown) => {
-                state.range_idx = (state.range_idx + 1) % BLOCKS.len();
+            ct_event!(scroll down) | ct_event!(keycode press PageDown) => {
+                if state.range_idx + 1 < BLOCKS.len() {
+                    state.range_idx += 1;
+                }
                 Control::Changed
             }
-            ct_event!(keycode press PageUp) => {
-                state.range_idx = (state.range_idx.saturating_sub(1)) % BLOCKS.len();
+            ct_event!(scroll up) | ct_event!(keycode press PageUp) => {
+                if state.range_idx > 0 {
+                    state.range_idx -= 1;
+                }
                 Control::Changed
             }
             ct_event!(keycode press Home) => {

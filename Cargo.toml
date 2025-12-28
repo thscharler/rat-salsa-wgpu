@@ -9,7 +9,10 @@ repository = "https://github.com/thscharler/rat-salsa-wgpu"
 readme = "readme.md"
 keywords = ["ratatui", "input", "event-loop", "wgpu"]
 categories = ["command-line-interface"]
-exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
+exclude = [".idea/*", ".gitignore", "NotoColorEmoji-Regular.ttf",
+    "NotoEmoji-Bold.ttf", "NotoEmoji-Regular.ttf",
+    "Symbola.ttf", "files.gif", "mdedit.gif"
+]
 
 [lints]
 workspace = true
