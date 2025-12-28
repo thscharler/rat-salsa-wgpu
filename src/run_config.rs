@@ -331,7 +331,7 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
         if arg.slow_blink > 0 {
             b = b.with_slow_blink_millis(arg.slow_blink);
         }
-        b.build_with_target(arg.window.clone())
+        b.build_with_target(arg.window)
     })
     .expect("ratatui-wgpu-backend");
 

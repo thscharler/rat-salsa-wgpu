@@ -10,6 +10,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
+use log::info;
 use rat_widget::text::cursor::CursorType;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
@@ -350,9 +351,9 @@ where
 
     poll: Poll,
 
-    window: Arc<Window>,
+    window: Option<Arc<Window>>,
     window_size: WindowSize,
-    terminal: Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>,
+    terminal: Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>>,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
@@ -488,7 +489,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         focus: Default::default(),
         count: Default::default(),
         cursor: Default::default(),
-        term: Some(terminal.clone()),
+        term: RefCell::new(Some(terminal.clone())),
         clear_terminal: Default::default(),
         last_render: Default::default(),
         last_event: Default::default(),
@@ -496,7 +497,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         tasks: tasks_ctrl,
         tokio: tokio_ctrl,
         queue: ControlQueue::default(),
-        window: Some(window.clone()),
+        window: RefCell::new(Some(window.clone())),
         font_changed: Default::default(),
         font_size_changed: Default::default(),
         font_ids: RefCell::new(font_ids),
@@ -514,17 +515,17 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         quit_event,
         rendered_event,
         poll,
-        window,
+        window: Some(window),
         window_size,
-        terminal,
+        terminal: Some(terminal),
     };
 
     // init state
     init(run_state.state, run_state.global).expect("init");
 
     // initial render
-    run_state.window.set_visible(true);
-    run_state.window.request_redraw();
+    run_state.window.as_ref().expect("window").set_visible(true);
+    run_state.window.as_ref().expect("window").request_redraw();
 
     // set up running state.
     *app = WgpuApp::Running(run_state);
@@ -547,6 +548,16 @@ fn process_event<'a, Global, State, Event, Error>(
         panic!("not initialized");
     };
 
+    if let Some(WindowEvent::Destroyed) = event {
+        info!("window destroyed. exit event-loop.");
+        event_loop.exit();
+        return;
+    }
+    if app.terminal.is_none() || app.window.is_none() {
+        info!("skip event during shutdown.");
+        return;
+    }
+
     if let Some(event) = &event {
         app.event_type.update_state(event);
     }
@@ -560,7 +571,12 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if let Some(WindowEvent::Resized(size)) = event {
         resize(app, size);
-        app.terminal.borrow_mut().clear().expect("clear terminal");
+        app.terminal
+            .as_ref()
+            .expect("terminal")
+            .borrow_mut()
+            .clear()
+            .expect("clear terminal");
         if let Some(event) = resized_event(app) {
             app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
         } else {
@@ -591,13 +607,23 @@ fn process_event<'a, Global, State, Event, Error>(
         }
     }
     if app.global.salsa_ctx().clear_terminal.get() {
-        app.terminal.borrow_mut().clear().expect("clear terminal");
+        app.terminal
+            .as_ref()
+            .expect("terminal")
+            .borrow_mut()
+            .clear()
+            .expect("clear terminal");
         app.global.salsa_ctx().clear_terminal.set(false);
     }
     if app.global.salsa_ctx().font_changed.get() {
         // reload backend font
         reload_fonts(app);
-        app.terminal.borrow_mut().clear().expect("clear terminal");
+        app.terminal
+            .as_ref()
+            .expect("terminal")
+            .borrow_mut()
+            .clear()
+            .expect("clear terminal");
         if let Some(event) = resized_event(app) {
             app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
         } else {
@@ -609,7 +635,12 @@ fn process_event<'a, Global, State, Event, Error>(
     if app.global.salsa_ctx().font_size_changed.get() {
         // reload backend
         change_font_size(app);
-        app.terminal.borrow_mut().clear().expect("clear terminal");
+        app.terminal
+            .as_ref()
+            .expect("terminal")
+            .borrow_mut()
+            .clear()
+            .expect("clear terminal");
         if let Some(event) = resized_event(app) {
             app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
         } else {
@@ -717,6 +748,8 @@ where
 {
     let mut r = Ok(());
     app.terminal
+        .as_ref()
+        .expect("terminal")
         .borrow_mut()
         .draw(&mut |frame: &mut Frame| {
             let frame_area = frame.area();
@@ -761,12 +794,17 @@ where
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
     app.terminal
+        .as_ref()
+        .expect("terminal")
         .borrow_mut()
         .backend_mut()
         .update_font_vec(font_vec);
-    let font_size_px =
-        (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;
+    let font_size_px = (app.global.salsa_ctx().font_size.get()
+        * app.window.as_ref().expect("window").scale_factor())
+    .round() as u32;
     app.terminal
+        .as_ref()
+        .expect("terminal")
         .borrow_mut()
         .backend_mut()
         .update_font_size(font_size_px);
@@ -785,6 +823,8 @@ where
 
     app.window_size = app
         .terminal
+        .as_ref()
+        .expect("terminal")
         .borrow_mut()
         .backend_mut()
         .window_size()
@@ -799,15 +839,20 @@ fn change_font_size<'a, Global, State, Event, Error>(
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let font_size_px =
-        (app.global.salsa_ctx().font_size.get() * app.window.scale_factor()).round() as u32;
+    let font_size_px = (app.global.salsa_ctx().font_size.get()
+        * app.window.as_ref().expect("window").scale_factor())
+    .round() as u32;
     app.terminal
+        .as_ref()
+        .expect("terminal")
         .borrow_mut()
         .backend_mut()
         .update_font_size(font_size_px);
 
     app.window_size = app
         .terminal
+        .as_ref()
+        .expect("terminal")
         .borrow_mut()
         .backend_mut()
         .window_size()
@@ -837,12 +882,16 @@ fn resize<'a, Global, State, Event, Error>(
     Error: 'static + Debug + Send + From<io::Error>,
 {
     app.terminal
+        .as_ref()
+        .expect("terminal")
         .borrow_mut()
         .backend_mut()
         .resize(size.width, size.height);
 
     app.window_size = app
         .terminal
+        .as_ref()
+        .expect("terminal")
         .borrow_mut()
         .backend_mut()
         .window_size()
@@ -853,14 +902,43 @@ fn resize<'a, Global, State, Event, Error>(
 
 fn shutdown<'a, Global, State, Event, Error>(
     app: &mut Running<'a, Global, State, Event, Error>,
-    event_loop: &ActiveEventLoop,
+    _event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
+    let t = app
+        .global
+        .salsa_ctx()
+        .term
+        .borrow_mut()
+        .take()
+        .expect("terminal");
+    drop(t);
+
+    let t = app.terminal.take().expect("terminal");
+    if Rc::strong_count(&t) > 1 {
+        panic!("Terminal still referenced during shutdown. Can't shutdown cleanly.");
+    }
+    drop(t);
+
+    let w = app
+        .global
+        .salsa_ctx()
+        .window
+        .borrow_mut()
+        .take()
+        .expect("window");
+    drop(w);
+
+    let w = app.window.take().expect("window");
+    if Arc::strong_count(&w) > 1 {
+        panic!("Window still referenced during shutdown. Can't shutdown cleanly");
+    }
+    drop(w);
+
     app.poll.shutdown();
-    event_loop.exit();
 }
 
 struct PollStart {

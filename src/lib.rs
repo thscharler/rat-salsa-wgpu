@@ -3,14 +3,14 @@ use log::debug;
 #[allow(dead_code)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
+use ratatui_core::terminal::Terminal;
 use ratatui_wgpu::WgpuBackend;
-use ratatui_wgpu::shaders::{ DefaultPostProcessorBuilder};
+use ratatui_wgpu::shaders::DefaultPostProcessorBuilder;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
-use ratatui_core::terminal::Terminal;
 use tokio::task::AbortHandle;
 use winit::window::Window;
 
@@ -361,7 +361,7 @@ where
     /// Access the terminal.
     #[inline]
     fn terminal(&self) -> Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>> {
-        self.salsa_ctx().term.clone().expect("terminal")
+        self.salsa_ctx().term.borrow().clone().expect("terminal")
     }
 
     /// Clear the terminal and do a full redraw before the next draw.
@@ -374,7 +374,7 @@ where
     /// Access the window.
     #[inline]
     fn window(&self) -> Arc<Window> {
-        self.salsa_ctx().window.clone().expect("window")
+        self.salsa_ctx().window.borrow().clone().expect("window")
     }
 
     /// Change the font-size
@@ -434,7 +434,7 @@ where
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
-    pub(crate) term: Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>>,
+    pub(crate) term: RefCell<Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>>>,
     /// Clear terminal before next draw.
     pub(crate) clear_terminal: Cell<bool>,
     /// Last render time.
@@ -453,7 +453,7 @@ where
     pub(crate) queue: framework::control_queue::ControlQueue<Event, Error>,
 
     /// Window
-    pub(crate) window: Option<Arc<Window>>,
+    pub(crate) window: RefCell<Option<Arc<Window>>>,
 
     pub(crate) font_changed: Cell<bool>,
     pub(crate) font_size_changed: Cell<bool>,
