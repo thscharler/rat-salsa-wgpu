@@ -14,13 +14,12 @@ use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
-use ratatui_core::style::{Style, Stylize};
+use ratatui_core::style::{Color, Style, Stylize};
 use ratatui_core::text::{Line, Span, Text};
 use ratatui_core::widgets::Widget;
 use std::fmt::Write;
 use std::fs;
 use std::path::PathBuf;
-use unicode_width::UnicodeWidthChar;
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -39,7 +38,8 @@ pub fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
-            .font_size(20.)
+            .font_family("IBM Plex Mono")
+            .font_size(35.)
             .poll(PollTimers::new())
             .poll(PollTasks::new(2)),
     )?;
@@ -151,7 +151,7 @@ pub fn render(
 
     let mut txt = Text::default();
     txt.push_line(Line::from(format!("  :: {}", ctx.font_family())).bold());
-    txt.push_line(format!("  :: {}", ctx.font_size()));
+    txt.push_line(Line::from(format!("  :: {}", ctx.font_size())).italic());
     txt.push_line(format!("  :: {}", block));
     txt.push_line(format!(
         "  :: {:#5x} - {:#5x}",
@@ -175,6 +175,7 @@ pub fn render(
 
         if off != 0 && off % CLUSTER == 0 {
             txt.push_line(tmp2);
+            txt.push_line(Line::default());
 
             let byte_span = format!(
                 "{:#5x} - {:#5x} ",
@@ -186,11 +187,11 @@ pub fn render(
         }
 
         tmp2.push_span(" ");
-        tmp2.push_span(Span::from(cc.to_string()).style(ctx.theme.p.high_bg_style(
-            Colors::Gray,
-            Colors::Blue,
-            3,
-        )));
+
+        let mut glyph_style = ctx.theme.p.high_bg_style(Colors::Yellow, Colors::Green, 5);
+        glyph_style = glyph_style.underlined();
+
+        tmp2.push_span(Span::from(cc.to_string()).style(glyph_style));
     }
 
     txt.push_line(tmp2);
@@ -200,9 +201,6 @@ pub fn render(
 }
 
 static BLOCKS: &'static [(char, char, &'static str)] = &[
-    ('\u{27F0}', '\u{27FF}', "Pfeile, Zusatz A"),
-    ('\u{2900}', '\u{297F}', "Pfeile, Zusatz B"),
-    ('\u{1F800}', '\u{1F8FF}', "Pfeile, Zusatz C"),
     ('\u{0000}', '\u{007F}', "Lateinisch, Basis"),
     ('\u{0080}', '\u{00FF}', "Lateinisch, Ergänzung"),
     ('\u{0100}', '\u{017F}', "Lateinisch, Erweiterung A"),
