@@ -14,7 +14,7 @@ exclude = [".idea/*", ".gitignore", "NotoColorEmoji-Regular.ttf",
     "Symbola.ttf", "files.gif", "mdedit.gif"
 ]
 
-[workspace.lints.clippy]
+[lints.clippy]
 collapsible_else_if = "allow"
 collapsible_if = "allow"
 if_same_then_else = "allow"
