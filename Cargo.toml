@@ -14,8 +14,11 @@ exclude = [".idea/*", ".gitignore", "NotoColorEmoji-Regular.ttf",
     "Symbola.ttf", "files.gif", "mdedit.gif"
 ]
 
-[lints]
-workspace = true
+[workspace.lints.clippy]
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+if_same_then_else = "allow"
+comparison_chain = "allow"
 
 [features]
 default = ["dialog_widgets", "async", "fallback_font", "fallback_emoji_font", "fallback_symbol_font", "preserve_aspect_ratio"]
