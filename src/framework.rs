@@ -447,6 +447,9 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
 
     // setup fonts
     let mut fallback_fonts = Vec::new();
+    if let Some(font) = fallback_font.clone() {
+        fallback_fonts.push(font);
+    }
     if let Some(font) = symbol_font {
         fallback_fonts.push(font);
     }
