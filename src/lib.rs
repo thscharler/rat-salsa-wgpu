@@ -404,9 +404,11 @@ where
                 None
             })
             .collect::<Vec<_>>();
-        self.salsa_ctx().font_ids.replace(font_ids);
-        self.salsa_ctx().font_changed.set(true);
-        self.salsa_ctx().window().request_redraw();
+        if !font_ids.is_empty() {
+            self.salsa_ctx().font_ids.replace(font_ids);
+            self.salsa_ctx().font_changed.set(true);
+            self.salsa_ctx().window().request_redraw();
+        }
     }
 
     fn font_family(&self) -> String {

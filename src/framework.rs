@@ -447,9 +447,6 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
 
     // setup fonts
     let mut fallback_fonts = Vec::new();
-    if let Some(font) = fallback_font {
-        fallback_fonts.push(font);
-    }
     if let Some(font) = symbol_font {
         fallback_fonts.push(font);
     }
@@ -457,10 +454,17 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         fallback_fonts.push(font);
     }
 
-    let fonts = font_ids
+    let mut fonts = font_ids
         .iter()
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
+    if fonts.is_empty() {
+        if let Some(fallback_font) = fallback_font {
+            fonts.push(fallback_font);
+        } else {
+            panic!("need at least one valid font or a fallback font");
+        }
+    }
 
     let terminal = Rc::new(RefCell::new(cr_term(TermInit {
         fallback_fonts: fallback_fonts.clone(),
@@ -799,6 +803,7 @@ where
         .borrow_mut()
         .backend_mut()
         .update_font_vec(font_vec);
+
     let font_size_px = (app.global.salsa_ctx().font_size.get()
         * app.window.as_ref().expect("window").scale_factor())
     .round() as u32;
