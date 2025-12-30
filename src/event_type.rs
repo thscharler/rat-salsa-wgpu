@@ -43,6 +43,10 @@ pub struct WinitEventState {
     x: u16,
     /// Mouse cursor.
     y: u16,
+    /// Mouse cursor in px
+    x_px: f64,
+    /// Mouse cursor in px
+    y_px: f64,
 }
 
 impl WinitEventState {
@@ -117,6 +121,9 @@ impl WinitEventState {
         self.window_size_px = window_size.pixels;
         self.cell_width_px = window_size.pixels.width / window_size.columns_rows.width;
         self.cell_height_px = window_size.pixels.height / window_size.columns_rows.height;
+
+        self.x = (self.x_px / self.cell_width_px as f64) as u16;
+        self.y = (self.y_px / self.cell_height_px as f64) as u16;
     }
 
     pub fn cell_width_px(&self) -> u16 {
@@ -237,11 +244,15 @@ impl WinitEventState {
                 if self.cell_width_px == 0 || self.cell_height_px == 0 {
                     return;
                 }
+                self.x_px = position.x;
+                self.y_px = position.y;
                 self.x = (position.x / self.cell_width_px as f64) as u16;
                 self.y = (position.y / self.cell_height_px as f64) as u16;
             }
             winit::event::WindowEvent::CursorEntered { .. } => {}
             winit::event::WindowEvent::CursorLeft { .. } => {
+                self.x_px = 0.0;
+                self.y_px = 0.0;
                 self.x = 0;
                 self.y = 0;
             }
