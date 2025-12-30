@@ -603,11 +603,11 @@ fn process_event<'a, Global, State, Event, Error>(
         }) = event
         {
             if dy > 0.0 {
-                app.global.salsa_ctx().font_size.update(|v| v + 1.0);
-            } else {
                 if app.global.salsa_ctx().font_size.get() > 7.0 {
                     app.global.salsa_ctx().font_size.update(|v| v - 1.0);
                 }
+            } else {
+                app.global.salsa_ctx().font_size.update(|v| v + 1.0);
             }
             app.global.salsa_ctx().font_size_changed.set(true);
             event = None;
