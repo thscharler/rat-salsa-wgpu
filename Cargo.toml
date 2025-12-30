@@ -74,6 +74,7 @@ sys-locale = "0.3"
 sysinfo = "0.37"
 unicode-segmentation = "1.11"
 unicode-width = "0.2.0"
+unic-ucd = "0.9"
 
 ratatui-widgets = { version = "0.3.0" }
 
