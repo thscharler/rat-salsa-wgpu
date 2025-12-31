@@ -21,7 +21,7 @@ if_same_then_else = "allow"
 comparison_chain = "allow"
 
 [features]
-default = ["dialog_widgets", "async", "fallback_font", "fallback_emoji_font", "fallback_symbol_font", "preserve_aspect_ratio"]
+default = ["dialog_widgets", "async", "preserve_aspect_ratio"]
 # Async support.
 async = ["dep:tokio"]
 # Add support for dialog windows.
@@ -75,8 +75,18 @@ sysinfo = "0.37"
 unicode-segmentation = "1.11"
 unicode-width = "0.2.0"
 unic-ucd = "0.9"
+unicode-script = "0.5"
+rustybuzz = "0.20"
 
 ratatui-widgets = { version = "0.3.0" }
 
 rat-widget = { version = "3.0", path = "../rat-salsa/rat-widget", features = ["user_directories"] }
 rat-theme4 = { version = "4.5", path = "../rat-salsa/rat-theme4" }
+
+[[example]]
+name = "img_icon"
+path = "utils/img_icon.rs"
+
+[[example]]
+name = "monofonts"
+path = "utils/monofonts.rs"
