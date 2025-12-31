@@ -195,4 +195,17 @@ impl FontData {
 
         Some(font)
     }
+
+    /// Return the byte-data for a given font.
+    pub fn load_font_bytes(self, id: fontdb::ID) -> Option<&'static [u8]> {
+        self.load_font(id);
+
+        for (font_id, font) in FONT_DATA.iter() {
+            if id == *font_id {
+                return Some(font.as_ref());
+            }
+        }
+
+        None
+    }
 }
