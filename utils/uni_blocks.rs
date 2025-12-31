@@ -1,6 +1,6 @@
-use crate::ex3_data::BLOCKS;
 use crate::glyph_info::{GlyphInfo, GlyphInfoState};
 use crate::glyphs::{Glyphs, GlyphsState};
+use crate::uni_blocks_data::BLOCKS;
 use anyhow::Error;
 use log::{debug, error};
 use rat_event::{HandleEvent, Outcome, Popup, Regular, ct_event, event_flow};
@@ -21,7 +21,7 @@ use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, SliderOutcome, TextOutcome};
 use rat_widget::paired::{Paired, PairedWidget};
 use rat_widget::popup::Placement;
-use rat_widget::scrolled::Scroll;
+use rat_widget::scrolled::{Scroll, ScrollbarPolicy};
 use rat_widget::slider::{Slider, SliderState};
 use rat_widget::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::view::{View, ViewState};
@@ -291,7 +291,7 @@ pub fn render(
     let mut view_buf = View::new()
         .view_height(glyphs.height())
         .view_width(glyphs.width())
-        .vscroll(Scroll::new())
+        .vscroll(Scroll::new().policy(ScrollbarPolicy::Always))
         .hscroll(Scroll::new())
         .styles(ctx.theme.style(WidgetStyle::VIEW))
         .into_buffer(hlayout[0], &mut state.view);
@@ -500,6 +500,7 @@ mod glyph_info {
     use std::marker::PhantomData;
     use unic_ucd::{CanonicalCombiningClass, Name};
     use unicode_script::UnicodeScript;
+    use unicode_width::UnicodeWidthChar;
 
     pub struct GlyphInfo<'a> {
         cc: char,
@@ -557,7 +558,7 @@ mod glyph_info {
             if let Some(name) = Name::of(self.cc) {
                 txt.push_line(format!("name {}", name));
             }
-            txt.push_line("");
+            txt.push_line(format!("width {:?}", self.cc.width().unwrap_or_default()));
             txt.push_line(format!("script {:?}", self.cc.script()));
             txt.push_line(format!("script-ext {:?}", self.cc.script_extension()));
             txt.push_line(format!(
@@ -567,9 +568,12 @@ mod glyph_info {
             txt.push_line("");
 
             if let Some(font) = &state.font {
-                txt.push_line(format!("font-height {}", font.height(),));
-                txt.push_line(format!("ascender {}", font.ascender(),));
-                txt.push_line(format!("descender {}", font.descender()));
+                txt.push_line(format!(
+                    "font-height {} a {} d {}",
+                    font.height(),
+                    font.ascender(),
+                    font.descender()
+                ));
                 txt.push_line("");
 
                 if let Some(gid) = font.glyph_index(self.cc) {

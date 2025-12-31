@@ -19,6 +19,7 @@ use std::path::PathBuf;
 
 static SAMPLES: &[&str] = &[
     //
+    "\u{231a}",
     "\u{034f}",
     "\u{01c4}",
     "y\u{0301}",

@@ -90,3 +90,15 @@ path = "utils/img_icon.rs"
 [[example]]
 name = "monofonts"
 path = "utils/monofonts.rs"
+
+[[example]]
+name = "basic_style"
+path = "utils/basic_styles.rs"
+
+[[example]]
+name = "one_glyph"
+path = "utils/one_glyph.rs"
+
+[[example]]
+name = "uni_blocks"
+path = "utils/uni_blocks.rs"
