@@ -1,3 +1,5 @@
+#![allow(text_direction_codepoint_in_literal)]
+
 use anyhow::Error;
 use log::{debug, error};
 use rat_event::{ct_event, event_flow};
@@ -18,18 +20,28 @@ use std::fs;
 use std::path::PathBuf;
 
 static SAMPLES: &[&str] = &[
-    //
-    "\u{231a}",
-    "\u{034f}",
-    "\u{01c4}",
-    "y\u{0301}",
-    "y\u{0306}",
-    "\u{038f}",
+    "fl", //
+    "ff",
+    "x",
+    "<=",
+    ">=",
     "ab",
+    // "\u{fb1e}",
+    // "\u{231a}",
+    // "\u{231b}",
+    // "\u{231c}",
+    // "a\u{08ca}",
+    // "\u{034f}",
+    // "\u{01c4}",
+    // "y\u{0301}",
+    // "y\u{0306}",
+    // "\u{038f}",
+    // "ab",
 ];
 
-// const FONT: &str = "Overpass Mono";
-const FONT: &str = "MS Gothic";
+// const FONT: &str = "Geist Mono";
+const FONT: &str = "Overpass Mono";
+// const FONT: &str = "MS Gothic";
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -243,7 +255,7 @@ pub fn error(
 
 fn setup_logging() -> Result<(), Error> {
     let log_path = PathBuf::from("");
-    let log_file = log_path.join("../../log.log");
+    let log_file = log_path.join("one_glyph.log");
     _ = fs::remove_file(&log_file);
     fern::Dispatch::new()
         .format(|out, message, record| {

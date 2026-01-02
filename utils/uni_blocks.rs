@@ -1,3 +1,5 @@
+// #![allow(text_direction_codepoint_in_literal)]
+
 use crate::glyph_info::{GlyphInfo, GlyphInfoState};
 use crate::glyphs::{Glyphs, GlyphsState};
 use crate::uni_blocks_data::BLOCKS;
@@ -23,6 +25,7 @@ use rat_widget::paired::{Paired, PairedWidget};
 use rat_widget::popup::Placement;
 use rat_widget::scrolled::{Scroll, ScrollbarPolicy};
 use rat_widget::slider::{Slider, SliderState};
+use rat_widget::text_input::{TextInput, TextInputState};
 use rat_widget::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::view::{View, ViewState};
 use ratatui_core::buffer::Buffer;
@@ -34,6 +37,9 @@ use std::fs;
 use std::path::PathBuf;
 
 mod uni_blocks_data;
+
+static SAMPLE_TEXT: &str = "ff fl <= >=";
+static SAMPLE_SPAN: &str = "";
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -53,6 +59,7 @@ pub fn main() -> Result<(), Error> {
         RunConfig::new(ConvertCrossterm::new())?
             .window_title("uni-blocks")
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
+            .window_size(winit::dpi::PhysicalSize::new(1100, 600))
             .font_family("Overpass Mono")
             .font_size(23.)
             .poll(PollTimers::new())
@@ -148,6 +155,7 @@ pub struct Minimal {
     pub blocks: ChoiceState<usize>,
     pub underline: CheckboxState,
     pub combining_base: MaskedInputState,
+    pub free_text: TextInputState,
 
     pub view: ViewState,
     pub glyphs: GlyphsState,
@@ -162,6 +170,7 @@ impl Minimal {
             blocks: Default::default(),
             underline: Default::default(),
             combining_base: MaskedInputState::new().with_mask("_").expect("valid mask"),
+            free_text: Default::default(),
             view: Default::default(),
             glyphs: Default::default(),
             glyphinfo: Default::default(),
@@ -176,6 +185,7 @@ impl HasFocus for Minimal {
         builder.widget(&self.blocks);
         builder.widget(&self.underline);
         builder.widget(&self.combining_base);
+        builder.widget(&self.free_text);
         builder.widget(&self.glyphs);
     }
 
@@ -199,8 +209,8 @@ pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
     {
         state.fonts.set_value(font_idx);
     }
-    state.combining_base.set_value("y");
     state.glyphinfo.set_font_family(&ctx.font_family());
+    state.free_text.set_value(SAMPLE_TEXT);
 
     Ok(())
 }
@@ -212,7 +222,7 @@ pub fn render(
     ctx: &mut Global,
 ) -> Result<(), Error> {
     let vlayout = Layout::vertical([
-        Constraint::Length(5), //
+        Constraint::Length(6), //
         Constraint::Fill(1),   //
     ])
     .split(area);
@@ -266,6 +276,14 @@ pub fn render(
         MaskedInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
     )
     .render(combining_area, buf, &mut state.combining_base);
+
+    let free_text_area = Rect::new(area.x + 6, area.y + 3, 40, 1);
+    TextInput::new()
+        .styles(ctx.theme.style(WidgetStyle::TEXT))
+        .render(free_text_area, buf, &mut state.free_text);
+
+    let sample_area = Rect::new(area.x + 6, area.y + 4, 55, 1);
+    Span::from(SAMPLE_SPAN).render(sample_area, buf);
 
     let block = ctx.blocks[state.blocks.value()];
     let block = unic_ucd::BlockIter::new()
@@ -372,20 +390,8 @@ pub fn event(
                 }
             }),
 
-            ct_event!(keycode press F(3)) => event_flow!({
-                let v = state.blocks.value();
-                if v + 1 < ctx.blocks.len() {
-                    state.blocks.set_value(v + 1);
-                }
-                Control::Changed
-            }),
-            ct_event!(keycode press SHIFT-F(3)) => event_flow!({
-                let v = state.blocks.value();
-                if v > 0 {
-                    state.blocks.set_value(v - 1);
-                }
-                Control::Changed
-            }),
+            ct_event!(keycode press F(3)) => event_flow!({ next_block(state, ctx)? }),
+            ct_event!(keycode press SHIFT-F(3)) => event_flow!({ prev_block(state, ctx)? }),
 
             ct_event!(keycode press F(4)) => event_flow!({
                 state.underline.flip_checked();
@@ -413,6 +419,7 @@ pub fn event(
         });
         event_flow!(state.underline.handle(event, Regular));
         event_flow!(state.combining_base.handle(event, Regular));
+        event_flow!(state.free_text.handle(event, Regular));
         event_flow!(state.view.handle(event, Regular));
         event_flow!(match state.glyphs.handle(event, Regular) {
             Outcome::Changed => {
@@ -432,26 +439,38 @@ pub fn event(
                     state.blocks.set_value(ctx.blocks.len().saturating_sub(1));
                     Control::Changed
                 }),
-                ct_event!(keycode press PageDown) => event_flow!({
-                    let v = state.blocks.value();
-                    if v + 1 < ctx.blocks.len() {
-                        state.blocks.set_value(v + 1);
-                    }
-                    Control::Changed
-                }),
-                ct_event!(keycode press PageUp) => event_flow!({
-                    let v = state.blocks.value();
-                    if v > 0 {
-                        state.blocks.set_value(v - 1);
-                    }
-                    Control::Changed
-                }),
+                ct_event!(keycode press PageDown) => event_flow!({ next_block(state, ctx)? }),
+                ct_event!(keycode press PageUp) => event_flow!({ prev_block(state, ctx)? }),
                 _ => {}
             }
         }
     }
 
     Ok(Control::Continue)
+}
+
+fn next_block(state: &mut Minimal, ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
+    let v = state.blocks.value();
+    if v + 1 < ctx.blocks.len() {
+        state.blocks.set_value(v + 1);
+        state.glyphs.selected = 0;
+        state.view.set_vertical_offset(0);
+        state.view.set_horizontal_offset(0);
+    }
+    ctx.clear_terminal();
+    Ok(Control::Changed)
+}
+
+fn prev_block(state: &mut Minimal, ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
+    let v = state.blocks.value();
+    if v > 0 {
+        state.blocks.set_value(v - 1);
+        state.glyphs.selected = 0;
+        state.view.set_vertical_offset(0);
+        state.view.set_horizontal_offset(0);
+    }
+    ctx.clear_terminal();
+    Ok(Control::Changed)
 }
 
 fn change_font_family(state: &mut Minimal, ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
@@ -473,7 +492,7 @@ pub fn error(
 
 fn setup_logging() -> Result<(), Error> {
     let log_path = PathBuf::from("");
-    let log_file = log_path.join("../../log.log");
+    let log_file = log_path.join("uni_blocks.log");
     _ = fs::remove_file(&log_file);
     fern::Dispatch::new()
         .format(|out, message, record| {
@@ -495,7 +514,7 @@ mod glyph_info {
     use ratatui_core::text::Text;
     use ratatui_core::widgets::{StatefulWidget, Widget};
     use rustybuzz::ttf_parser::GlyphId;
-    use rustybuzz::{Face, ShapePlan, UnicodeBuffer, shape_with_plan, ttf_parser};
+    use rustybuzz::{Direction, Face, ShapePlan, UnicodeBuffer, shape_with_plan, ttf_parser};
     use std::fmt::{Debug, Formatter};
     use std::marker::PhantomData;
     use unic_ucd::{CanonicalCombiningClass, Name};
@@ -603,6 +622,7 @@ mod glyph_info {
                 }
                 buffer.add(self.cc, 0);
                 buffer.guess_segment_properties();
+                buffer.set_direction(Direction::LeftToRight);
 
                 let plan_cache = ShapePlan::new(
                     font,
@@ -629,7 +649,7 @@ mod glyph_info {
                     ));
 
                     txt.push_line(format!(
-                        "  : {:?} {:?}; {:?} {:?}",
+                        "  : x off {:?} adv {:?}; y off {:?} adv {:?}",
                         position.x_offset,
                         position.x_advance,
                         position.y_offset,
@@ -696,6 +716,8 @@ mod glyphs {
     use ratatui_core::widgets::{StatefulWidget, Widget};
     use std::marker::PhantomData;
     use unic_ucd::CanonicalCombiningClass;
+    use unicode_script::{Script, UnicodeScript};
+    use unicode_width::UnicodeWidthChar;
 
     const CLUSTER: u32 = 16;
 
@@ -858,9 +880,11 @@ mod glyphs {
 
                     if cc as u32 >= 32 && cc as u32 != 127 {
                         tmp.clear();
-
                         if CanonicalCombiningClass::of(cc).is_reordered() {
                             tmp.push_str(self.combining_base);
+                        } else if cc.width() == Some(0) {
+                            // would combine with the previous cell. probably.
+                            tmp.push(' ');
                         }
                         tmp.push(cc);
                         cell.set_symbol(&tmp);

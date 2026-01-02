@@ -22,6 +22,7 @@ comparison_chain = "allow"
 
 [features]
 default = ["dialog_widgets", "async", "preserve_aspect_ratio"]
+#default = ["dialog_widgets", "async", "fallback_font", "fallback_emoji_font", "fallback_symbol_font","preserve_aspect_ratio"]
 # Async support.
 async = ["dep:tokio"]
 # Add support for dialog windows.
