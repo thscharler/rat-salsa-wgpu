@@ -41,6 +41,7 @@ mod tick;
 mod timer;
 #[cfg(feature = "async")]
 mod tokio_tasks;
+mod blink;
 
 use std::time::Duration;
 // pub use crossterm::PollCrossterm;
@@ -51,3 +52,4 @@ pub use tick::PollTick;
 pub use timer::PollTimers;
 #[cfg(feature = "async")]
 pub use tokio_tasks::PollTokio;
+pub use blink::PollBlink;

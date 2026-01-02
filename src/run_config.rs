@@ -38,8 +38,8 @@ where
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
     /// blinking stuff.
-    pub(crate) rapid_blink: u64,
-    pub(crate) slow_blink: u64,
+    pub(crate) rapid_blink: u8,
+    pub(crate) slow_blink: u8,
     /// window attributes
     pub(crate) win_attr: WindowAttributes,
     /// window callback
@@ -158,20 +158,24 @@ where
         self
     }
 
-    /// Use the given interval in milliseconds as the rapid blink speed.
+    /// Set the divisor for rapid blinking.
+    ///
+    /// The divisor says the for every n-th blink event blinking is switched.
     ///
     /// Note that this is not enough to start blinking text. You also need
-    /// to add [PollTick] for the actual rendering.
-    pub fn rapid_blink_millis(mut self, t: u64) -> Self {
+    /// to add [PollBlink] for the timer.
+    pub fn rapid_blink(mut self, t: u8) -> Self {
         self.rapid_blink = t;
         self
     }
 
-    /// Use the given interval in milliseconds as the slow blink speed.
+    /// Set the divisor for slow blinking.
+    ///
+    /// The divisor says the for every n-th blink event blinking is switched.
     ///
     /// Note that this is not enough to start blinking text. You also need
-    /// to add [PollTick] for the actual rendering.
-    pub fn slow_blink_millis(mut self, t: u64) -> Self {
+    /// to add [PollBlink] for the timer.
+    pub fn slow_blink(mut self, t: u8) -> Self {
         self.slow_blink = t;
         self
     }
@@ -259,9 +263,9 @@ pub struct TermInit {
     /// Terminal bg color.
     pub bg_color: Color,
     /// Rapid blink rate.
-    pub rapid_blink: u64,
+    pub rapid_blink: u8,
     /// Slow blink rate.
-    pub slow_blink: u64,
+    pub slow_blink: u8,
 
     pub non_exhaustive: NonExhaustive,
 }

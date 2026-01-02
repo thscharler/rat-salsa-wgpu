@@ -302,6 +302,9 @@ where
                     Control::Changed => {
                         return Ok(r);
                     }
+                    Control::Blink => {
+                        return Ok(r);
+                    }
                     Control::Quit => {
                         return Ok(r);
                     }

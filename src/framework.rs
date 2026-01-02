@@ -10,7 +10,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::info;
+use log::{debug, info};
 use rat_widget::text::cursor::CursorType;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
@@ -305,8 +305,8 @@ where
     emoji_font: Option<Font<'static>>,
     bg_color: Color,
     fg_color: Color,
-    rapid_blink: u64,
-    slow_blink: u64,
+    rapid_blink: u8,
+    slow_blink: u8,
 
     /// window callback
     win_attr: WindowAttributes,
@@ -737,6 +737,15 @@ fn process_event<'a, Global, State, Event, Error>(
                     }
                     shutdown(app, event_loop);
                     break 'ui;
+                }
+                Ok(Control::Blink) => {
+                    debug!("goblink");
+                    app.terminal
+                        .as_ref()
+                        .expect("terminal")
+                        .borrow_mut()
+                        .backend_mut()
+                        .blink();
                 }
             }
         }
