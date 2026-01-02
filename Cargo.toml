@@ -21,8 +21,8 @@ if_same_then_else = "allow"
 comparison_chain = "allow"
 
 [features]
-default = ["dialog_widgets", "async", "preserve_aspect_ratio"]
-#default = ["dialog_widgets", "async", "fallback_font", "fallback_emoji_font", "fallback_symbol_font","preserve_aspect_ratio"]
+#default = ["dialog_widgets", "async", "preserve_aspect_ratio"]
+default = ["dialog_widgets", "async", "fallback_font", "fallback_emoji_font", "fallback_symbol_font","preserve_aspect_ratio"]
 # Async support.
 async = ["dep:tokio"]
 # Add support for dialog windows.
@@ -93,7 +93,7 @@ name = "monofonts"
 path = "utils/monofonts.rs"
 
 [[example]]
-name = "basic_style"
+name = "basic_styles"
 path = "utils/basic_styles.rs"
 
 [[example]]

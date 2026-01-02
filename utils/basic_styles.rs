@@ -7,7 +7,7 @@ use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::event_type::CompositeWinitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrosstermEx;
 use rat_salsa_wgpu::font_data::FontData;
-use rat_salsa_wgpu::poll::{PollQuit, PollRendered, PollTimers};
+use rat_salsa_wgpu::poll::{PollBlink, PollQuit, PollRendered, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
@@ -50,8 +50,9 @@ pub fn main() -> Result<(), Error> {
             // .viewport(ratatui_wgpu::Viewport::Shrink { width: 40, height: 40 })
             // .bg_color(Color::Red)
             // .fg_color(Color::White)
-            .rapid_blink_millis(500)
-            .slow_blink_millis(1000)
+            .rapid_blink(1)
+            .slow_blink(4)
+            .poll(PollBlink::new(0, 200))
             // .poll(PollTick::new(0, 500))
             // .poll(PollTimers::new())
             .poll(PollQuit)
@@ -403,7 +404,7 @@ pub fn error(
 
 fn setup_logging() -> Result<(), Error> {
     let log_path = PathBuf::from("");
-    let log_file = log_path.join("../../log.log");
+    let log_file = log_path.join("basic_styles.log");
     _ = fs::remove_file(&log_file);
     fern::Dispatch::new()
         .format(|out, message, record| {
