@@ -10,8 +10,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::{debug, info};
-use rat_widget::text::cursor::CursorType;
+use log::info;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
@@ -755,7 +754,6 @@ fn process_event<'a, Global, State, Event, Error>(
                     break 'ui;
                 }
                 Ok(Control::Blink) => {
-                    debug!("goblink");
                     app.terminal
                         .as_ref()
                         .expect("terminal")

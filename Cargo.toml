@@ -101,5 +101,9 @@ name = "one_glyph"
 path = "utils/one_glyph.rs"
 
 [[example]]
+name = "one_span"
+path = "utils/one_span.rs"
+
+[[example]]
 name = "uni_blocks"
 path = "utils/uni_blocks.rs"

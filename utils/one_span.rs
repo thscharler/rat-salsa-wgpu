@@ -16,31 +16,15 @@ use rat_theme4::{StyleName, create_salsa_theme};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
+use ratatui_core::text::Span;
+use ratatui_core::widgets::Widget;
 use ratatui_wgpu::CursorStyle;
 use std::fs;
 use std::path::PathBuf;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
-static SAMPLES: &[&str] = &[
-    "\u{1f90c}",
-    "X",  //
-    "fl", //
-    "ff",
-    "x",
-    "<=",
-    ">=",
-    "ab",
-    // "\u{fb1e}",
-    // "\u{231a}",
-    // "\u{231b}",
-    // "\u{231c}",
-    // "a\u{08ca}",
-    // "\u{034f}",
-    // "\u{01c4}",
-    // "y\u{0301}",
-    // "y\u{0306}",
-    // "\u{038f}",
-    // "ab",
-];
+static SAMPLES: &[&str] = &["a\u{1f90c}a"];
 
 // const FONT: &str = "Geist Mono";
 const FONT: &str = "Overpass Mono";
@@ -62,7 +46,7 @@ pub fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
-            .window_title("one glyph")
+            .window_title("one span")
             .window_position(winit::dpi::LogicalPosition::new(1050, 30))
             .window_size(winit::dpi::LogicalSize::new(200, 200))
             .font_family(FONT)
@@ -140,6 +124,7 @@ pub struct Minimal {
     pub font_idx: usize,
     pub sample_idx: usize,
     pub underline: bool,
+    pub cursor: usize,
 }
 
 pub fn init(_state: &mut Minimal, _ctx: &mut Global) -> Result<(), Error> {
@@ -160,20 +145,20 @@ pub fn render(
     }
     let bg_style = ctx.theme.p.high_bg_style(Colors::Yellow, Colors::Red, 5);
 
-    let cmp_area = Rect::new(0, 1, 7, 1);
-    buf.set_style(cmp_area, bg_style);
-    buf.cell_mut((3, 1)).unwrap().set_style(glyph_style);
-    buf.cell_mut((3, 1)).unwrap().set_symbol("A");
-
-    let gl_area = Rect::new(0, 3, 7, 1);
+    let gl_area = Rect::new(0, 1, area.width, 1);
     buf.set_style(gl_area, bg_style);
 
-    buf.cell_mut((3, 3)).unwrap().set_style(glyph_style);
-    buf.cell_mut((3, 3))
-        .unwrap()
-        .set_symbol(ctx.samples[state.sample_idx]);
+    let gl_span_area = Rect::new(2, 1, area.width.saturating_sub(2), 1);
+    Span::from(ctx.samples[state.sample_idx])
+        .style(glyph_style)
+        .render(gl_span_area, buf);
 
-    ctx.set_screen_cursor(Some((3, 3)));
+    let cx = ctx.samples[state.sample_idx]
+        .graphemes(true)
+        .map(|v| v.width() as u16)
+        .take(state.cursor)
+        .sum::<u16>();
+    ctx.set_screen_cursor(Some((2 + cx, 1)));
 
     Ok(())
 }
@@ -257,6 +242,20 @@ pub fn event(
                     .backend_mut()
                     .set_cursor_style(n);
                 Control::Blink
+            }),
+
+            ct_event!(keycode press Left) => event_flow!({
+                if state.cursor > 0 {
+                    state.cursor -= 1;
+                }
+                Control::Changed
+            }),
+            ct_event!(keycode press Right) => event_flow!({
+                let w = ctx.samples[state.sample_idx].graphemes(true).count();
+                if state.cursor + 1 < w {
+                    state.cursor += 1;
+                }
+                Control::Changed
             }),
 
             _ => {}

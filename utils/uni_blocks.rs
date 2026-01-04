@@ -31,7 +31,7 @@ use rat_widget::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::view::{View, ViewState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
-use ratatui_core::style::Style;
+use ratatui_core::style::{Color, Style};
 use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use std::fs;
@@ -39,7 +39,7 @@ use std::path::PathBuf;
 
 mod uni_blocks_data;
 
-static SAMPLE_TEXT: &str = "ff fl <= >=";
+static SAMPLE_TEXT: &str = "ff fl <= >= ﬁ ﬂ";
 static SAMPLE_SPAN: &str = "";
 
 pub fn main() -> Result<(), Error> {
@@ -61,6 +61,7 @@ pub fn main() -> Result<(), Error> {
             .window_title("uni-blocks")
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
             .window_size(winit::dpi::PhysicalSize::new(1100, 600))
+            .cursor_color(Color::Red)
             .font_family("Overpass Mono")
             .font_size(23.)
             .poll(PollBlink::default()),
@@ -94,6 +95,7 @@ impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         let mut fonts = FontData.installed_fonts().clone();
         fonts.insert(0, "<Fallback>".to_string());
+        fonts.insert(1, "Arial".to_string());
         Self {
             ctx: Default::default(),
             cfg,
