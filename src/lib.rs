@@ -447,6 +447,14 @@ where
             .backend_mut()
             .set_cursor_color(color);
     }
+
+    fn set_fg_color(&self, color: Color) {
+        self.salsa_ctx().fg_color.set(color);
+    }
+
+    fn set_bg_color(&self, color: Color) {
+        self.salsa_ctx().bg_color.set(color);
+    }
 }
 
 ///
@@ -495,6 +503,9 @@ where
     pub(crate) font_ids: RefCell<Vec<fontdb::ID>>,
     pub(crate) font_family: RefCell<String>,
     pub(crate) font_size: Cell<f64>,
+
+    pub(crate) bg_color: Cell<Color>,
+    pub(crate) fg_color: Cell<Color>,
 }
 
 impl<Event, Error> Debug for SalsaAppContext<Event, Error> {
@@ -548,6 +559,8 @@ where
             queue: Default::default(),
             font_size: Default::default(),
             font_family: Default::default(),
+            fg_color: Default::default(),
+            bg_color: Default::default(),
         }
     }
 }

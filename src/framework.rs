@@ -10,7 +10,7 @@ use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::info;
+use log::{debug, info};
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
@@ -525,6 +525,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         font_ids: RefCell::new(font_ids),
         font_family: RefCell::new(font_family),
         font_size: Cell::new(font_size),
+        bg_color: Cell::new(bg_color),
+        fg_color: Cell::new(fg_color),
     });
 
     let run_state = Running {
@@ -777,6 +779,7 @@ where
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let mut r = Ok(());
+
     app.terminal
         .as_ref()
         .expect("terminal")
@@ -798,6 +801,20 @@ where
             app.global.salsa_ctx().cursor.set(None);
         })
         .expect("draw-frame");
+
+    app.terminal
+        .as_ref()
+        .expect("terminal")
+        .borrow_mut()
+        .backend_mut()
+        .set_fg_color(app.global.salsa_ctx().fg_color.get());
+
+    app.terminal
+        .as_ref()
+        .expect("terminal")
+        .borrow_mut()
+        .backend_mut()
+        .set_bg_color(app.global.salsa_ctx().bg_color.get());
 
     match r {
         Ok(_) => {

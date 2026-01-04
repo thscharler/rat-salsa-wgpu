@@ -47,7 +47,7 @@ pub fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = Config::default();
-    let theme = create_salsa_theme("Nord");
+    let theme = create_salsa_theme("EverForest Light");
     let mut global = Global::new(config, theme);
     let mut state = Minimal::new();
 
@@ -66,6 +66,7 @@ pub fn main() -> Result<(), Error> {
             .cursor_style(CursorStyle::BoldBar)
             .font_family("Arial")
             .font_size(23.)
+            .bg_color(Color::Green)
             .poll(PollBlink::default()),
     )?;
 
@@ -96,11 +97,9 @@ impl SalsaContext<AppEvent, Error> for Global {
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         let mut fonts = FontData.installed_fonts().clone();
-        fonts.push("Arial".to_string());
         fonts.push("Roboto Mono".to_string());
         fonts.push("Times New Roman".to_string());
         fonts.sort();
-
         fonts.insert(0, "<Fallback>".to_string());
 
         Self {
@@ -242,7 +241,9 @@ pub fn render(
     .spacing(1)
     .split(vlayout[1]);
 
-    buf.set_style(area, ctx.theme.style_style(Style::CONTAINER_BASE));
+    let bg_style = ctx.theme.style_style(Style::CONTAINER_BASE);
+    buf.set_style(area, bg_style);
+    ctx.set_bg_color(bg_style.bg.unwrap_or_default());
 
     Span::from(" :: ").render(Rect::new(area.x, area.y, 4, 1), buf);
 
