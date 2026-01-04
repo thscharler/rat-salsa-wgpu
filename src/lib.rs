@@ -3,9 +3,10 @@ use log::debug;
 #[allow(dead_code)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
+use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
-use ratatui_wgpu::WgpuBackend;
 use ratatui_wgpu::shaders::DefaultPostProcessorBuilder;
+use ratatui_wgpu::{CursorStyle, WgpuBackend};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -413,6 +414,38 @@ where
 
     fn font_family(&self) -> String {
         self.salsa_ctx().font_family.borrow().clone()
+    }
+
+    fn cursor_style(&self) -> CursorStyle {
+        self.salsa_ctx()
+            .terminal()
+            .borrow()
+            .backend()
+            .cursor_style()
+    }
+
+    fn set_cursor_style(&self, style: CursorStyle) {
+        self.salsa_ctx()
+            .terminal()
+            .borrow_mut()
+            .backend_mut()
+            .set_cursor_style(style);
+    }
+
+    fn cursor_color(&self) -> Color {
+        self.salsa_ctx()
+            .terminal()
+            .borrow()
+            .backend()
+            .cursor_color()
+    }
+
+    fn set_cursor_color(&self, color: Color) {
+        self.salsa_ctx()
+            .terminal()
+            .borrow_mut()
+            .backend_mut()
+            .set_cursor_color(color);
     }
 }
 

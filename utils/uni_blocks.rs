@@ -34,6 +34,7 @@ use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::{Color, Style};
 use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_wgpu::CursorStyle;
 use std::fs;
 use std::path::PathBuf;
 
@@ -62,6 +63,7 @@ pub fn main() -> Result<(), Error> {
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
             .window_size(winit::dpi::PhysicalSize::new(1100, 600))
             .cursor_color(Color::Red)
+            .cursor_style(CursorStyle::BoldBar)
             .font_family("Overpass Mono")
             .font_size(23.)
             .poll(PollBlink::default()),
@@ -719,8 +721,7 @@ mod glyphs {
     use rat_event::{FromBool, HandleEvent, Outcome, Regular, ct_event, event_flow};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{
-        RelocatableState, relocate_area, relocate_pos_tuple, relocate_pos_tuple_opt,
-        relocate_position,
+        RelocatableState, relocate_area, relocate_pos_tuple_opt, relocate_position,
     };
     use rat_widget::text::HasScreenCursor;
     use ratatui_core::buffer::Buffer;
@@ -730,7 +731,6 @@ mod glyphs {
     use ratatui_core::widgets::{StatefulWidget, Widget};
     use std::marker::PhantomData;
     use unic_ucd::CanonicalCombiningClass;
-    use unicode_script::UnicodeScript;
     use unicode_width::UnicodeWidthChar;
 
     const CLUSTER: u32 = 16;
@@ -794,6 +794,7 @@ mod glyphs {
             self
         }
 
+        #[allow(dead_code)]
         pub fn focus_style(mut self, style: Style) -> Self {
             self.focus_style = style;
             self
