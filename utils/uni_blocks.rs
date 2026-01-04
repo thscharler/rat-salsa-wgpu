@@ -11,7 +11,7 @@ use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::event_type::CompositeWinitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
 use rat_salsa_wgpu::font_data::FontData;
-use rat_salsa_wgpu::poll::{PollTasks, PollTimers};
+use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
@@ -20,11 +20,12 @@ use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::choice::{Choice, ChoiceState};
-use rat_widget::event::{ChoiceOutcome, SliderOutcome, TextOutcome};
-use rat_widget::paired::{Paired, PairedWidget};
+use rat_widget::event::{ChoiceOutcome, SliderOutcome};
+use rat_widget::paired::Paired;
 use rat_widget::popup::Placement;
 use rat_widget::scrolled::{Scroll, ScrollbarPolicy};
 use rat_widget::slider::{Slider, SliderState};
+use rat_widget::text::HasScreenCursor;
 use rat_widget::text_input::{TextInput, TextInputState};
 use rat_widget::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::view::{View, ViewState};
@@ -62,8 +63,7 @@ pub fn main() -> Result<(), Error> {
             .window_size(winit::dpi::PhysicalSize::new(1100, 600))
             .font_family("Overpass Mono")
             .font_size(23.)
-            .poll(PollTimers::new())
-            .poll(PollTasks::new(2)),
+            .poll(PollBlink::default()),
     )?;
 
     Ok(())
@@ -301,7 +301,7 @@ pub fn render(
         .style(ctx.theme.style(Style::DOCUMENT_BASE))
         .codepoint_style(ctx.theme.p.high_bg_style(Colors::Yellow, Colors::Green, 6))
         .combining_base(state.combining_base.text())
-        .focus_style(ctx.theme.style(Style::FOCUS))
+        //.focus_style(ctx.theme.style(Style::FOCUS))
         .underline(state.underline.value())
         .start(block.range.low)
         .end(block.range.high);
@@ -330,6 +330,14 @@ pub fn render(
     // popup
     font_popup.render(font_area, buf, &mut state.fonts);
     blocks_popup.render(blocks_area, buf, &mut state.blocks);
+
+    ctx.set_screen_cursor(
+        state
+            .free_text
+            .screen_cursor()
+            .or(state.combining_base.screen_cursor())
+            .or(state.glyphs.screen_cursor()),
+    );
 
     Ok(())
 }
@@ -708,7 +716,11 @@ mod glyphs {
     use log::debug;
     use rat_event::{FromBool, HandleEvent, Outcome, Regular, ct_event, event_flow};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-    use rat_widget::reloc::{RelocatableState, relocate_area};
+    use rat_widget::reloc::{
+        RelocatableState, relocate_area, relocate_pos_tuple, relocate_pos_tuple_opt,
+        relocate_position,
+    };
+    use rat_widget::text::HasScreenCursor;
     use ratatui_core::buffer::Buffer;
     use ratatui_core::layout::Rect;
     use ratatui_core::style::Style;
@@ -716,7 +728,7 @@ mod glyphs {
     use ratatui_core::widgets::{StatefulWidget, Widget};
     use std::marker::PhantomData;
     use unic_ucd::CanonicalCombiningClass;
-    use unicode_script::{Script, UnicodeScript};
+    use unicode_script::UnicodeScript;
     use unicode_width::UnicodeWidthChar;
 
     const CLUSTER: u32 = 16;
@@ -745,6 +757,8 @@ mod glyphs {
         pub areas: Vec<Rect>,
         // areas for each codepoint in rendered coord.
         pub rendered: Vec<Rect>,
+        // screen-cursor
+        screen_cursor: Option<(u16, u16)>,
 
         pub focus: FocusFlag,
     }
@@ -811,6 +825,7 @@ mod glyphs {
     impl RelocatableState for GlyphsState {
         fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
             self.area.relocate(shift, clip);
+            self.screen_cursor = relocate_pos_tuple_opt(self.screen_cursor, shift, clip);
             for (rendered, area) in self.rendered.iter().zip(self.areas.iter_mut()) {
                 *area = relocate_area(*rendered, shift, clip);
             }
@@ -831,11 +846,18 @@ mod glyphs {
         }
     }
 
+    impl HasScreenCursor for GlyphsState {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
+            self.screen_cursor
+        }
+    }
+
     impl<'a> StatefulWidget for Glyphs<'a> {
         type State = GlyphsState;
 
         fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
             state.area = area;
+            state.screen_cursor = None;
 
             state.codepoint.clear();
             state.areas.clear();
@@ -874,6 +896,9 @@ mod glyphs {
                     1,
                     1,
                 );
+                if state.is_focused() && state.selected == off as usize {
+                    state.screen_cursor = Some((cp_area.x, cp_area.y));
+                }
 
                 if let Some(cell) = buf.cell_mut(cp_area.as_position()) {
                     cell.set_style(glyph_style);
@@ -908,6 +933,7 @@ mod glyphs {
                 codepoint: Default::default(),
                 areas: Default::default(),
                 rendered: Default::default(),
+                screen_cursor: None,
                 focus: Default::default(),
             }
         }

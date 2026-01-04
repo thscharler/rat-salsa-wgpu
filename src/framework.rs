@@ -17,7 +17,7 @@ use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::{Frame, Terminal};
-use ratatui_wgpu::{Font, WgpuBackend};
+use ratatui_wgpu::{CursorStyle, Font, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::cmp::min;
@@ -175,7 +175,7 @@ where
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<winit::error::EventLoopError> + From<io::Error>,
 {
-    rat_widget::text::cursor::set_cursor_type(CursorType::RenderedCursor);
+    // rat_widget::text::cursor::set_cursor_type(CursorType::RenderedCursor);
 
     let RunConfig {
         event_loop,
@@ -188,6 +188,9 @@ where
         emoji_font,
         bg_color,
         fg_color,
+        cur_style,
+        cur_blink,
+        cur_color,
         rapid_blink,
         slow_blink,
         win_attr,
@@ -253,6 +256,9 @@ where
         fg_color,
         rapid_blink,
         slow_blink,
+        cur_style,
+        cur_blink,
+        cur_color,
         win_attr,
         cr_window,
         cr_term,
@@ -307,6 +313,10 @@ where
     fg_color: Color,
     rapid_blink: u8,
     slow_blink: u8,
+    /// terminal cursor
+    cur_style: CursorStyle,
+    cur_blink: u8,
+    cur_color: Color,
 
     /// window callback
     win_attr: WindowAttributes,
@@ -415,6 +425,9 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         fg_color,
         rapid_blink,
         slow_blink,
+        cur_style,
+        cur_blink,
+        cur_color,
         win_attr,
         cr_window,
         cr_term,
@@ -478,6 +491,9 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         fg_color,
         rapid_blink,
         slow_blink,
+        cur_style,
+        cur_blink,
+        cur_color,
         non_exhaustive: NonExhaustive,
     })));
 

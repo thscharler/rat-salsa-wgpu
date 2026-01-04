@@ -3,9 +3,9 @@ use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::poll::PollEvents;
 use crate::{Control, PostProcessorBuilder};
-use ratatui_core::terminal::Terminal;
 use ratatui_core::style::Color;
-use ratatui_wgpu::{Builder, ColorTable, Dimensions, Font, WgpuBackend};
+use ratatui_core::terminal::Terminal;
+use ratatui_wgpu::{Builder, ColorTable, CursorStyle, Dimensions, Font, WgpuBackend};
 use std::num::NonZeroU32;
 use std::sync::Arc;
 use winit::error::EventLoopError;
@@ -37,6 +37,10 @@ where
     /// terminal colors
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
+    /// terminal cursor
+    pub(crate) cur_style: CursorStyle,
+    pub(crate) cur_blink: u8,
+    pub(crate) cur_color: Color,
     /// blinking stuff.
     pub(crate) rapid_blink: u8,
     pub(crate) slow_blink: u8,
@@ -72,8 +76,11 @@ where
             emoji_font: FontData.fallback_emoji_font(),
             bg_color: Color::Black,
             fg_color: Color::White,
-            rapid_blink: Default::default(),
-            slow_blink: Default::default(),
+            cur_style: Default::default(),
+            cur_blink: 4,
+            cur_color: Color::Reset,
+            rapid_blink: 1,
+            slow_blink: 5,
             win_attr: WindowAttributes::default().with_title("rat-salsa & ratatui-wgpu"),
             cr_window: Box::new(create_window),
             cr_term: Box::new(create_wgpu),
@@ -155,6 +162,29 @@ where
     /// Set the terminal fg color.
     pub fn fg_color(mut self, color: Color) -> Self {
         self.fg_color = color;
+        self
+    }
+
+    /// Set the cursor style.
+    pub fn cursor_style(mut self, style: CursorStyle) -> Self {
+        self.cur_style = style;
+        self
+    }
+
+    /// Set the divisor for cursor blinking.
+    ///
+    /// The divisor says the for every n-th blink event blinking is switched.
+    ///
+    /// Note that this is not enough to start blinking text. You also need
+    /// to add [PollBlink] for the timer.
+    pub fn cursor_blink(mut self, t: u8) -> Self {
+        self.cur_blink = t;
+        self
+    }
+
+    /// Set the cursor color.
+    pub fn cursor_color(mut self, color: Color) -> Self {
+        self.cur_color = color;
         self
     }
 
@@ -266,6 +296,10 @@ pub struct TermInit {
     pub rapid_blink: u8,
     /// Slow blink rate.
     pub slow_blink: u8,
+    /// terminal cursor
+    pub cur_style: CursorStyle,
+    pub cur_blink: u8,
+    pub cur_color: Color,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -319,7 +353,7 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
     };
 
     let backend = futures_lite::future::block_on({
-        let mut b = Builder::<PostProcessorBuilder>::from_fonts(arg.fallback_fonts)
+        Builder::<PostProcessorBuilder>::from_fonts(arg.fallback_fonts)
             .with_width_and_height(Dimensions {
                 width: NonZeroU32::new(size.width).expect("non-zero width"),
                 height: NonZeroU32::new(size.height).expect("non-zero-height"),
@@ -328,14 +362,13 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
             .with_bg_color(arg.bg_color)
             .with_fg_color(arg.fg_color)
             .with_fonts(arg.fonts)
-            .with_font_size_px(arg.font_size_px);
-        if arg.rapid_blink > 0 {
-            b = b.with_rapid_blink_millis(arg.rapid_blink);
-        }
-        if arg.slow_blink > 0 {
-            b = b.with_slow_blink_millis(arg.slow_blink);
-        }
-        b.build_with_target(arg.window)
+            .with_font_size_px(arg.font_size_px)
+            .with_cursor_style(arg.cur_style)
+            .with_cursor_blink(arg.cur_blink)
+            .with_cursor_color(arg.cur_color)
+            .with_rapid_blink(arg.rapid_blink)
+            .with_slow_blink(arg.slow_blink)
+            .build_with_target(arg.window)
     })
     .expect("ratatui-wgpu-backend");
 

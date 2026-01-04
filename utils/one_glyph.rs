@@ -6,6 +6,7 @@ use rat_event::{ct_event, event_flow};
 use rat_salsa_wgpu::event_type::CompositeWinitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
 use rat_salsa_wgpu::font_data::FontData;
+use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
@@ -14,17 +15,17 @@ use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
-use ratatui_core::style::Style;
+use ratatui_core::style::{Color, Style};
 use ratatui_core::text::{Span, Text};
+use ratatui_wgpu::CursorStyle;
 use std::fs;
 use std::path::PathBuf;
 
 static SAMPLES: &[&str] = &[
+    "\u{1f90c}",
+    "X",  //
     "fl", //
-    "ff",
-    "x",
-    "<=",
-    ">=",
+    "ff", "x", "<=", ">=",
     "ab",
     // "\u{fb1e}",
     // "\u{231a}",
@@ -63,7 +64,9 @@ pub fn main() -> Result<(), Error> {
             .window_position(winit::dpi::LogicalPosition::new(1050, 30))
             .window_size(winit::dpi::LogicalSize::new(200, 200))
             .font_family(FONT)
-            .font_size(35.),
+            .font_size(35.)
+            .cursor_color(Color::Red)
+            .poll(PollBlink::new(0, 200)),
     )?;
 
     Ok(())
@@ -168,6 +171,8 @@ pub fn render(
         .unwrap()
         .set_symbol(ctx.samples[state.sample_idx]);
 
+    ctx.set_screen_cursor(Some((3, 3)));
+
     Ok(())
 }
 
@@ -235,6 +240,21 @@ pub fn event(
             ct_event!(keycode press F(4)) => event_flow!({
                 state.underline = !state.underline;
                 Control::Changed
+            }),
+
+            ct_event!(keycode press F(5)) => event_flow!({
+                let n = match ctx.terminal().borrow().backend().cursor_style() {
+                    CursorStyle::Block => CursorStyle::Underscore,
+                    CursorStyle::Underscore => CursorStyle::BoldUnderscore,
+                    CursorStyle::BoldUnderscore => CursorStyle::Bar,
+                    CursorStyle::Bar => CursorStyle::BoldBar,
+                    CursorStyle::BoldBar => CursorStyle::Block,
+                };
+                ctx.terminal()
+                    .borrow_mut()
+                    .backend_mut()
+                    .set_cursor_style(n);
+                Control::Blink
             }),
 
             _ => {}

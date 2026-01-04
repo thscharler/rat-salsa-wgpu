@@ -14,6 +14,12 @@ pub struct PollBlink {
     next: SystemTime,
 }
 
+impl Default for PollBlink {
+    fn default() -> Self {
+        Self::new(0, 200)
+    }
+}
+
 impl PollBlink {
     /// New blink trigger.
     ///
