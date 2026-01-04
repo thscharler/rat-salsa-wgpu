@@ -64,7 +64,7 @@ pub fn main() -> Result<(), Error> {
             .window_size(winit::dpi::PhysicalSize::new(1100, 600))
             .cursor_color(Color::Red)
             .cursor_style(CursorStyle::BoldBar)
-            .font_family("Overpass Mono")
+            .font_family("Arial")
             .font_size(23.)
             .poll(PollBlink::default()),
     )?;
@@ -96,8 +96,13 @@ impl SalsaContext<AppEvent, Error> for Global {
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         let mut fonts = FontData.installed_fonts().clone();
+        fonts.push("Arial".to_string());
+        fonts.push("Roboto Mono".to_string());
+        fonts.push("Times New Roman".to_string());
+        fonts.sort();
+
         fonts.insert(0, "<Fallback>".to_string());
-        fonts.insert(1, "Arial".to_string());
+
         Self {
             ctx: Default::default(),
             cfg,
@@ -605,6 +610,7 @@ mod glyph_info {
                     font.ascender(),
                     font.descender()
                 ));
+                txt.push_line(format!("monospaced {}", font.is_monospaced()));
                 txt.push_line("");
 
                 if let Some(gid) = font.glyph_index(self.cc) {
@@ -617,7 +623,7 @@ mod glyph_info {
                         y_max: 0,
                     });
                     txt.push_line(format!(
-                        "bounding_box {:?} {:?}; {:?} {:?}",
+                        "bounding_box x {:?}..{:?}; y {:?}..{:?}",
                         bb.x_min, bb.x_max, bb.y_min, bb.y_max,
                     ));
                     txt.push_line(format!(
@@ -631,6 +637,9 @@ mod glyph_info {
                 let mut buffer = UnicodeBuffer::new();
                 if CanonicalCombiningClass::of(self.cc).is_reordered() {
                     buffer.push_str(self.combining_base);
+                } else if self.cc.width() == Some(0) {
+                    // would combine with the previous cell. probably.
+                    buffer.push_str(" ");
                 }
                 buffer.add(self.cc, 0);
                 buffer.guess_segment_properties();
@@ -893,7 +902,7 @@ mod glyphs {
                     glyph_style
                 };
 
-                let cp_area = Rect::new(
+                let mut cp_area = Rect::new(
                     area.x + 9 + 2 * col as u16, //
                     area.y + 2 * row as u16,
                     1,
@@ -907,6 +916,8 @@ mod glyphs {
                     cell.set_style(glyph_style);
 
                     if cc as u32 >= 32 && cc as u32 != 127 {
+                        cp_area.width = cc.width().unwrap_or(1).max(1) as u16;
+
                         tmp.clear();
                         if CanonicalCombiningClass::of(cc).is_reordered() {
                             tmp.push_str(self.combining_base);
