@@ -62,9 +62,8 @@ pub fn main() -> Result<(), Error> {
             .window_title("uni-blocks")
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
             .window_size(winit::dpi::PhysicalSize::new(1100, 600))
-            .cursor_color(Color::Red)
-            .cursor_style(CursorStyle::BoldBar)
-            .font_family("Arial")
+            .cursor_color(Color::Cyan)
+            .cursor_style(CursorStyle::BoldUnderscore)
             .font_size(23.)
             .bg_color(Color::Green)
             .poll(PollBlink::default()),
@@ -414,6 +413,21 @@ pub fn event(
             ct_event!(keycode press F(4)) => event_flow!({
                 state.underline.flip_checked();
                 Control::Changed
+            }),
+
+            ct_event!(keycode press F(5)) => event_flow!({
+                let n = match ctx.terminal().borrow().backend().cursor_style() {
+                    CursorStyle::Block => CursorStyle::Underscore,
+                    CursorStyle::Underscore => CursorStyle::BoldUnderscore,
+                    CursorStyle::BoldUnderscore => CursorStyle::Bar,
+                    CursorStyle::Bar => CursorStyle::BoldBar,
+                    CursorStyle::BoldBar => CursorStyle::Block,
+                };
+                ctx.terminal()
+                    .borrow_mut()
+                    .backend_mut()
+                    .set_cursor_style(n);
+                Control::Blink
             }),
 
             _ => {}
@@ -956,10 +970,8 @@ mod glyphs {
         /// Returns the area for the codepoint in view-coords (rendered coords).
         pub fn selected_view(&self) -> Rect {
             if self.selected < self.codepoint.len() {
-                debug!("found area");
                 self.rendered[self.selected]
             } else {
-                debug!("no area");
                 Rect::default()
             }
         }

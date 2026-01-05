@@ -105,5 +105,9 @@ name = "one_span"
 path = "utils/one_span.rs"
 
 [[example]]
+name = "box_draw"
+path = "utils/box_draw.rs"
+
+[[example]]
 name = "uni_blocks"
 path = "utils/uni_blocks.rs"
