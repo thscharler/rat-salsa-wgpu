@@ -13,7 +13,7 @@ use crate::timer::Timers;
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::info;
+use log::{debug, info};
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
@@ -787,27 +787,7 @@ where
 {
     let mut r = Ok(());
 
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .draw(&mut |frame: &mut Frame| {
-            let frame_area = frame.area();
-            let ttt = SystemTime::now();
-
-            r = (app.render)(frame_area, frame.buffer_mut(), app.state, app.global);
-
-            app.global
-                .salsa_ctx()
-                .last_render
-                .set(ttt.elapsed().unwrap_or_default());
-            if let Some((cursor_x, cursor_y)) = app.global.salsa_ctx().cursor.get() {
-                frame.set_cursor_position((cursor_x, cursor_y));
-            }
-            app.global.salsa_ctx().count.set(frame.count());
-            app.global.salsa_ctx().cursor.set(None);
-        })
-        .expect("draw-frame");
+    let tt = SystemTime::now();
 
     app.terminal
         .as_ref()
@@ -822,6 +802,32 @@ where
         .borrow_mut()
         .backend_mut()
         .set_bg_color(app.global.salsa_ctx().bg_color.get());
+
+    app.terminal
+        .as_ref()
+        .expect("terminal")
+        .borrow_mut()
+        .draw(&mut |frame: &mut Frame| {
+            let frame_area = frame.area();
+            let ttt = SystemTime::now();
+
+            r = (app.render)(frame_area, frame.buffer_mut(), app.state, app.global);
+
+            app.global
+                .salsa_ctx()
+                .last_render
+                .set(ttt.elapsed().unwrap_or_default());
+
+            if let Some((cursor_x, cursor_y)) = app.global.salsa_ctx().cursor.get() {
+                frame.set_cursor_position((cursor_x, cursor_y));
+            }
+
+            app.global.salsa_ctx().count.set(frame.count());
+            app.global.salsa_ctx().cursor.set(None);
+        })
+        .expect("draw-frame");
+
+    debug!("** total render {:?}", tt.elapsed());
 
     match r {
         Ok(_) => {

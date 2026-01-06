@@ -6,7 +6,6 @@ use rat_focus::Focus;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use ratatui_wgpu::shaders::DefaultPostProcessorBuilder;
-use ratatui_wgpu::{CursorStyle, WgpuBackend};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
@@ -36,6 +35,7 @@ use crate::timer::{TimerDef, TimerHandle, Timers};
 use crate::tokio_tasks::TokioTasks;
 pub use control::Control;
 pub use framework::run_tui;
+pub use ratatui_wgpu::{CursorStyle, WgpuBackend};
 pub use run_config::{RunConfig, TermInit};
 
 #[cfg(feature = "dialog")]
