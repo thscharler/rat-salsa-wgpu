@@ -12,6 +12,7 @@ use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
+#[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 use winit::window::Window;
 
@@ -31,6 +32,7 @@ use crate::font_data::FontData;
 use crate::tasks::{Cancel, Liveness};
 use crate::thread_pool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
+#[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 pub use control::Control;
 pub use framework::run_tui;
@@ -385,6 +387,7 @@ where
         self.salsa_ctx().window().request_redraw();
     }
 
+    /// Current font-size
     fn font_size(&self) -> f64 {
         self.salsa_ctx().font_size.get()
     }
@@ -412,10 +415,12 @@ where
         }
     }
 
+    /// Current font-family
     fn font_family(&self) -> String {
         self.salsa_ctx().font_family.borrow().clone()
     }
 
+    /// Cursor style
     fn cursor_style(&self) -> CursorStyle {
         self.salsa_ctx()
             .terminal()
@@ -424,6 +429,7 @@ where
             .cursor_style()
     }
 
+    /// Cursor style
     fn set_cursor_style(&self, style: CursorStyle) {
         self.salsa_ctx()
             .terminal()
@@ -432,6 +438,7 @@ where
             .set_cursor_style(style);
     }
 
+    /// Cursor color. Defaults to the cells fg color.
     fn cursor_color(&self) -> Color {
         self.salsa_ctx()
             .terminal()
@@ -440,6 +447,7 @@ where
             .cursor_color()
     }
 
+    /// Cursor color. Defaults to the cells fg color.
     fn set_cursor_color(&self, color: Color) {
         self.salsa_ctx()
             .terminal()
@@ -448,10 +456,19 @@ where
             .set_cursor_color(color);
     }
 
+    /// Change the default fg color.
     fn set_fg_color(&self, color: Color) {
         self.salsa_ctx().fg_color.set(color);
     }
 
+    /// Change the default bg color.
+    ///
+    /// This also is the color that the margin will be rendered with.
+    /// The margin itself is a result of dividing the window area into
+    /// font-sized cells. There will be a bit of remainder.
+    ///
+    /// If you don't want it black, set it to some useful color with this.
+    ///
     fn set_bg_color(&self, color: Color) {
         self.salsa_ctx().bg_color.set(color);
     }

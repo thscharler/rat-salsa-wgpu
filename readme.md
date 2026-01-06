@@ -11,10 +11,32 @@
 Implements the same API as [rat-salsa][rat-salsa], but uses 
 [ratatui-wgpu][ratatui-wgpu] as the backend.
 
+## Running this
+
+I'm still waiting for some feedback from upstream about the changes/fixes
+I added to ratatui-wgpu. 
+
+So for now there is a `main` branch that runs on par with 
+jesterharts's ratatui-wgpu. This one has a lot of broken rendering and
+is lacking ergonomic features. 
+
+All my changes are in the `remastered` branch. If you want to report anything
+try this branch first.
+
+## Status 
+
+I'm happy with what I can do with the remastered branch, and I'm currently 
+waiting for some feedback. 
+
+So this will stay as a github only repo for the foreseeable future.
+
+I still stick a 1.0 to it, just to signal that I think it's fine but
+with drawbacks.
+
 ## RunConfig
 
 Usually all you have to do to switch is use the RunConfig
-provided by rat-salsa-wgpu, which has a different API to accomodate 
+provided by rat-salsa-wgpu, which has a different API to accommodate 
 for the different setting. 
 
 ```
@@ -42,7 +64,14 @@ RunConfig::new(ConvertCrossterm::new())?
 
 ## Quirks
 
-> This is 0.1 btw. 
+Except from the difficult status ...
+
+But the font-rendering looks fine now. It'll even cope if you
+accidentially use a variable width font and only look half-broken.
+
+If you activate all the fallback fonts most things should render fine.
+I don't use color-emojis and rather have more text-like ones, but you
+can easily switch this out.
 
 ## Dual use
 
@@ -55,19 +84,19 @@ this approach.
 [features]
 default = ["wgpu"]
 wgpu = ["dep:rat-salsa-wgpu"]
-crossterm = ["dep:rat-salsa"]
+term = ["dep:rat-salsa"]
 ```
 and use the crates optionally. 
 
 ```
 rat-salsa = { version = "3.0", optional = true }
-rat-salsa-wgpu = { version = "0.1", optional = true }
+rat-salsa-wgpu = { version = "1.0", optional = true }
 ```
 
 In your main 
 
 ```
-#[cfg(feature = "crossterm")]
+#[cfg(feature = "term")]
 pub(crate) use rat_salsa;
 #[cfg(feature = "wgpu")]
 pub(crate) use rat_salsa_wgpu as rat_salsa;
@@ -88,10 +117,11 @@ use crate::rat_salsa::{Control, SalsaContext};
 * NotoSansSymbols2-Regular (OFL license)
 * CascadiaMono-Regular (OFL License)
 
-The first two fonts are embedded when you use the feature flags `fallback_emoji_font`
-and `fallback_symbol_font` and are always included when setting a font-family.
+There is a feature flag for each of the fonts. They are all
+active by default, but you can turn them off and save a few MB in 
+binary size.
 
-The third font is always embedded and used as a absolute fallback.
+If you turn them all off, you need to set a font.
 
 ## Icons
 
@@ -101,6 +131,43 @@ that will dump the image as a raw rgba file that can be directly `include!`d.
 
 ![image][refFilesGif]
 ![image][refMDEditGif]
+
+## Diff rat-salsa
+
+### SalsaContext
+
+Adds functions only useful for the graphical context or simply not available for a TUI.
+
+* window() - access the underlying window
+* font_size()/set_font_size()
+* font_family()/set_font_family()
+* cursor_style()/set_cursor_style()
+* cursor_color()/set_cursor_color()
+* set_fg_color() - default color
+* set_bg_color() - default color
+
+### Control
+
+* Control::Blink - One extra control to make the cursor blink and to enable blinking text.
+
+  This is necessary to communicate the need for a targeted redraw of just the blinking
+  things. ratatui-wgpu relies on an external source for time. 
+
+  It's pretty useless for anything else, but it allows you to add `PollBlink`
+  and adjust the timings for blinking. 
+
+### run_tui and RunConfig
+
+Those are completely different from rat-salsa but try to 
+provide an analog api. 
+
+The main event-loop runs as a winit-eventloop. All the extra event-sources
+are run in a separate polling thread and communicate back using winit's user-event
+feature. 
+
+This allows it to run your application in one thread, eliminating the
+need for unwanted Send/Sync, but it still adds a Send bound to a few things
+to make this work. 
 
 
 [refOpenMoji]: https://github.com/hfg-gmuend/openmoji/tree/master/font/OpenMoji-black-glyf

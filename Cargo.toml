@@ -1,6 +1,6 @@
 [package]
 name = "rat-salsa-wgpu"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2024"
 description = "ratatui + wgpu + winit event-loop and widgets"
@@ -21,8 +21,7 @@ if_same_then_else = "allow"
 comparison_chain = "allow"
 
 [features]
-#default = ["dialog_widgets", "async", "preserve_aspect_ratio"]
-default = ["dialog_widgets", "async", "fallback_font", "fallback_emoji_font", "fallback_symbol_font", "preserve_aspect_ratio"]
+default = ["fallback_font", "fallback_emoji_font", "fallback_symbol_font"]
 # Async support.
 async = ["dep:tokio"]
 # Add support for dialog windows.
@@ -52,8 +51,8 @@ tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"]
 ratatui-core = { version = "0.1.0" }
 crossterm = { version = "0.29.0" }
 
-#ratatui-wgpu = { version = "0.4", features = [], git = "https://github.com/thscharler/ratatui-wgpu", branch = "remastered" }
-ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
+ratatui-wgpu = { version = "0.4", features = [], git = "https://github.com/thscharler/ratatui-wgpu", branch = "remastered" }
+#ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
 
 rat-event = { version = "2.0", path = "../rat-salsa/rat-event" }
 rat-focus = { version = "2.0", path = "../rat-salsa/rat-focus" }

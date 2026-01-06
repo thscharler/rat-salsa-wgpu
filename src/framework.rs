@@ -3,11 +3,14 @@ use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::framework::control_queue::ControlQueue;
 use crate::framework::poll_queue::PollQueue;
-use crate::poll::{PollEvents, PollQuit, PollRendered, PollTasks, PollTimers, PollTokio};
+#[cfg(feature = "async")]
+use crate::poll::PollTokio;
+use crate::poll::{PollEvents, PollQuit, PollRendered, PollTasks, PollTimers};
 use crate::run_config::TermInit;
 use crate::tasks::Cancel;
 use crate::thread_pool::ThreadPool;
 use crate::timer::Timers;
+#[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
 use log::{debug, info};
@@ -202,6 +205,7 @@ where
     let mut quit_event = None;
     let mut timers_ctrl = None;
     let mut tasks_ctrl = None;
+    #[cfg(feature = "async")]
     let mut tokio_ctrl = None;
     let poll = {
         let mut tmp = Vec::new();
@@ -266,6 +270,7 @@ where
         rendered_event,
         timers_ctrl,
         tasks_ctrl,
+        #[cfg(feature = "async")]
         tokio_ctrl,
         poll,
         proxy,
@@ -435,6 +440,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         rendered_event,
         timers_ctrl,
         tasks_ctrl,
+        #[cfg(feature = "async")]
         tokio_ctrl,
         poll,
         proxy,
@@ -517,6 +523,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         last_event: Default::default(),
         timers: timers_ctrl,
         tasks: tasks_ctrl,
+        #[cfg(feature = "async")]
         tokio: tokio_ctrl,
         queue: ControlQueue::default(),
         window: RefCell::new(Some(window.clone())),
