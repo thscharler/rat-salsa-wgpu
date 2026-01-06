@@ -1,5 +1,3 @@
-// #![allow(text_direction_codepoint_in_literal)]
-
 use crate::glyph_info::{GlyphInfo, GlyphInfoState};
 use crate::glyphs::{Glyphs, GlyphsState};
 use crate::uni_blocks_data::BLOCKS;
@@ -15,9 +13,8 @@ use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
-use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, SliderOutcome};
@@ -25,16 +22,18 @@ use rat_widget::paired::Paired;
 use rat_widget::popup::Placement;
 use rat_widget::scrolled::{Scroll, ScrollbarPolicy};
 use rat_widget::slider::{Slider, SliderState};
-use rat_widget::text::HasScreenCursor;
+use rat_widget::text::{HasScreenCursor, TextStyle};
 use rat_widget::text_input::{TextInput, TextInputState};
 use rat_widget::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_widget::view::{View, ViewState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
-use ratatui_core::style::{Color, Style};
-use ratatui_core::text::{Line, Span};
+use ratatui_core::style::Style;
+use ratatui_core::text::Span;
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_wgpu::CursorStyle;
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 use std::fs;
 use std::path::PathBuf;
 
@@ -62,10 +61,9 @@ pub fn main() -> Result<(), Error> {
             .window_title("uni-blocks")
             .window_position(winit::dpi::PhysicalPosition::new(30, 30))
             .window_size(winit::dpi::PhysicalSize::new(1100, 600))
-            .cursor_color(Color::Cyan)
-            .cursor_style(CursorStyle::BoldUnderscore)
+            //.cursor_color(Color::Red)
+            //.cursor_style(CursorStyle::BoldUnderscore)
             .font_size(23.)
-            .bg_color(Color::Green)
             .poll(PollBlink::default()),
     )?;
 
@@ -161,6 +159,8 @@ pub struct Minimal {
     pub font_size: SliderState<usize>,
     pub blocks: ChoiceState<usize>,
     pub underline: CheckboxState,
+    pub bold: CheckboxState,
+    pub italic: CheckboxState,
     pub combining_base: MaskedInputState,
     pub free_text: TextInputState,
 
@@ -176,6 +176,8 @@ impl Minimal {
             font_size: Default::default(),
             blocks: Default::default(),
             underline: Default::default(),
+            bold: Default::default(),
+            italic: Default::default(),
             combining_base: MaskedInputState::new().with_mask("_").expect("valid mask"),
             free_text: Default::default(),
             view: Default::default(),
@@ -191,6 +193,8 @@ impl HasFocus for Minimal {
         builder.widget(&self.font_size);
         builder.widget(&self.blocks);
         builder.widget(&self.underline);
+        builder.widget(&self.bold);
+        builder.widget(&self.italic);
         builder.widget(&self.combining_base);
         builder.widget(&self.free_text);
         builder.widget(&self.glyphs);
@@ -273,22 +277,44 @@ pub fn render(
         .into_widgets();
     blocks.render(blocks_area, buf, &mut state.blocks);
 
-    let underline_area = Rect::new(area.x + 6, area.y + 2, 15, 1);
+    let underline_area = Rect::new(area.x + 6, area.y + 2, 14, 1);
     Checkbox::new()
         .text("underline")
         .styles(ctx.theme.style(WidgetStyle::CHECKBOX))
         .render(underline_area, buf, &mut state.underline);
 
-    let combining_area = Rect::new(area.x + 47, area.y + 2, 15, 1);
+    let bold_area = Rect::new(area.x + 20, area.y + 2, 9, 1);
+    Checkbox::new()
+        .text("bold")
+        .styles(ctx.theme.style(WidgetStyle::CHECKBOX))
+        .render(bold_area, buf, &mut state.bold);
+
+    let italic_area = Rect::new(area.x + 29, area.y + 2, 11, 1);
+    Checkbox::new()
+        .text("italic")
+        .styles(ctx.theme.style(WidgetStyle::CHECKBOX))
+        .render(italic_area, buf, &mut state.italic);
+
+    let combining_area = Rect::new(area.x + 47, area.y + 2, 20, 1);
     Paired::new_labeled(
-        "c-base",
+        "combining-base",
         MaskedInput::new().styles(ctx.theme.style(WidgetStyle::TEXT)),
     )
     .render(combining_area, buf, &mut state.combining_base);
 
-    let free_text_area = Rect::new(area.x + 6, area.y + 3, 40, 1);
+    let free_text_area = Rect::new(area.x + 6, area.y + 4, 61, 1);
+    let mut free_text_style = ctx.theme.style::<TextStyle>(WidgetStyle::TEXT);
+    if state.underline.checked() {
+        free_text_style.style = free_text_style.style.underlined();
+    }
+    if state.bold.checked() {
+        free_text_style.style = free_text_style.style.bold();
+    }
+    if state.italic.checked() {
+        free_text_style.style = free_text_style.style.italic();
+    }
     TextInput::new()
-        .styles(ctx.theme.style(WidgetStyle::TEXT))
+        .styles(free_text_style)
         .render(free_text_area, buf, &mut state.free_text);
 
     let sample_area = Rect::new(area.x + 6, area.y + 4, 55, 1);
@@ -299,25 +325,21 @@ pub fn render(
         .find(|v| v.name == block)
         .expect("block");
 
-    let blockrange_area = Rect::new(area.x + 47, area.y + 1, 25, 1);
-    Line::from(format!(
-        "{:#5x} - {:#5x}",
-        block.range.low as u32, block.range.high as u32
-    ))
-    .render(blockrange_area, buf);
-
     let glyphs = Glyphs::new()
         .style(ctx.theme.style(Style::DOCUMENT_BASE))
-        .codepoint_style(ctx.theme.p.high_bg_style(Colors::Yellow, Colors::Green, 6))
+        .codepoint_style(ctx.theme.style(Style::CONTAINER_BASE))
         .combining_base(state.combining_base.text())
-        //.focus_style(ctx.theme.style(Style::FOCUS))
+        .focus_style(ctx.theme.style(Style::FOCUS))
         .underline(state.underline.value())
+        .bold(state.bold.value())
+        .italic(state.italic.value())
         .start(block.range.low)
         .end(block.range.high);
 
     let mut view_buf = View::new()
         .view_height(glyphs.height())
         .view_width(glyphs.width())
+        .block(Block::bordered().border_type(BorderType::Rounded))
         .vscroll(Scroll::new().policy(ScrollbarPolicy::Always))
         .hscroll(Scroll::new())
         .styles(ctx.theme.style(WidgetStyle::VIEW))
@@ -329,11 +351,17 @@ pub fn render(
     view_buf.finish(buf, &mut state.view);
 
     if let Some(cc) = state.glyphs.codepoint.get(state.glyphs.selected) {
+        let info_area = Rect::new(
+            hlayout[1].x,
+            hlayout[1].y + 1,
+            hlayout[1].width,
+            hlayout[1].height,
+        );
         GlyphInfo::new()
             .style(ctx.theme.style(Style::CONTAINER_BASE))
             .cc(*cc)
             .combining_base(state.combining_base.text())
-            .render(hlayout[1], buf, &mut state.glyphinfo);
+            .render(info_area, buf, &mut state.glyphinfo);
     }
 
     // popup
@@ -414,8 +442,16 @@ pub fn event(
                 state.underline.flip_checked();
                 Control::Changed
             }),
-
             ct_event!(keycode press F(5)) => event_flow!({
+                state.bold.flip_checked();
+                Control::Changed
+            }),
+            ct_event!(keycode press F(6)) => event_flow!({
+                state.italic.flip_checked();
+                Control::Changed
+            }),
+
+            ct_event!(keycode press F(7)) => event_flow!({
                 let n = match ctx.terminal().borrow().backend().cursor_style() {
                     CursorStyle::Block => CursorStyle::Underscore,
                     CursorStyle::Underscore => CursorStyle::BoldUnderscore,
@@ -428,6 +464,27 @@ pub fn event(
                     .backend_mut()
                     .set_cursor_style(n);
                 Control::Blink
+            }),
+
+            ct_event!(keycode press F(8)) => event_flow!({
+                let themes = salsa_themes();
+                let pos = themes
+                    .iter()
+                    .position(|v| *v == ctx.theme.name())
+                    .unwrap_or(0);
+                let pos = (pos + 1) % themes.len();
+                ctx.theme = create_salsa_theme(&themes[pos]);
+                Control::Changed
+            }),
+            ct_event!(keycode press SHIFT-F(8)) => event_flow!({
+                let themes = salsa_themes();
+                let pos = themes
+                    .iter()
+                    .position(|v| *v == ctx.theme.name())
+                    .unwrap_or(0);
+                let pos = pos.saturating_sub(1);
+                ctx.theme = create_salsa_theme(&themes[pos]);
+                Control::Changed
             }),
 
             _ => {}
@@ -450,6 +507,8 @@ pub fn event(
             r => Control::from(r),
         });
         event_flow!(state.underline.handle(event, Regular));
+        event_flow!(state.bold.handle(event, Regular));
+        event_flow!(state.italic.handle(event, Regular));
         event_flow!(state.combining_base.handle(event, Regular));
         event_flow!(state.free_text.handle(event, Regular));
         event_flow!(state.view.handle(event, Regular));
@@ -744,9 +803,7 @@ mod glyphs {
     use log::debug;
     use rat_event::{FromBool, HandleEvent, Outcome, Regular, ct_event, event_flow};
     use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-    use rat_widget::reloc::{
-        RelocatableState, relocate_area, relocate_pos_tuple_opt, relocate_position,
-    };
+    use rat_widget::reloc::{RelocatableState, relocate_area, relocate_pos_tuple_opt};
     use rat_widget::text::HasScreenCursor;
     use ratatui_core::buffer::Buffer;
     use ratatui_core::layout::Rect;
@@ -766,6 +823,8 @@ mod glyphs {
         start: char,
         end: char,
         underline: bool,
+        bold: bool,
+        italic: bool,
         combining_base: &'a str,
         _phantom: PhantomData<&'a ()>,
     }
@@ -797,7 +856,9 @@ mod glyphs {
                 focus_style: Default::default(),
                 start: '\u{0000}',
                 end: '\u{0000}',
-                underline: true,
+                underline: Default::default(),
+                bold: Default::default(),
+                italic: Default::default(),
                 combining_base: " ",
                 _phantom: Default::default(),
             }
@@ -836,6 +897,16 @@ mod glyphs {
 
         pub fn underline(mut self, underline: bool) -> Self {
             self.underline = underline;
+            self
+        }
+
+        pub fn bold(mut self, bold: bool) -> Self {
+            self.bold = bold;
+            self
+        }
+
+        pub fn italic(mut self, italic: bool) -> Self {
+            self.italic = italic;
             self
         }
 
@@ -892,12 +963,6 @@ mod glyphs {
 
             buf.set_style(area, self.style);
 
-            let glyph_style = if self.underline {
-                self.codepoint_style.underlined()
-            } else {
-                self.codepoint_style
-            };
-
             let mut tmp = String::new();
             for cc in self.start..=self.end {
                 let off = cc as u32 - self.start as u32;
@@ -911,8 +976,23 @@ mod glyphs {
                     Span::from(byte_span).render(head_area, buf);
                 }
 
-                let glyph_style = if state.is_focused() && state.selected == off as usize {
-                    glyph_style.patch(self.focus_style)
+                let mut glyph_style = if state.is_focused() && state.selected == off as usize {
+                    self.codepoint_style.patch(self.focus_style)
+                } else {
+                    self.codepoint_style
+                };
+                glyph_style = if self.underline {
+                    glyph_style.underlined()
+                } else {
+                    glyph_style
+                };
+                glyph_style = if self.bold {
+                    glyph_style.bold()
+                } else {
+                    glyph_style
+                };
+                glyph_style = if self.italic {
+                    glyph_style.italic()
                 } else {
                     glyph_style
                 };
