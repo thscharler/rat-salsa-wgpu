@@ -13,7 +13,7 @@ use crate::timer::Timers;
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::{debug, info};
+use log::info;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;

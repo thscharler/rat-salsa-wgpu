@@ -16,10 +16,10 @@ use std::time::Duration;
 use tokio::task::AbortHandle;
 use winit::window::Window;
 
-#[cfg(not(feature = "preserve_aspect_ratio"))]
-pub(crate) type PostProcessorBuilder = DefaultPostProcessorBuilder<false>;
-#[cfg(feature = "preserve_aspect_ratio")]
+#[cfg(not(feature = "scale_to_window"))]
 pub(crate) type PostProcessorBuilder = DefaultPostProcessorBuilder<true>;
+#[cfg(feature = "scale_to_window")]
+pub(crate) type PostProcessorBuilder = DefaultPostProcessorBuilder<false>;
 
 mod control;
 mod framework;

@@ -28,8 +28,8 @@ async = ["dep:tokio"]
 dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
 dialog_widgets = ["dialog", "rat-widget"]
-# ...
-preserve_aspect_ratio = []
+# Scale the resulting TUI to the exact window-size. Might look a bit stretched.
+scale_to_window = []
 # Add CascadiaMono-Regular as fallback font.
 fallback_font = []
 # Add NotoEmoji-Regular as default emoji font.
@@ -51,8 +51,8 @@ tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"]
 ratatui-core = { version = "0.1.0" }
 crossterm = { version = "0.29.0" }
 
-ratatui-wgpu = { version = "0.4", features = [], git = "https://github.com/thscharler/ratatui-wgpu", branch = "remastered" }
-#ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
+#ratatui-wgpu = { version = "0.4", features = [], git = "https://github.com/thscharler/ratatui-wgpu", branch = "remastered" }
+ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
 
 rat-event = { version = "2.0", path = "../rat-salsa/rat-event" }
 rat-focus = { version = "2.0", path = "../rat-salsa/rat-focus" }
