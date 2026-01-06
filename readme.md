@@ -8,25 +8,25 @@
 
 # rat-salsa [wgpu]
 
-Implements the same API as [rat-salsa][rat-salsa], but uses 
+Implements the same API as [rat-salsa][rat-salsa], but uses
 [ratatui-wgpu][ratatui-wgpu] as the backend.
 
 ## Running this
 
 I'm still waiting for some feedback from upstream about the changes/fixes
-I added to ratatui-wgpu. 
+I added to ratatui-wgpu.
 
-So for now there is a `main` branch that runs on par with 
+So for now there is a `main` branch that runs on par with
 jesterharts's ratatui-wgpu. This one has a lot of broken rendering and
-is lacking ergonomic features. 
+is lacking ergonomic features.
 
 All my changes are in the `remastered` branch. If you want to report anything
 try this branch first.
 
-## Status 
+## Status
 
-I'm happy with what I can do with the remastered branch, and I'm currently 
-waiting for some feedback. 
+I'm happy with what I can do with the remastered branch, and I'm currently
+waiting for some feedback.
 
 So this will stay as a github only repo for the foreseeable future.
 
@@ -36,8 +36,8 @@ with drawbacks.
 ## RunConfig
 
 Usually all you have to do to switch is use the RunConfig
-provided by rat-salsa-wgpu, which has a different API to accommodate 
-for the different setting. 
+provided by rat-salsa-wgpu, which has a different API to accommodate
+for the different setting.
 
 ```
 RunConfig::new(ConvertCrossterm::new())?
@@ -53,13 +53,13 @@ RunConfig::new(ConvertCrossterm::new())?
 ```
 
 - ConvertCrossterm: Converts winit-events to crossterm events.
-- font_family(): UI font ... 
+- font_family(): UI font ...
 - window_title(): Set the window title
-- ...: There are more such settings. 
+- ...: There are more such settings.
 
 ## SalsaContext
 
-- Gives access to the underlying window. 
+- Gives access to the underlying window.
 - Allows changing the font-family and font-size.
 
 ## Quirks
@@ -75,25 +75,26 @@ can easily switch this out.
 
 ## Dual use
 
-If you want to compile with either rat-salsa or rat-salsa-wgpu I found 
+If you want to compile with either rat-salsa or rat-salsa-wgpu I found
 this approach.
 
-* define two features 
- 
+* define two features
+
 ```
 [features]
 default = ["wgpu"]
 wgpu = ["dep:rat-salsa-wgpu"]
 term = ["dep:rat-salsa"]
 ```
-and use the crates optionally. 
+
+and use the crates optionally.
 
 ```
 rat-salsa = { version = "3.0", optional = true }
 rat-salsa-wgpu = { version = "1.0", optional = true }
 ```
 
-In your main 
+In your main
 
 ```
 #[cfg(feature = "term")]
@@ -110,27 +111,31 @@ use crate::rat_salsa::{Control, SalsaContext};
 
 ## Included Fonts
 
-> This is currently pending, there are a few PR's waiting. 
-> But there is a fallback font if you don't set anything. 
+> This is currently pending, there are a few PR's waiting.
+> But there is a fallback font if you don't set anything.
 
 * [OpenMoji-black-glyf][refOpenMoji]  (CC-BY-SA-4.0 license)
 * NotoSansSymbols2-Regular (OFL license)
 * CascadiaMono-Regular (OFL License)
 
 There is a feature flag for each of the fonts. They are all
-active by default, but you can turn them off and save a few MB in 
+active by default, but you can turn them off and save a few MB in
 binary size.
 
 If you turn them all off, you need to set a font.
 
 ## Icons
 
-If you want to use an icon, there is `img_icon` in the examples, 
-that will dump the image as a raw rgba file that can be directly `include!`d. 
-
+If you want to use an icon, there is `img_icon` in the examples,
+that will dump the image as a raw rgba file that can be directly `include!`d.
 
 ![image][refFilesGif]
 ![image][refMDEditGif]
+
+## uni_blocks
+
+This is another sample that lets you see the rendering of glyphs for all monospaced
+fonts found on the system.
 
 ## Diff rat-salsa
 
@@ -151,23 +156,43 @@ Adds functions only useful for the graphical context or simply not available for
 * Control::Blink - One extra control to make the cursor blink and to enable blinking text.
 
   This is necessary to communicate the need for a targeted redraw of just the blinking
-  things. ratatui-wgpu relies on an external source for time. 
+  things. ratatui-wgpu relies on an external source for time.
 
   It's pretty useless for anything else, but it allows you to add `PollBlink`
-  and adjust the timings for blinking. 
+  and adjust the timings for blinking.
 
 ### run_tui and RunConfig
 
-Those are completely different from rat-salsa but try to 
-provide an analog api. 
+Those are completely different from rat-salsa but try to
+provide an analog api.
 
 The main event-loop runs as a winit-eventloop. All the extra event-sources
 are run in a separate polling thread and communicate back using winit's user-event
-feature. 
+feature.
 
 This allows it to run your application in one thread, eliminating the
 need for unwanted Send/Sync, but it still adds a Send bound to a few things
-to make this work. 
+to make this work.
+
+## Additions
+
+### PollBlink
+
+This is the event source for all blinking things. Add this to run-config if you
+want a blinking cursor.
+
+### FontData
+
+Fallback fonts and store for loaded fonts.
+
+### EventTypes
+
+ConvertCrossterm and ConvertCrosstermEx convert winit events to crossterm events.
+ConvertCrosstermEx additionally forwards any unmapped winit event to your application
+event type.
+
+ConvertWinit just forwards the winit event to your application event. And it keeps
+track of modifier states and the mouse cursor position. And it maps pixel to cell coordinates.
 
 
 [refOpenMoji]: https://github.com/hfg-gmuend/openmoji/tree/master/font/OpenMoji-black-glyf
