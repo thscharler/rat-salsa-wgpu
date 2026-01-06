@@ -548,7 +548,6 @@ fn next_block(state: &mut Minimal, ctx: &mut Global) -> Result<Control<AppEvent>
         state.view.set_vertical_offset(0);
         state.view.set_horizontal_offset(0);
     }
-    ctx.clear_terminal();
     Ok(Control::Changed)
 }
 
@@ -560,7 +559,6 @@ fn prev_block(state: &mut Minimal, ctx: &mut Global) -> Result<Control<AppEvent>
         state.view.set_vertical_offset(0);
         state.view.set_horizontal_offset(0);
     }
-    ctx.clear_terminal();
     Ok(Control::Changed)
 }
 
