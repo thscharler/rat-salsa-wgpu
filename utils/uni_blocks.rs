@@ -1027,6 +1027,11 @@ mod glyphs {
                     }
                 }
 
+                // need to skip. span et al. do this automatically.
+                if let Some(cell) = buf.cell_mut((cp_area.x + 1, cp_area.y)) {
+                    cell.skip = cc.width().unwrap_or(1) > 1;
+                }
+
                 state.codepoint.push(cc);
                 state.rendered.push(cp_area.intersection(area));
                 state.areas.push(cp_area.intersection(area));
