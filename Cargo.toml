@@ -80,7 +80,7 @@ rustybuzz = "0.20"
 
 ratatui-widgets = { version = "0.3.0" }
 
-rat-widget = { version = "3.0", path = "../rat-salsa/rat-widget", features = ["user_directories"] }
+rat-widget = { version = "3.0", path = "../rat-salsa/rat-widget", features = ["user_directories", "cli-clipboard"] }
 rat-theme4 = { version = "4.5", path = "../rat-salsa/rat-theme4" }
 
 [[example]]

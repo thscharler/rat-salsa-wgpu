@@ -166,8 +166,6 @@ pub fn render(
         .unwrap()
         .set_style(Style::new().white().on_light_magenta());
 
-
-
     Ok(())
 }
 
@@ -243,7 +241,9 @@ pub fn event(
                     CursorStyle::Underscore => CursorStyle::BoldUnderscore,
                     CursorStyle::BoldUnderscore => CursorStyle::Bar,
                     CursorStyle::Bar => CursorStyle::BoldBar,
-                    CursorStyle::BoldBar => CursorStyle::Block,
+                    CursorStyle::BoldBar => CursorStyle::RtlBar,
+                    CursorStyle::RtlBar => CursorStyle::RtlBoldBar,
+                    CursorStyle::RtlBoldBar => CursorStyle::Block,
                 };
                 ctx.terminal()
                     .borrow_mut()

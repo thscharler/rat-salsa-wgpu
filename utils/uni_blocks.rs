@@ -17,11 +17,12 @@ use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::choice::{Choice, ChoiceState};
-use rat_widget::event::{ChoiceOutcome, SliderOutcome};
+use rat_widget::event::{ChoiceOutcome, SliderOutcome, TextOutcome};
 use rat_widget::paired::Paired;
 use rat_widget::popup::Placement;
 use rat_widget::scrolled::{Scroll, ScrollbarPolicy};
 use rat_widget::slider::{Slider, SliderState};
+use rat_widget::text::clipboard::cli::setup_cli_clipboard;
 use rat_widget::text::{HasScreenCursor, TextStyle};
 use rat_widget::text_input::{TextInput, TextInputState};
 use rat_widget::text_input_mask::{MaskedInput, MaskedInputState};
@@ -29,7 +30,7 @@ use rat_widget::view::{View, ViewState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::Style;
-use ratatui_core::text::Span;
+use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_wgpu::CursorStyle;
 use ratatui_widgets::block::Block;
@@ -39,11 +40,14 @@ use std::path::PathBuf;
 
 mod uni_blocks_data;
 
-static SAMPLE_TEXT: &str = "ff fl <= >= ﬁ ﬂ";
+// static SAMPLE_TEXT: &str = "ff fl <= >= ﬁ ﬂ";
+// static SAMPLE_TEXT: &str = "Hello World! مرحبا بالعالم 0123456789000000000";
+static SAMPLE_TEXT: &str = "مرحبا بالعالم";
 static SAMPLE_SPAN: &str = "";
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
+    setup_cli_clipboard();
 
     let config = Config::default();
     let theme = create_salsa_theme("EverForest Light");
@@ -368,6 +372,7 @@ pub fn render(
     font_popup.render(font_area, buf, &mut state.fonts);
     blocks_popup.render(blocks_area, buf, &mut state.blocks);
 
+    debug!("free_text screencursor {:?}", state.free_text.screen_cursor());
     ctx.set_screen_cursor(
         state
             .free_text
@@ -457,7 +462,9 @@ pub fn event(
                     CursorStyle::Underscore => CursorStyle::BoldUnderscore,
                     CursorStyle::BoldUnderscore => CursorStyle::Bar,
                     CursorStyle::Bar => CursorStyle::BoldBar,
-                    CursorStyle::BoldBar => CursorStyle::Block,
+                    CursorStyle::BoldBar => CursorStyle::RtlBar,
+                    CursorStyle::RtlBar => CursorStyle::RtlBoldBar,
+                    CursorStyle::RtlBoldBar => CursorStyle::Block,
                 };
                 ctx.terminal()
                     .borrow_mut()
@@ -510,7 +517,17 @@ pub fn event(
         event_flow!(state.bold.handle(event, Regular));
         event_flow!(state.italic.handle(event, Regular));
         event_flow!(state.combining_base.handle(event, Regular));
-        event_flow!(state.free_text.handle(event, Regular));
+        event_flow!(match state.free_text.handle(event, Regular) {
+            TextOutcome::Changed => {
+                debug!("free text changed");
+                Control::Changed
+            }
+            TextOutcome::TextChanged => {
+                debug!("free text changed");
+                Control::Changed
+            }
+            r => r.into(),
+        });
         event_flow!(state.view.handle(event, Regular));
         event_flow!(match state.glyphs.handle(event, Regular) {
             Outcome::Changed => {

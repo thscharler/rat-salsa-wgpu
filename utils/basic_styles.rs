@@ -265,7 +265,7 @@ pub fn render(
 
         0 | 7 => Text::from_iter([
             Line::from(""), //
-            Line::from(" مرحبا بالعالم "),
+            Line::from("\u{2068}مرحبا بالعالم\u{2069}"),
         ])
         .render(state.tabbed.widget_area, buf),
 
@@ -276,13 +276,31 @@ pub fn render(
         .render(state.tabbed.widget_area, buf),
 
         9 => Text::from_iter([
-            Line::from(""), //
-            Line::from(" Hello World! مرحبا بالعالم 0123456789000000000"),
+            Line::from(""),
+            Line::from("with isolate"),
+            Line::from("\u{2068}Hello World! مرحبا بالعالم 0123456789000000000\u{2069}"),
+            Line::from(""),
+            Line::from("without isolate"),
+            Line::from("Hello World! مرحبا بالعالم 0123456789000000000"),
+            Line::from("forced ltr"),
+            Line::from("\u{202D}Hello World! مرحبا بالعالم 0123456789000000000"),
+            Line::from("forced rtl"),
+            Line::from("\u{202E}Hello World! مرحبا بالعالم 0123456789000000000\u{202D}"),
+            Line::from("rtl embedding"),
+            Line::from("Hello World!\u{202B}مرحبا بالعالم  \u{202C} 0123456789000000000 "),
         ])
         .render(state.tabbed.widget_area, buf),
 
         10 => Paragraph::new(Text::from_iter([
-            Line::from(""), //
+            Line::from(""),
+            Line::from("with isolate"),
+            Line::from(vec![
+                "\u{2068}Hello World!".green(),
+                "مرحبا بالعالم".blue(),
+                "0123456789\u{2069}".dim(),
+            ]),
+            Line::from(""),
+            Line::from("without isolate"),
             Line::from(vec![
                 "Hello World!".green(),
                 "مرحبا بالعالم".blue(),
