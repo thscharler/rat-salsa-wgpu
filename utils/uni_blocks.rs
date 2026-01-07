@@ -319,6 +319,7 @@ pub fn render(
     }
     TextInput::new()
         .styles(free_text_style)
+        .bidi()
         .render(free_text_area, buf, &mut state.free_text);
 
     let sample_area = Rect::new(area.x + 6, area.y + 4, 55, 1);
