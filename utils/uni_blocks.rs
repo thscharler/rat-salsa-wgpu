@@ -67,6 +67,10 @@ pub fn main() -> Result<(), Error> {
             .window_size(winit::dpi::PhysicalSize::new(1100, 600))
             //.cursor_color(Color::Red)
             //.cursor_style(CursorStyle::BoldUnderscore)
+            .fallback_font(
+                "SegoeUI".to_string(),
+                FontData.load_font_by_name("SegoeUI").unwrap(),
+            )
             .font_size(23.)
             .poll(PollBlink::default()),
     )?;
@@ -317,10 +321,11 @@ pub fn render(
     if state.italic.checked() {
         free_text_style.style = free_text_style.style.italic();
     }
-    TextInput::new()
-        .styles(free_text_style)
-        .bidi()
-        .render(free_text_area, buf, &mut state.free_text);
+    TextInput::new().styles(free_text_style).bidi().render(
+        free_text_area,
+        buf,
+        &mut state.free_text,
+    );
 
     let sample_area = Rect::new(area.x + 6, area.y + 4, 55, 1);
     Span::from(SAMPLE_SPAN).render(sample_area, buf);
@@ -373,7 +378,6 @@ pub fn render(
     font_popup.render(font_area, buf, &mut state.fonts);
     blocks_popup.render(blocks_area, buf, &mut state.blocks);
 
-    debug!("free_text screencursor {:?}", state.free_text.screen_cursor());
     ctx.set_screen_cursor(
         state
             .free_text
@@ -569,7 +573,7 @@ fn next_block(state: &mut Minimal, ctx: &mut Global) -> Result<Control<AppEvent>
     Ok(Control::Changed)
 }
 
-fn prev_block(state: &mut Minimal, ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
+fn prev_block(state: &mut Minimal, _ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
     let v = state.blocks.value();
     if v > 0 {
         state.blocks.set_value(v - 1);
@@ -1026,13 +1030,18 @@ mod glyphs {
                 if let Some(cell) = buf.cell_mut(cp_area.as_position()) {
                     cell.set_style(glyph_style);
 
-                    if cc as u32 >= 32 && cc as u32 != 127
-                    && ((cc as u32) < 0x202A || (cc as u32) > 0x202E)
-                    && ((cc as u32) < 0x2066 || (cc as u32) > 0x206F)
+                    if cc as u32 >= 32
+                        && cc as u32 != 127
+                        && ((cc as u32) < 0x200B || (cc as u32) > 0x200F)
+                        && ((cc as u32) < 0x202A || (cc as u32) > 0x202E)
+                        && ((cc as u32) < 0x2066 || (cc as u32) > 0x206F)
+                        && ((cc as u32) < 0xFE00 || (cc as u32) > 0xFE0F)
+                        && ((cc as u32) < 0xFEFD || (cc as u32) > 0xFEFF)
                     {
                         cp_area.width = cc.width().unwrap_or(1).max(1) as u16;
 
                         tmp.clear();
+                        tmp.push('\u{2068}');
                         if CanonicalCombiningClass::of(cc).is_reordered() {
                             tmp.push_str(self.combining_base);
                         } else if cc.width() == Some(0) {
@@ -1040,6 +1049,7 @@ mod glyphs {
                             tmp.push(' ');
                         }
                         tmp.push(cc);
+                        tmp.push('\u{2069}');
                         cell.set_symbol(&tmp);
                     } else {
                         cell.set_symbol("?");
