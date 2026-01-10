@@ -25,7 +25,7 @@ where
     /// font loading callback
     pub(crate) cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
     /// fallback font
-    pub(crate) fallback_font: Option<(String, Font<'static>)>,
+    pub(crate) fallback_font: Vec<(String, Font<'static>)>,
     /// font family
     pub(crate) font_family: Option<String>,
     /// font size
@@ -69,7 +69,9 @@ where
             cr_fonts: Box::new(mock_create_fonts),
             fallback_font: FontData
                 .fallback_font()
-                .map(|f| ("CascadiaMono-Regular".to_string(), f)),
+                .map(|f| ("CascadiaMono-Regular".to_string(), f))
+                .into_iter()
+                .collect(),
             font_family: None,
             font_size: None,
             symbol_font: FontData.fallback_symbol_font(),
@@ -88,7 +90,7 @@ where
         })
     }
 
-    /// Set the primary fallback font.
+    /// Add a primary fallback font.
     ///
     /// If you don't load any fonts, this one will be used.
     ///
@@ -107,7 +109,7 @@ where
     /// of binary size.
     ///
     pub fn fallback_font(mut self, font_name: String, fallback_font: Font<'static>) -> Self {
-        self.fallback_font = Some((font_name, fallback_font));
+        self.fallback_font.push((font_name, fallback_font));
         self
     }
 

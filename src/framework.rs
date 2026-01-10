@@ -308,7 +308,7 @@ where
 
     /// font loading callback
     cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
-    fallback_font: Option<(String, Font<'static>)>,
+    fallback_font: Vec<(String, Font<'static>)>,
     font_family: Option<String>,
     font_size: Option<f64>,
     symbol_font: Option<Font<'static>>,
@@ -449,30 +449,27 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         panic!()
     };
 
-    let (fallback_family, fallback_font) =
-        if let Some((fallback_family, fallback_font)) = fallback_font {
-            (fallback_family, Some(fallback_font))
-        } else {
-            (String::default(), None)
-        };
-
     let font_size = font_size.unwrap_or(22.0);
     let font_ids = cr_fonts(FontData.font_db());
     let window = Arc::new(cr_window(event_loop, win_attr));
 
     let font_size_px = (font_size * window.scale_factor()).round() as u32;
-    let font_family = font_family.unwrap_or(fallback_family);
+    let font_family = font_family.unwrap_or(
+        // guess
+        fallback_font
+            .iter()
+            .map(|v| v.0.clone())
+            .next()
+            .unwrap_or_default(),
+    );
 
     // setup fonts
-    let mut fallback_fonts = Vec::new();
-    if let Some(font) = fallback_font.clone() {
-        fallback_fonts.push(font);
+    let mut fallback_font = Vec::from_iter(fallback_font.into_iter().map(|(name, font)| font));
+    if let Some(font) = emoji_font {
+        fallback_font.insert(1, font);
     }
     if let Some(font) = symbol_font {
-        fallback_fonts.push(font);
-    }
-    if let Some(font) = emoji_font {
-        fallback_fonts.push(font);
+        fallback_font.insert(1, font);
     }
 
     let mut fonts = font_ids
@@ -480,15 +477,15 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
     if fonts.is_empty() {
-        if let Some(fallback_font) = fallback_font {
-            fonts.push(fallback_font);
+        if let Some(fallback_font) = fallback_font.first() {
+            fonts.push(fallback_font.clone());
         } else {
             panic!("need at least one valid font or a fallback font");
         }
     }
 
     let terminal = Rc::new(RefCell::new(cr_term(TermInit {
-        fallback_fonts: fallback_fonts.clone(),
+        fallback_fonts: fallback_font.clone(),
         fonts,
         font_size_px,
         window: window.clone(),
