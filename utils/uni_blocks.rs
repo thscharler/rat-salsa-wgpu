@@ -1026,7 +1026,10 @@ mod glyphs {
                 if let Some(cell) = buf.cell_mut(cp_area.as_position()) {
                     cell.set_style(glyph_style);
 
-                    if cc as u32 >= 32 && cc as u32 != 127 {
+                    if cc as u32 >= 32 && cc as u32 != 127
+                    && ((cc as u32) < 0x202A || (cc as u32) > 0x202E)
+                    && ((cc as u32) < 0x2066 || (cc as u32) > 0x206F)
+                    {
                         cp_area.width = cc.width().unwrap_or(1).max(1) as u16;
 
                         tmp.clear();
