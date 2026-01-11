@@ -21,6 +21,7 @@ use std::fs;
 use std::path::PathBuf;
 
 static SAMPLES: &[&str] = &[
+    "ab\u{1f90c}yz",
     "\u{1f90c}",
     "X",  //
     "fl", //
@@ -222,7 +223,7 @@ pub fn event(
                 }
             }),
 
-            ct_event!(keycode press F(3)) => event_flow!({
+            ct_event!(keycode press PageDown) => event_flow!({
                 if state.sample_idx + 1 < ctx.samples.len() {
                     state.sample_idx += 1;
                     Control::Changed
@@ -230,7 +231,7 @@ pub fn event(
                     Control::Continue
                 }
             }),
-            ct_event!(keycode press SHIFT-F(3)) => event_flow!({
+            ct_event!(keycode press PageUp) => event_flow!({
                 if state.sample_idx > 0 {
                     state.sample_idx -= 1;
                     Control::Changed
