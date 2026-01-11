@@ -505,7 +505,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         .backend_mut()
         .window_size()
         .expect("window_size");
-    event_type.set_window_size(window_size);
+    event_type.set_window_size(window_size, terminal.borrow().backend());
 
     // create other event-polling
     let (poll_start, poll) = create_poll(proxy, poll);
@@ -587,7 +587,10 @@ fn process_event<'a, Global, State, Event, Error>(
     }
 
     if let Some(event) = &event {
-        app.event_type.update_state(event);
+        app.event_type.update_state(
+            event,
+            app.terminal.as_ref().expect("terminal").borrow().backend(),
+        );
     }
     if let Some(WindowEvent::CloseRequested) = event {
         app.global.salsa_ctx().queue.push(Ok(Control::Quit));
@@ -867,18 +870,6 @@ where
         .backend_mut()
         .update_font_size(font_size_px);
 
-    // only a resize of the backend works.
-    // and only a really extreme shrink removes all the artifacts, it seems ...
-    // let lsize = app.window_size.pixels;
-    // app.terminal //
-    //     .borrow_mut()
-    //     .backend_mut()
-    //     .resize(1, 1);
-    // app.terminal
-    //     .borrow_mut()
-    //     .backend_mut()
-    //     .resize(lsize.width as u32, lsize.height as u32);
-
     app.window_size = app
         .terminal
         .as_ref()
@@ -887,7 +878,10 @@ where
         .backend_mut()
         .window_size()
         .expect("window_size");
-    app.event_type.set_window_size(app.window_size);
+    app.event_type.set_window_size(
+        app.window_size,
+        app.terminal.as_ref().expect("terminal").borrow().backend(),
+    );
 }
 
 fn change_font_size<'a, Global, State, Event, Error>(
@@ -915,7 +909,10 @@ fn change_font_size<'a, Global, State, Event, Error>(
         .backend_mut()
         .window_size()
         .expect("window_size");
-    app.event_type.set_window_size(app.window_size);
+    app.event_type.set_window_size(
+        app.window_size,
+        app.terminal.as_ref().expect("terminal").borrow().backend(),
+    );
 }
 
 fn resized_event<'a, Global, State, Event, Error>(
@@ -955,7 +952,10 @@ fn resize<'a, Global, State, Event, Error>(
         .window_size()
         .expect("window_size");
 
-    app.event_type.set_window_size(app.window_size);
+    app.event_type.set_window_size(
+        app.window_size,
+        app.terminal.as_ref().expect("terminal").borrow().backend(),
+    );
 }
 
 fn shutdown<'a, Global, State, Event, Error>(

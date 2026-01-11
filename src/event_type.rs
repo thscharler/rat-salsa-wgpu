@@ -1,3 +1,5 @@
+use ratatui_wgpu::WgpuBackend;
+
 pub mod convert_crossterm;
 pub mod convert_winit;
 
@@ -6,9 +8,13 @@ pub mod convert_winit;
 ///
 pub trait ConvertEvent<Event> {
     /// Window size changed.
-    fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize);
+    fn set_window_size(
+        &mut self,
+        window_size: ratatui_core::backend::WindowSize,
+        backend: &WgpuBackend<'_, '_>,
+    );
     /// Update some states.
-    fn update_state(&mut self, event: &winit::event::WindowEvent);
+    fn update_state(&mut self, event: &winit::event::WindowEvent, backend: &WgpuBackend<'_, '_>);
     /// Query the current state.
     fn state(&self) -> &WinitEventState;
 
@@ -35,10 +41,6 @@ pub struct WinitEventState {
     window_size_px: ratatui_core::layout::Size,
     /// Window size in rendered cells.
     window_size: ratatui_core::layout::Size,
-    /// Rendered text cell width.
-    cell_width_px: u16,
-    /// Rendered text cell height.
-    cell_height_px: u16,
     /// Mouse cursor.
     x: u16,
     /// Mouse cursor.
@@ -116,22 +118,15 @@ impl WinitEventState {
         self.window_size_px
     }
 
-    pub fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize) {
+    pub fn set_window_size(
+        &mut self,
+        window_size: ratatui_core::backend::WindowSize,
+        backend: &WgpuBackend<'_, '_>,
+    ) {
         self.window_size = window_size.columns_rows;
         self.window_size_px = window_size.pixels;
-        self.cell_width_px = window_size.pixels.width / window_size.columns_rows.width;
-        self.cell_height_px = window_size.pixels.height / window_size.columns_rows.height;
 
-        self.x = (self.x_px / self.cell_width_px as f64) as u16;
-        self.y = (self.y_px / self.cell_height_px as f64) as u16;
-    }
-
-    pub fn cell_width_px(&self) -> u16 {
-        self.cell_width_px
-    }
-
-    pub fn cell_height_px(&self) -> u16 {
-        self.cell_height_px
+        (self.x, self.y) = backend.pos_to_cell((self.x_px as u32, self.y_px as u32));
     }
 
     pub fn x(&self) -> u16 {
@@ -232,7 +227,11 @@ impl WinitEventState {
         Self::default()
     }
 
-    pub(crate) fn update_state(&mut self, event: &winit::event::WindowEvent) {
+    pub(crate) fn update_state(
+        &mut self,
+        event: &winit::event::WindowEvent,
+        backend: &WgpuBackend<'_, '_>,
+    ) {
         match event {
             winit::event::WindowEvent::ModifiersChanged(modifiers) => {
                 self.set_shift_pressed(modifiers.state().shift_key());
@@ -241,13 +240,9 @@ impl WinitEventState {
                 self.set_super_pressed(modifiers.state().super_key());
             }
             winit::event::WindowEvent::CursorMoved { position, .. } => {
-                if self.cell_width_px == 0 || self.cell_height_px == 0 {
-                    return;
-                }
                 self.x_px = position.x;
                 self.y_px = position.y;
-                self.x = (position.x / self.cell_width_px as f64) as u16;
-                self.y = (position.y / self.cell_height_px as f64) as u16;
+                (self.x, self.y) = backend.pos_to_cell((self.x_px as u32, self.y_px as u32));
             }
             winit::event::WindowEvent::CursorEntered { .. } => {}
             winit::event::WindowEvent::CursorLeft { .. } => {

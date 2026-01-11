@@ -1,4 +1,5 @@
 use crate::event_type::{CompositeWinitEvent, ConvertEvent, WinitEventState};
+use ratatui_wgpu::WgpuBackend;
 
 /// Does a noop conversion to CompositWinitEvent, that
 /// only adds the tracked modifier-state and window-size.
@@ -11,12 +12,16 @@ impl<Event> ConvertEvent<Event> for ConvertWinit
 where
     Event: 'static + From<CompositeWinitEvent>,
 {
-    fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize) {
-        self.state.set_window_size(window_size);
+    fn set_window_size(
+        &mut self,
+        window_size: ratatui_core::backend::WindowSize,
+        backend: &WgpuBackend<'_, '_>,
+    ) {
+        self.state.set_window_size(window_size, backend);
     }
 
-    fn update_state(&mut self, event: &winit::event::WindowEvent) {
-        self.state.update_state(event)
+    fn update_state(&mut self, event: &winit::event::WindowEvent, backend: &WgpuBackend<'_, '_>) {
+        self.state.update_state(event, backend)
     }
 
     fn state(&self) -> &WinitEventState {

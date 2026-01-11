@@ -1,4 +1,5 @@
 use crate::event_type::{CompositeWinitEvent, ConvertEvent, WinitEventState};
+use ratatui_wgpu::WgpuBackend;
 
 /// Convert winit-events to crossterm-events.
 #[derive(Debug, Default)]
@@ -23,12 +24,16 @@ impl<Event> ConvertEvent<Event> for ConvertCrossterm
 where
     Event: 'static + From<crossterm::event::Event>,
 {
-    fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize) {
-        self.state.set_window_size(window_size);
+    fn set_window_size(
+        &mut self,
+        window_size: ratatui_core::backend::WindowSize,
+        backend: &WgpuBackend<'_, '_>,
+    ) {
+        self.state.set_window_size(window_size, backend);
     }
 
-    fn update_state(&mut self, event: &winit::event::WindowEvent) {
-        self.state.update_state(event)
+    fn update_state(&mut self, event: &winit::event::WindowEvent, backend: &WgpuBackend<'_, '_>) {
+        self.state.update_state(event, backend)
     }
 
     fn state(&self) -> &WinitEventState {
@@ -55,12 +60,16 @@ impl<Event> ConvertEvent<Event> for ConvertCrosstermEx
 where
     Event: 'static + From<crossterm::event::Event> + From<CompositeWinitEvent>,
 {
-    fn set_window_size(&mut self, window_size: ratatui_core::backend::WindowSize) {
-        self.state.set_window_size(window_size);
+    fn set_window_size(
+        &mut self,
+        window_size: ratatui_core::backend::WindowSize,
+        backend: &WgpuBackend<'_, '_>,
+    ) {
+        self.state.set_window_size(window_size, backend);
     }
 
-    fn update_state(&mut self, event: &winit::event::WindowEvent) {
-        self.state.update_state(event)
+    fn update_state(&mut self, event: &winit::event::WindowEvent, backend: &WgpuBackend<'_, '_>) {
+        self.state.update_state(event, backend)
     }
 
     fn state(&self) -> &WinitEventState {
@@ -174,10 +183,6 @@ fn to_crossterm_event(
                 }
             }
             winit::event::WindowEvent::CursorMoved { .. } => {
-                if state.cell_width_px == 0 || state.cell_height_px == 0 {
-                    break 'm None;
-                }
-
                 let ct_key_modifiers = map_modifiers(&state);
 
                 if state.left_pressed() {
