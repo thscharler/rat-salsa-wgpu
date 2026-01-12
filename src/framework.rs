@@ -464,12 +464,12 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     );
 
     // setup fonts
-    let mut fallback_font = Vec::from_iter(fallback_font.into_iter().map(|(name, font)| font));
+    let mut fallback_font = Vec::from_iter(fallback_font.into_iter().map(|(_name, font)| font));
     if let Some(font) = emoji_font {
-        fallback_font.insert(1, font);
+        fallback_font.push(font);
     }
     if let Some(font) = symbol_font {
-        fallback_font.insert(1, font);
+        fallback_font.push(font);
     }
 
     let mut fonts = font_ids

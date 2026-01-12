@@ -30,7 +30,7 @@ use rat_widget::view::{View, ViewState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::Style;
-use ratatui_core::text::{Line, Span};
+use ratatui_core::text::{Span};
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_wgpu::CursorStyle;
 use ratatui_widgets::block::Block;
