@@ -387,6 +387,7 @@ where
         let w = w.as_ref().expect("window");
         let p = w.outer_position().ok();
         let s = w.inner_size();
+        let maximized = w.is_maximized();
 
         let (x, y) = p.map(|v| (v.x, v.y)).unwrap_or((0, 0));
         let (width, height) = (s.width, s.height);
@@ -396,6 +397,7 @@ where
             y,
             width,
             height,
+            maximized,
         }
     }
 
@@ -515,6 +517,7 @@ pub struct WindowBounds {
     pub y: i32,
     pub width: u32,
     pub height: u32,
+    pub maximized: bool,
 }
 
 impl Default for WindowBounds {
@@ -524,13 +527,22 @@ impl Default for WindowBounds {
             y: 0,
             width: 100,
             height: 100,
+            maximized: false,
         }
     }
 }
 
 impl Display for WindowBounds {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}+{}+{}", self.x, self.y, self.width, self.height)
+        write!(
+            f,
+            "{}:{}+{}+{}{}",
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            if self.maximized { "+max" } else { "" }
+        )
     }
 }
 
@@ -559,12 +571,22 @@ impl FromStr for WindowBounds {
         let Ok(height) = u32::from_str(height) else {
             return Err(());
         };
+        let mut maximized = false;
+        let mut minimized = None;
+        if let Some(min_max) = tok.next() {
+            if min_max == "max" {
+                maximized = true;
+            } else if min_max == "min" {
+                minimized = Some(true);
+            }
+        }
 
         Ok(WindowBounds {
             x,
             y,
             width,
             height,
+            maximized,
         })
     }
 }
@@ -576,6 +598,7 @@ impl WindowBounds {
             y,
             width,
             height,
+            maximized: false,
         }
     }
 }

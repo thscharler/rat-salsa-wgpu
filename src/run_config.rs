@@ -3,10 +3,9 @@ use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::poll::PollEvents;
 use crate::{Control, PostProcessorBuilder, WindowBounds};
-use log::debug;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
-use ratatui_wgpu::{Builder, ColorTable, CursorStyle, Dimensions, Font, Fonts, WgpuBackend};
+use ratatui_wgpu::{Builder, ColorTable, CursorStyle, Font, Fonts, WgpuBackend};
 use std::sync::Arc;
 use winit::error::EventLoopError;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
@@ -241,6 +240,7 @@ where
         self.win_attr = self.win_attr.with_inner_size(winit::dpi::Size::Physical(
             winit::dpi::PhysicalSize::new(bounds.width, bounds.height),
         ));
+        self.win_attr.maximized = bounds.maximized;
         self
     }
 

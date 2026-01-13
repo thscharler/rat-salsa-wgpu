@@ -467,10 +467,6 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
                 .available_monitors()
                 .next()
                 .expect("no monitor found");
-
-            // window not on any attached monitor. fix.
-            win_attr.position = None;
-
             scale_factor = m.scale_factor();
         }
     }
