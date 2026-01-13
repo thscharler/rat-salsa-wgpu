@@ -64,8 +64,8 @@ pub fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
             .window_title("one glyph")
-            .window_position(winit::dpi::LogicalPosition::new(1050, 30))
-            .window_size(winit::dpi::LogicalSize::new(200, 200))
+            .window_position(1050, 30)
+            .window_size(200, 200)
             .font_family(FONT)
             .font_size(35.)
             .cursor_color(Color::Red)

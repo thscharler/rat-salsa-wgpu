@@ -7,8 +7,9 @@ use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use ratatui_wgpu::shaders::DefaultPostProcessorBuilder;
 use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(feature = "async")]
@@ -380,6 +381,39 @@ where
         self.salsa_ctx().window.borrow().clone().expect("window")
     }
 
+    /// Get the window dimensions
+    fn window_bounds(&self) -> WindowBounds {
+        let w = self.salsa_ctx().window.borrow();
+        let w = w.as_ref().expect("window");
+        let p = w.outer_position().ok();
+        let s = w.inner_size();
+
+        let (x, y) = p.map(|v| (v.x, v.y)).unwrap_or((0, 0));
+        let (width, height) = (s.width, s.height);
+
+        WindowBounds {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    /// Set the window dimensions.
+    /// Might fail to do so.
+    fn set_window_bounds(&self, bounds: WindowBounds) {
+        let w = self.salsa_ctx().window.borrow();
+        let w = w.as_ref().expect("window");
+
+        _ = w.request_inner_size(winit::dpi::Size::Physical(winit::dpi::PhysicalSize::new(
+            bounds.width,
+            bounds.height,
+        )));
+        w.set_outer_position(winit::dpi::Position::Physical(
+            winit::dpi::PhysicalPosition::new(bounds.x, bounds.y),
+        ))
+    }
+
     /// Change the font-size
     fn set_font_size(&self, size: f64) {
         self.salsa_ctx().font_size.set(size);
@@ -471,6 +505,78 @@ where
     ///
     fn set_bg_color(&self, color: Color) {
         self.salsa_ctx().bg_color.set(color);
+    }
+}
+
+/// Window bounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WindowBounds {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Default for WindowBounds {
+    fn default() -> Self {
+        Self {
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+        }
+    }
+}
+
+impl Display for WindowBounds {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}+{}+{}", self.x, self.y, self.width, self.height)
+    }
+}
+
+impl FromStr for WindowBounds {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut tok = s.split([':', '+']);
+        let Some(x) = tok.next() else { return Err(()) };
+        let Ok(x) = i32::from_str(x) else {
+            return Err(());
+        };
+        let Some(y) = tok.next() else { return Err(()) };
+        let Ok(y) = i32::from_str(y) else {
+            return Err(());
+        };
+        let Some(width) = tok.next() else {
+            return Err(());
+        };
+        let Ok(width) = u32::from_str(width) else {
+            return Err(());
+        };
+        let Some(height) = tok.next() else {
+            return Err(());
+        };
+        let Ok(height) = u32::from_str(height) else {
+            return Err(());
+        };
+
+        Ok(WindowBounds {
+            x,
+            y,
+            width,
+            height,
+        })
+    }
+}
+
+impl WindowBounds {
+    pub fn new(x: i32, y: i32, width: u32, height: u32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 }
 

@@ -19,7 +19,7 @@ use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::{Frame, Terminal};
-use ratatui_wgpu::{CursorStyle, Font, WgpuBackend};
+use ratatui_wgpu::{CursorStyle, Font, Fonts, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::cmp::min;
@@ -30,7 +30,6 @@ use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
 use std::{io, mem, thread};
 use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalSize;
 use winit::event::{MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
@@ -432,7 +431,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         cur_style,
         cur_blink,
         cur_color,
-        win_attr,
+        mut win_attr,
         cr_window,
         cr_term,
         mut event_type,
@@ -449,11 +448,36 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         panic!()
     };
 
+    // get scale factor and fix window that is not on any monitor.
+    let mut scale_factor = 1.0;
+    if let Some(winit::dpi::Position::Physical(window_pos)) = win_attr.position {
+        'f: {
+            for m in event_loop.available_monitors() {
+                if window_pos.x >= m.position().x
+                    && window_pos.y >= m.position().y
+                    && window_pos.x < m.position().x.saturating_add_unsigned(m.size().width)
+                    && window_pos.y < m.position().y.saturating_add_unsigned(m.size().height)
+                {
+                    scale_factor = m.scale_factor();
+                    break 'f;
+                }
+            }
+
+            let m = event_loop
+                .available_monitors()
+                .next()
+                .expect("no monitor found");
+
+            // window not on any attached monitor. fix.
+            win_attr.position = None;
+
+            scale_factor = m.scale_factor();
+        }
+    }
+
     let font_size = font_size.unwrap_or(22.0);
     let font_ids = cr_fonts(FontData.font_db());
-    let window = Arc::new(cr_window(event_loop, win_attr));
-
-    let font_size_px = (font_size * window.scale_factor()).round() as u32;
+    let font_size_px = (font_size * scale_factor).round() as u32;
     let font_family = font_family.unwrap_or(
         // guess
         fallback_font
@@ -464,30 +488,32 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     );
 
     // setup fonts
-    let mut fallback_font = Vec::from_iter(fallback_font.into_iter().map(|(_name, font)| font));
+    let mut fallback_fonts = Vec::from_iter(fallback_font.into_iter().map(|(_name, font)| font));
     if let Some(font) = emoji_font {
-        fallback_font.push(font);
+        fallback_fonts.push(font);
     }
     if let Some(font) = symbol_font {
-        fallback_font.push(font);
+        fallback_fonts.push(font);
     }
-
-    let mut fonts = font_ids
+    let mut regular_fonts = font_ids
         .iter()
         .filter_map(|id| FontData.load_font(*id))
         .collect::<Vec<_>>();
-    if fonts.is_empty() {
-        if let Some(fallback_font) = fallback_font.first() {
-            fonts.push(fallback_font.clone());
+    if regular_fonts.is_empty() {
+        if let Some(fallback_font) = fallback_fonts.first() {
+            regular_fonts.push(fallback_font.clone());
         } else {
             panic!("need at least one valid font or a fallback font");
         }
     }
+    let mut fonts = Fonts::new_vec(fallback_fonts, 22);
+    fonts.add_fonts(regular_fonts);
+    fonts.set_size_px(font_size_px);
+
+    let window = Arc::new(cr_window(event_loop, win_attr));
 
     let terminal = Rc::new(RefCell::new(cr_term(TermInit {
-        fallback_fonts: fallback_font.clone(),
         fonts,
-        font_size_px,
         window: window.clone(),
         bg_color,
         fg_color,
@@ -924,13 +950,13 @@ where
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let size = app.window_size.pixels;
-    let size = PhysicalSize::new(size.width as u32, size.height as u32);
+    let size = winit::dpi::PhysicalSize::new(size.width as u32, size.height as u32);
     app.event_type.convert(WindowEvent::Resized(size))
 }
 
 fn resize<'a, Global, State, Event, Error>(
     app: &mut Running<'a, Global, State, Event, Error>,
-    size: PhysicalSize<u32>,
+    size: winit::dpi::PhysicalSize<u32>,
 ) where
     Global: SalsaContext<Event, Error>,
     Event: 'static + Send,

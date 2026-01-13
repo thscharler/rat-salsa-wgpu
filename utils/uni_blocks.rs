@@ -30,7 +30,7 @@ use rat_widget::view::{View, ViewState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::Style;
-use ratatui_core::text::{Span};
+use ratatui_core::text::Span;
 use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_wgpu::CursorStyle;
 use ratatui_widgets::block::Block;
@@ -63,8 +63,8 @@ pub fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
             .window_title("uni-blocks")
-            .window_position(winit::dpi::PhysicalPosition::new(30, 30))
-            .window_size(winit::dpi::PhysicalSize::new(1100, 600))
+            // .window_position(30, 30)
+            .window_size(0, 0)
             //.cursor_color(Color::Red)
             //.cursor_style(CursorStyle::BoldUnderscore)
             .fallback_font(

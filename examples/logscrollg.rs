@@ -10,7 +10,7 @@ use rat_salsa_wgpu::event::QuitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollQuit, PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
-use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
+use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, WindowBounds, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
@@ -72,8 +72,7 @@ fn main() -> Result<(), Error> {
     run_config = run_config.window_icon(IMG.into(), 64, 64);
     run_config = run_config.window_title(format!("log/scroll {:?}", current));
     if let Some(window) = config.window {
-        run_config = run_config.window_position(window.0);
-        run_config = run_config.window_size(window.1);
+        run_config = run_config.window_bounds(window);
     }
     if let Some(font) = &config.font {
         run_config = run_config.font_family(font);
@@ -104,7 +103,7 @@ pub struct LogScrollConfig {
     theme: String,
     font: Option<String>,
     font_size: f64,
-    window: Option<(winit::dpi::Position, winit::dpi::Size)>,
+    window: Option<WindowBounds>,
 }
 
 fn config_theme(config: &LogScrollConfig) -> SalsaTheme {
@@ -133,7 +132,7 @@ fn load_config() -> Result<LogScrollConfig, Error> {
                 .unwrap_or(22.0);
             let window = ini
                 .get("default", "window")
-                .map(|v| parse_win_rect(&v))
+                .map(|v| v.parse::<WindowBounds>().ok())
                 .flatten();
 
             return Ok(LogScrollConfig {

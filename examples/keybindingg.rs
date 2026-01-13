@@ -28,7 +28,7 @@ fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::new(ConvertWinit::new())?
-            .window_position(winit::dpi::PhysicalPosition::new(30, 30))
+            .window_position(30, 30)
             .font_family("Courier New")
             .font_size(20.),
     )

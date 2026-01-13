@@ -2,15 +2,15 @@ use crate::_private::NonExhaustive;
 use crate::event_type::ConvertEvent;
 use crate::font_data::FontData;
 use crate::poll::PollEvents;
-use crate::{Control, PostProcessorBuilder};
+use crate::{Control, PostProcessorBuilder, WindowBounds};
+use log::debug;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
-use ratatui_wgpu::{Builder, ColorTable, CursorStyle, Dimensions, Font, WgpuBackend};
-use std::num::NonZeroU32;
+use ratatui_wgpu::{Builder, ColorTable, CursorStyle, Dimensions, Font, Fonts, WgpuBackend};
 use std::sync::Arc;
 use winit::error::EventLoopError;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
-use winit::window::{Window, WindowAttributes};
+use winit::window::Window;
 
 /// Captures some parameters for [crate::run_tui()].
 pub struct RunConfig<Event, Error>
@@ -45,9 +45,10 @@ where
     pub(crate) rapid_blink: u8,
     pub(crate) slow_blink: u8,
     /// window attributes
-    pub(crate) win_attr: WindowAttributes,
+    pub(crate) win_attr: winit::window::WindowAttributes,
     /// window callback
-    pub(crate) cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
+    pub(crate) cr_window:
+        Box<dyn FnOnce(&ActiveEventLoop, winit::window::WindowAttributes) -> Window>,
     /// terminal callback
     pub(crate) cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>>>,
 
@@ -83,7 +84,8 @@ where
             cur_color: Color::Reset,
             rapid_blink: 1,
             slow_blink: 5,
-            win_attr: WindowAttributes::default().with_title("rat-salsa & ratatui-wgpu"),
+            win_attr: winit::window::WindowAttributes::default()
+                .with_title("rat-salsa & ratatui-wgpu"),
             cr_window: Box::new(create_window),
             cr_term: Box::new(create_wgpu),
             poll: Default::default(),
@@ -231,20 +233,36 @@ where
         self
     }
 
+    /// Set the initial window bounds.
+    pub fn window_bounds(mut self, bounds: WindowBounds) -> Self {
+        self.win_attr = self.win_attr.with_position(winit::dpi::Position::Physical(
+            winit::dpi::PhysicalPosition::new(bounds.x, bounds.y),
+        ));
+        self.win_attr = self.win_attr.with_inner_size(winit::dpi::Size::Physical(
+            winit::dpi::PhysicalSize::new(bounds.width, bounds.height),
+        ));
+        self
+    }
+
     /// Set the initial window position.
-    pub fn window_position(mut self, pos: impl Into<winit::dpi::Position>) -> Self {
-        self.win_attr = self.win_attr.with_position(pos);
+    pub fn window_position(mut self, x: i32, y: i32) -> Self {
+        self.win_attr = self.win_attr.with_position(winit::dpi::Position::Physical(
+            winit::dpi::PhysicalPosition::new(x, y),
+        ));
         self
     }
 
     /// Set the initial window size.
-    pub fn window_size(mut self, size: impl Into<winit::dpi::Size>) -> Self {
-        self.win_attr = self.win_attr.with_inner_size(size);
+    pub fn window_size(mut self, width: u32, height: u32) -> Self {
+        self.win_attr = self.win_attr.with_inner_size(winit::dpi::Size::Physical(
+            winit::dpi::PhysicalSize::new(width, height),
+        ));
         self
     }
 
-    /// Set all the other window attributes.
-    pub fn window_attr(mut self, attr: WindowAttributes) -> Self {
+    /// Set all window attributes. This will override any previous
+    /// window settings.
+    pub fn window_attr(mut self, attr: winit::window::WindowAttributes) -> Self {
         self.win_attr = attr;
         self
     }
@@ -256,7 +274,7 @@ where
     /// the first render.
     pub fn window(
         mut self,
-        window_init: impl FnOnce(&ActiveEventLoop, WindowAttributes) -> Window + 'static,
+        window_init: impl FnOnce(&ActiveEventLoop, winit::window::WindowAttributes) -> Window + 'static,
     ) -> Self {
         self.cr_window = Box::new(window_init);
         self
@@ -283,11 +301,7 @@ where
 /// Parameters passed to the terminal init function.
 pub struct TermInit {
     /// The fallback fonts to use.
-    pub fallback_fonts: Vec<Font<'static>>,
-    /// The regular fonts to use.
-    pub fonts: Vec<Font<'static>>,
-    /// Premultiplied font-size.
-    pub font_size_px: u32,
+    pub fonts: Fonts<'static>,
     /// The window instance.
     pub window: Arc<Window>,
     /// Terminal fg color.
@@ -326,7 +340,10 @@ fn mock_create_fonts(_: &fontdb::Database) -> Vec<fontdb::ID> {
     Vec::default()
 }
 
-fn create_window(event_loop: &ActiveEventLoop, mut attr: WindowAttributes) -> Window {
+fn create_window(
+    event_loop: &ActiveEventLoop,
+    mut attr: winit::window::WindowAttributes,
+) -> Window {
     attr = attr.with_visible(false);
     event_loop.create_window(attr).expect("event-loop")
 }
@@ -355,21 +372,16 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
     };
 
     let backend = futures_lite::future::block_on({
-        Builder::<PostProcessorBuilder>::from_fonts(arg.fallback_fonts)
-            .with_width_and_height(Dimensions {
-                width: NonZeroU32::new(size.width).expect("non-zero width"),
-                height: NonZeroU32::new(size.height).expect("non-zero-height"),
-            })
+        Builder::<PostProcessorBuilder>::from_fonts(arg.fonts)
             .with_color_table(colors)
             .with_bg_color(arg.bg_color)
             .with_fg_color(arg.fg_color)
-            .with_fonts(arg.fonts)
-            .with_font_size_px(arg.font_size_px)
             .with_cursor_style(arg.cur_style)
             .with_cursor_blink(arg.cur_blink)
             .with_cursor_color(arg.cur_color)
             .with_rapid_blink(arg.rapid_blink)
             .with_slow_blink(arg.slow_blink)
+            .with_width_and_height(size.width, size.height)
             .build_with_target(arg.window)
     })
     .expect("ratatui-wgpu-backend");

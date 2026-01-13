@@ -41,7 +41,7 @@ pub fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::new(ConvertCrosstermEx::new())?
-            .window_position(winit::dpi::PhysicalPosition::new(30, 30))
+            .window_position(30, 30)
             .font_size(22.)
             .rapid_blink(1)
             .slow_blink(4)
