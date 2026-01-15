@@ -27,6 +27,7 @@ mod run_config;
 mod thread_pool;
 #[cfg(feature = "async")]
 mod tokio_tasks;
+mod window_bounds;
 
 use crate::font_data::FontData;
 use crate::tasks::{Cancel, Liveness};
@@ -38,6 +39,7 @@ pub use control::Control;
 pub use framework::run_tui;
 pub use ratatui_wgpu::{CursorStyle, WgpuBackend};
 pub use run_config::{RunConfig, TermInit};
+pub use window_bounds::WindowBounds;
 
 #[cfg(feature = "dialog")]
 pub mod dialog_stack;
@@ -507,99 +509,6 @@ where
     ///
     fn set_bg_color(&self, color: Color) {
         self.salsa_ctx().bg_color.set(color);
-    }
-}
-
-/// Window bounds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WindowBounds {
-    pub x: i32,
-    pub y: i32,
-    pub width: u32,
-    pub height: u32,
-    pub maximized: bool,
-}
-
-impl Default for WindowBounds {
-    fn default() -> Self {
-        Self {
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 100,
-            maximized: false,
-        }
-    }
-}
-
-impl Display for WindowBounds {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}:{}+{}+{}{}",
-            self.x,
-            self.y,
-            self.width,
-            self.height,
-            if self.maximized { "+max" } else { "" }
-        )
-    }
-}
-
-impl FromStr for WindowBounds {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut tok = s.split([':', '+']);
-        let Some(x) = tok.next() else { return Err(()) };
-        let Ok(x) = i32::from_str(x) else {
-            return Err(());
-        };
-        let Some(y) = tok.next() else { return Err(()) };
-        let Ok(y) = i32::from_str(y) else {
-            return Err(());
-        };
-        let Some(width) = tok.next() else {
-            return Err(());
-        };
-        let Ok(width) = u32::from_str(width) else {
-            return Err(());
-        };
-        let Some(height) = tok.next() else {
-            return Err(());
-        };
-        let Ok(height) = u32::from_str(height) else {
-            return Err(());
-        };
-        let mut maximized = false;
-        let mut minimized = None;
-        if let Some(min_max) = tok.next() {
-            if min_max == "max" {
-                maximized = true;
-            } else if min_max == "min" {
-                minimized = Some(true);
-            }
-        }
-
-        Ok(WindowBounds {
-            x,
-            y,
-            width,
-            height,
-            maximized,
-        })
-    }
-}
-
-impl WindowBounds {
-    pub fn new(x: i32, y: i32, width: u32, height: u32) -> Self {
-        Self {
-            x,
-            y,
-            width,
-            height,
-            maximized: false,
-        }
     }
 }
 
