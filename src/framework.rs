@@ -431,7 +431,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         cur_style,
         cur_blink,
         cur_color,
-        mut win_attr,
+        win_attr,
         cr_window,
         cr_term,
         mut event_type,

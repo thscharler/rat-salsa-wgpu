@@ -7,9 +7,8 @@ use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use ratatui_wgpu::shaders::DefaultPostProcessorBuilder;
 use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(feature = "async")]
