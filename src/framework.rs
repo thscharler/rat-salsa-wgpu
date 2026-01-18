@@ -20,7 +20,7 @@ use ratatui_core::layout::Rect;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::{Frame, Terminal};
 use ratatui_wgpu::wgpu::Backends;
-use ratatui_wgpu::{CursorStyle, Font, Fonts, WgpuBackend};
+use ratatui_wgpu::{Blinking, CursorStyle, Font, Fonts, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::cmp::min;
@@ -796,14 +796,16 @@ fn process_event<'a, Global, State, Event, Error>(
                     break 'ui;
                 }
                 Ok(Control::Blink) => {
+                    let mut blink = Blinking::TEXT;
                     if app.window_focused {
-                        app.terminal
-                            .as_ref()
-                            .expect("terminal")
-                            .borrow_mut()
-                            .backend_mut()
-                            .blink();
+                        blink = blink | Blinking::CURSOR;
                     }
+                    app.terminal
+                        .as_ref()
+                        .expect("terminal")
+                        .borrow_mut()
+                        .backend_mut()
+                        .blink(blink);
                 }
             }
         }
