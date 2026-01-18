@@ -62,9 +62,10 @@ pub fn main() -> Result<(), Error> {
         &mut global,
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
+            .backends("vulkan")
             .window_title("uni-blocks")
             // .window_position(30, 30)
-            .window_size(0, 0)
+            // .window_size(0, 0)
             //.cursor_color(Color::Red)
             //.cursor_style(CursorStyle::BoldUnderscore)
             .fallback_font(

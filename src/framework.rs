@@ -13,12 +13,13 @@ use crate::timer::Timers;
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::{debug, info};
+use log::info;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::{Frame, Terminal};
+use ratatui_wgpu::wgpu::Backends;
 use ratatui_wgpu::{CursorStyle, Font, Fonts, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
@@ -196,6 +197,7 @@ where
         slow_blink,
         win_attr,
         cr_window,
+        backends,
         cr_term,
         poll,
     } = cfg;
@@ -263,6 +265,7 @@ where
         cur_color,
         win_attr,
         cr_window,
+        backends,
         cr_term,
         event_type,
         quit_event,
@@ -326,6 +329,7 @@ where
     cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
 
     /// terminal callback
+    backends: Backends,
     cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>>>,
 
     event_type: Box<dyn ConvertEvent<Event>>,
@@ -433,6 +437,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         cur_color,
         win_attr,
         cr_window,
+        backends,
         cr_term,
         mut event_type,
         quit_event,
@@ -509,6 +514,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     let window = Arc::new(cr_window(event_loop, win_attr));
 
     let terminal = Rc::new(RefCell::new(cr_term(TermInit {
+        backends,
         fonts,
         window: window.clone(),
         bg_color,
@@ -848,8 +854,6 @@ where
             app.global.salsa_ctx().cursor.set(None);
         })
         .expect("draw-frame");
-
-    debug!("** total render {:?}", tt.elapsed());
 
     match r {
         Ok(_) => {

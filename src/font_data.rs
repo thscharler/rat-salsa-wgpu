@@ -3,7 +3,6 @@
 /// Keeps the font-data in some static datastructures.
 ///
 use append_only_vec::AppendOnlyVec;
-use log::debug;
 use std::sync::OnceLock;
 
 /// Some fallback font data.
@@ -182,7 +181,6 @@ impl FontData {
             .font_db()
             .faces()
             .filter(|info| {
-                debug!("{:?}", info.post_script_name);
                 info.post_script_name == name
             })
             .next()

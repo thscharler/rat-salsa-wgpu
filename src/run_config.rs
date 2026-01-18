@@ -5,6 +5,7 @@ use crate::poll::PollEvents;
 use crate::{Control, PostProcessorBuilder, WindowBounds};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
+use ratatui_wgpu::wgpu::Backends;
 use ratatui_wgpu::{Builder, ColorTable, CursorStyle, Font, Fonts, WgpuBackend};
 use std::sync::Arc;
 use winit::error::EventLoopError;
@@ -48,6 +49,7 @@ where
     /// window callback
     pub(crate) cr_window:
         Box<dyn FnOnce(&ActiveEventLoop, winit::window::WindowAttributes) -> Window>,
+    pub(crate) backends: Backends,
     /// terminal callback
     pub(crate) cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>>>,
 
@@ -86,6 +88,7 @@ where
             win_attr: winit::window::WindowAttributes::default()
                 .with_title("rat-salsa & ratatui-wgpu"),
             cr_window: Box::new(create_window),
+            backends: Default::default(),
             cr_term: Box::new(create_wgpu),
             poll: Default::default(),
         })
@@ -280,6 +283,32 @@ where
         self
     }
 
+    /// Which backends should be tried/used.
+    ///
+    /// Generates a set of backends from a comma separated list of
+    /// case-insensitive backend names.
+    ///
+    /// Whitespace is stripped, so both 'gl, dx12' and 'gl,dx12' are valid.
+    ///
+    /// Always returns WEBGPU on wasm over webgpu.
+    ///
+    /// Names:
+    /// - vulkan = "vulkan" or "vk"
+    /// - dx12   = "dx12" or "d3d12"
+    /// - metal  = "metal" or "mtl"
+    /// - gles   = "opengl" or "gles" or "gl"
+    /// - webgpu = "webgpu"
+    /// - all    = "*"
+    pub fn backends(mut self, backends: impl AsRef<str>) -> Self {
+        let backends = backends.as_ref();
+        if backends == "*" {
+            self.backends = Backends::all();
+        } else {
+            self.backends = Backends::from_comma_list(backends.as_ref());
+        }
+        self
+    }
+
     /// Create the WgpuBackend.
     ///
     /// This gets a [TermInit] struct with all the collected parameters.
@@ -300,6 +329,8 @@ where
 
 /// Parameters passed to the terminal init function.
 pub struct TermInit {
+    /// Which backends
+    pub backends: Backends,
     /// The fallback fonts to use.
     pub fonts: Fonts<'static>,
     /// The window instance.
@@ -373,6 +404,7 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
 
     let backend = futures_lite::future::block_on({
         Builder::<PostProcessorBuilder>::from_fonts(arg.fonts)
+            .with_backends(arg.backends)
             .with_color_table(colors)
             .with_bg_color(arg.bg_color)
             .with_fg_color(arg.fg_color)
