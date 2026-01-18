@@ -370,6 +370,7 @@ where
 
     window: Option<Arc<Window>>,
     window_size: WindowSize,
+    window_focused: bool,
     terminal: Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>>,
 }
 
@@ -573,6 +574,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         poll,
         window: Some(window),
         window_size,
+        window_focused: true,
         terminal: Some(terminal),
     };
 
@@ -627,6 +629,9 @@ fn process_event<'a, Global, State, Event, Error>(
     if let Some(WindowEvent::RedrawRequested) = event {
         app.global.salsa_ctx().queue.push(Ok(Control::Changed));
         event = None;
+    }
+    if let Some(WindowEvent::Focused(f)) = event {
+        app.window_focused = f;
     }
     if let Some(WindowEvent::Resized(size)) = event {
         resize(app, size);
@@ -791,12 +796,14 @@ fn process_event<'a, Global, State, Event, Error>(
                     break 'ui;
                 }
                 Ok(Control::Blink) => {
-                    app.terminal
-                        .as_ref()
-                        .expect("terminal")
-                        .borrow_mut()
-                        .backend_mut()
-                        .blink();
+                    if app.window_focused {
+                        app.terminal
+                            .as_ref()
+                            .expect("terminal")
+                            .borrow_mut()
+                            .backend_mut()
+                            .blink();
+                    }
                 }
             }
         }
