@@ -36,6 +36,7 @@ use crate::timer::{TimerDef, TimerHandle, Timers};
 use crate::tokio_tasks::TokioTasks;
 pub use control::Control;
 pub use framework::run_tui;
+use ratatui_wgpu::ImageBuffer;
 pub use ratatui_wgpu::{CursorStyle, WgpuBackend};
 pub use run_config::{RunConfig, TermInit};
 pub use window_bounds::WindowBounds;
@@ -369,6 +370,12 @@ where
         self.salsa_ctx().term.borrow().clone().expect("terminal")
     }
 
+    /// Access the ImageBuffer of the backend.
+    #[inline]
+    fn image_buffer(&self) -> ImageBuffer {
+        self.salsa_ctx().image_buffer.clone()
+    }
+
     /// Clear the terminal and do a full redraw before the next draw.
     #[inline]
     fn clear_terminal(&mut self) {
@@ -532,6 +539,8 @@ where
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
     pub(crate) term: RefCell<Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>>>,
+    /// Image buffer.
+    pub(crate) image_buffer: ImageBuffer,
     /// Clear terminal before next draw.
     pub(crate) clear_terminal: Cell<bool>,
     /// Last render time.
@@ -599,6 +608,7 @@ where
             count: Default::default(),
             cursor: Default::default(),
             term: Default::default(),
+            image_buffer: Default::default(),
             clear_terminal: Cell::new(false),
             window: Default::default(),
             font_changed: Default::default(),
