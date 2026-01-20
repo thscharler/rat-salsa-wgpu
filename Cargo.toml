@@ -21,7 +21,7 @@ if_same_then_else = "allow"
 comparison_chain = "allow"
 
 [features]
-default = ["fallback_font", "fallback_emoji_font", "fallback_symbol_font"]
+default = ["async", "dialog_widgets", "fallback_font", "fallback_emoji_font", "fallback_symbol_font"]
 #default = ["fallback_font"]
 # Async support.
 async = ["dep:tokio"]
@@ -66,6 +66,7 @@ configparser = { version = "3.1", features = ["indexmap"] }
 dirs = "6.0"
 fern = "0.7"
 image = "0.25"
+raqote = "0.8"
 indexmap = "2.12"
 pure-rust-locales = "0.8"
 rand = "0.9"
@@ -103,6 +104,10 @@ path = "utils/one_glyph.rs"
 [[example]]
 name = "one_span"
 path = "utils/one_span.rs"
+
+[[example]]
+name = "one_img"
+path = "utils/one_img.rs"
 
 [[example]]
 name = "box_draw"
