@@ -16,6 +16,10 @@ use rat_theme4::{StyleName, create_salsa_theme};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Style;
+use ratatui_core::widgets::Widget;
+use ratatui_wgpu::{ImageFit, ImageHandle, ImageZ};
+use ratatui_widgets::block::Block;
+use std::f32::consts::PI;
 use std::fs;
 use std::path::PathBuf;
 
@@ -104,8 +108,10 @@ impl From<CompositeWinitEvent> for AppEvent {
 
 #[derive(Debug, Default)]
 pub struct Minimal {
-    pub img1: usize,
-    pub img2: usize,
+    pub img1: ImageHandle,
+    pub r2: f32,
+    pub s2: ImageFit,
+    pub img2: ImageHandle,
 }
 
 pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
@@ -122,7 +128,7 @@ pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
             .backend_mut()
             .add_image(&rgba.samples, w as u32, h as u32);
 
-    let image = ImageReader::open("rat-salsa-wgpu/utils/hknc009.jpg")?;
+    let image = ImageReader::open("rat-salsa-wgpu/utils/marv.jpg")?;
     let image = image.decode()?;
     let rgba = image.to_rgba8();
     let rgba = rgba.into_flat_samples();
@@ -145,24 +151,83 @@ pub fn render(
     ctx: &mut Global,
 ) -> Result<(), Error> {
     buf.set_style(area, ctx.theme.style_style(Style::CONTAINER_BASE));
+    ctx.set_bg_color(ctx.theme.style_style(Style::CONTAINER_BASE).bg.expect("bg"));
 
     let img_buf = ctx.image_buffer();
 
-    img_buf.render_image(state.img1, Rect::new(0, 0, 10, 10));
-    img_buf.render_image(state.img2, Rect::new(10, 10, 10, 10));
+    let area = Rect::new(0, 0, 10, 10);
+    let img_area = img_buf.rect_px(area);
+    img_buf.render_image(&state.img1, img_area, ImageZ::AboveText, state.s2);
+    Block::bordered().render(area, buf);
+
+    let area = Rect::new(10, 0, 30, 10);
+    let img_area = img_buf.rect_px(area);
+    img_buf.render_image(&state.img1, img_area, ImageZ::AboveText, state.s2);
+    Block::bordered().render(area, buf);
+
+    let area = Rect::new(0, 10, 10, 10);
+    let img_area = img_buf.rect_px(area);
+    img_buf.render_image(&state.img2, img_area, ImageZ::BelowText, state.s2);
+    Block::bordered().render(area, buf);
+
+    let area = Rect::new(10, 10, 30, 10);
+    let img_area = img_buf.rect_px(area);
+    img_buf.render_image(&state.img2, img_area, ImageZ::BelowText, state.s2);
+    Block::bordered().render(area, buf);
 
     Ok(())
 }
 
 pub fn event(
     event: &AppEvent,
-    _state: &mut Minimal,
+    state: &mut Minimal,
     _ctx: &mut Global,
 ) -> Result<Control<AppEvent>, Error> {
     if let AppEvent::CtEvent(event) = event {
         match &event {
             ct_event!(resized) => event_flow!(Control::Changed),
             ct_event!(key press CONTROL-'q') => event_flow!(Control::Quit),
+
+            ct_event!(key press '1') => event_flow!({
+                state.r2 += 5.0 * PI / 180.0;
+                Control::Changed
+            }),
+            ct_event!(key press '2') => event_flow!({
+                state.r2 -= 5.0 * PI / 180.0;
+                Control::Changed
+            }),
+
+            ct_event!(key press '4') => event_flow!({
+                state.s2 = match state.s2 {
+                    ImageFit::Fill => ImageFit::FitStart,
+                    ImageFit::FitStart => ImageFit::FitCenter,
+                    ImageFit::FitCenter => ImageFit::FitEnd,
+                    ImageFit::FitEnd => ImageFit::HorizontalStart,
+                    ImageFit::HorizontalStart => ImageFit::HorizontalCenter,
+                    ImageFit::HorizontalCenter => ImageFit::HorizontalEnd,
+                    ImageFit::HorizontalEnd => ImageFit::FitVerticalStart,
+                    ImageFit::FitVerticalStart => ImageFit::FitVerticalCenter,
+                    ImageFit::FitVerticalCenter => ImageFit::FitVerticalEnd,
+                    ImageFit::FitVerticalEnd => ImageFit::Fill,
+                };
+                Control::Changed
+            }),
+            ct_event!(key press '5') => event_flow!({
+                state.s2 = match state.s2 {
+                    ImageFit::Fill => ImageFit::FitVerticalEnd,
+                    ImageFit::FitStart => ImageFit::Fill,
+                    ImageFit::FitCenter => ImageFit::FitStart,
+                    ImageFit::FitEnd => ImageFit::FitCenter,
+                    ImageFit::HorizontalStart => ImageFit::FitEnd,
+                    ImageFit::HorizontalCenter => ImageFit::HorizontalStart,
+                    ImageFit::HorizontalEnd => ImageFit::HorizontalCenter,
+                    ImageFit::FitVerticalStart => ImageFit::HorizontalEnd,
+                    ImageFit::FitVerticalCenter => ImageFit::FitVerticalStart,
+                    ImageFit::FitVerticalEnd => ImageFit::FitVerticalCenter,
+                };
+                Control::Changed
+            }),
+
             _ => {}
         }
     }
