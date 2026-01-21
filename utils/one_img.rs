@@ -115,7 +115,7 @@ pub struct Minimal {
 }
 
 pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
-    let image = ImageReader::open("rat-salsa-wgpu/utils/m45.jpg")?;
+    let image = ImageReader::open("rat-salsa-wgpu/utils/tumblr_ms5hgqXaNF1r1k4q7o1_r1_500.gif")?;
     let image = image.decode()?;
     let rgba = image.to_rgba8();
     let rgba = rgba.into_flat_samples();
