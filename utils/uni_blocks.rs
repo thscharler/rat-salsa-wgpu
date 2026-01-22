@@ -8,13 +8,14 @@ use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::event_type::CompositeWinitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
-use rat_salsa_wgpu::font_data::FontData;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
+use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::FontData;
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, SliderOutcome, TextOutcome};
@@ -32,7 +33,6 @@ use ratatui_core::layout::{Constraint, Layout, Rect};
 use ratatui_core::style::Style;
 use ratatui_core::text::Span;
 use ratatui_core::widgets::{StatefulWidget, Widget};
-use ratatui_wgpu::CursorStyle;
 use ratatui_widgets::block::Block;
 use ratatui_widgets::borders::BorderType;
 use std::fs;
@@ -619,7 +619,7 @@ fn setup_logging() -> Result<(), Error> {
 }
 
 mod glyph_info {
-    use rat_salsa_wgpu::font_data::FontData;
+    use rat_wgpu::font::FontData;
     use ratatui_core::buffer::Buffer;
     use ratatui_core::layout::Rect;
     use ratatui_core::style::Style;
@@ -807,8 +807,8 @@ mod glyph_info {
                 })
                 .collect::<Vec<_>>();
             if let Some(fid) = font_ids.first() {
-                if let Some(bytes) = FontData.load_font_bytes(*fid) {
-                    self.font = Face::from_slice(bytes, 0);
+                if let Some(font) = FontData.load_font(*fid) {
+                    self.font = Some(font.into_face());
                 } else {
                     self.font = None;
                 }

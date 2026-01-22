@@ -1,4 +1,4 @@
-use ratatui_wgpu::WgpuBackend;
+use rat_wgpu::WgpuBackend;
 
 pub mod convert_crossterm;
 pub mod convert_winit;

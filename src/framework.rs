@@ -1,6 +1,5 @@
 use crate::_private::NonExhaustive;
 use crate::event_type::ConvertEvent;
-use crate::font_data::FontData;
 use crate::framework::control_queue::ControlQueue;
 use crate::framework::poll_queue::PollQueue;
 #[cfg(feature = "async")]
@@ -14,13 +13,16 @@ use crate::timer::Timers;
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
 use log::info;
+use rat_wgpu::WgpuBackend;
+use rat_wgpu::colors::ColorTable;
+use rat_wgpu::cursor::{Blinking, CursorStyle};
+use rat_wgpu::font::{Font, FontData, Fonts};
+use rat_wgpu::wgpu::Backends;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::{Frame, Terminal};
-use ratatui_wgpu::wgpu::Backends;
-use ratatui_wgpu::{Blinking, CursorStyle, Font, Fonts, WgpuBackend};
 use std::any::TypeId;
 use std::cell::{Cell, RefCell};
 use std::cmp::min;
@@ -188,6 +190,7 @@ where
         font_size,
         symbol_font,
         emoji_font,
+        colors,
         bg_color,
         fg_color,
         cur_style,
@@ -256,6 +259,7 @@ where
         font_size,
         symbol_font,
         emoji_font,
+        colors,
         bg_color,
         fg_color,
         rapid_blink,
@@ -315,6 +319,7 @@ where
     font_size: Option<f64>,
     symbol_font: Option<Font<'static>>,
     emoji_font: Option<Font<'static>>,
+    colors: ColorTable,
     bg_color: Color,
     fg_color: Color,
     rapid_blink: u8,
@@ -429,6 +434,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         font_size,
         symbol_font,
         emoji_font,
+        colors,
         bg_color,
         fg_color,
         rapid_blink,
@@ -518,6 +524,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         backends,
         fonts,
         window: window.clone(),
+        colors,
         bg_color,
         fg_color,
         rapid_blink,
@@ -527,7 +534,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         cur_color,
         non_exhaustive: NonExhaustive,
     })));
-    let backend_image_buffer = terminal.borrow().backend().image_buffer();
+    let backend_image_frame = terminal.borrow().backend().image_frame();
 
     // window-size can be determined when we have the fonts installed.
     let window_size = terminal
@@ -545,7 +552,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         count: Default::default(),
         cursor: Default::default(),
         term: RefCell::new(Some(terminal.clone())),
-        image_buffer: backend_image_buffer,
+        image_frame: backend_image_frame,
         clear_terminal: Default::default(),
         last_render: Default::default(),
         last_event: Default::default(),

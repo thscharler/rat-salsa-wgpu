@@ -21,7 +21,8 @@ if_same_then_else = "allow"
 comparison_chain = "allow"
 
 [features]
-default = ["async", "dialog_widgets", "fallback_font", "fallback_emoji_font", "fallback_symbol_font"]
+#default = ["async", "dialog_widgets", "fallback_font", "fallback_emoji_font", "fallback_symbol_font"]
+default = ["async", "dialog_widgets", "fallback_font"]
 #default = ["fallback_font"]
 # Async support.
 async = ["dep:tokio"]
@@ -29,15 +30,17 @@ async = ["dep:tokio"]
 dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
 dialog_widgets = ["dialog", "rat-widget"]
+# Enable support for fonts with png data
+png = ["rat-wgpu/png"]
 # Scale the resulting TUI to the exact window-size. Might look a bit stretched.
-scale_to_window = []
+scale_to_window = ["rat-wgpu/scale_to_window"]
 # Add CascadiaMono-Regular as fallback font.
-fallback_font = []
+fallback_font = ["rat-wgpu/fallback_font"]
 # Add NotoEmoji-Regular as default emoji font.
 # You can only choose either fallback_emoji_font or fallback_color_emoji_font.
-fallback_emoji_font = []
+fallback_emoji_font = ["rat-wgpu/fallback_emoji_font"]
 # Add NotoSansSymbols2-Regular as default symbol font.
-fallback_symbol_font = []
+fallback_symbol_font = ["rat-wgpu/fallback_symbol_font"]
 
 [dependencies]
 log = "0.4"
@@ -53,7 +56,8 @@ ratatui-core = { version = "0.1.0" }
 crossterm = { version = "0.29.0" }
 
 #ratatui-wgpu = { version = "0.4", features = [], git = "https://github.com/thscharler/ratatui-wgpu", branch = "remastered" }
-ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
+#ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
+rat-wgpu = { version = "0.1", features = [], path = "../rat-wgpu" }
 
 rat-event = { version = "2.0", path = "../rat-salsa/rat-event" }
 rat-focus = { version = "2.0", path = "../rat-salsa/rat-focus" }

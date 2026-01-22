@@ -6,18 +6,18 @@ use log::{debug, error};
 use rat_event::{ct_event, event_flow};
 use rat_salsa_wgpu::event_type::CompositeWinitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
-use rat_salsa_wgpu::font_data::FontData;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
+use rat_wgpu::font::FontData;
+use rat_wgpu::image::{ImageFit, ImageHandle, ImageZ};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Style;
 use ratatui_core::widgets::Widget;
-use ratatui_wgpu::{ImageFit, ImageHandle, ImageZ};
 use ratatui_widgets::block::Block;
 use std::f32::consts::PI;
 use std::fs;
@@ -153,7 +153,7 @@ pub fn render(
     buf.set_style(area, ctx.theme.style_style(Style::CONTAINER_BASE));
     ctx.set_bg_color(ctx.theme.style_style(Style::CONTAINER_BASE).bg.expect("bg"));
 
-    let img_buf = ctx.image_buffer();
+    let mut img_buf = ctx.image_buffer();
 
     let area = Rect::new(0, 0, 10, 10);
     let img_area = img_buf.rect_px(area);

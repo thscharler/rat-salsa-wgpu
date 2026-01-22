@@ -5,7 +5,6 @@ use log::{debug, error};
 use rat_event::{ct_event, event_flow};
 use rat_salsa_wgpu::event_type::CompositeWinitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
-use rat_salsa_wgpu::font_data::FontData;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
@@ -16,9 +15,10 @@ use rat_theme4::{StyleName, create_salsa_theme};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
-use ratatui_wgpu::CursorStyle;
 use std::fs;
 use std::path::PathBuf;
+use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::FontData;
 
 static SAMPLES: &[&str] = &[
     "ab\u{1f90c}yz",

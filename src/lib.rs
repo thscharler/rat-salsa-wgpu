@@ -1,24 +1,25 @@
+use crate::tasks::{Cancel, Liveness};
+use crate::thread_pool::ThreadPool;
+use crate::timer::{TimerDef, TimerHandle, Timers};
+#[cfg(feature = "async")]
+use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
 use log::debug;
 #[allow(dead_code)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
+use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::image::{ImageBuffer, ImageFrame};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
-use ratatui_wgpu::shaders::DefaultPostProcessorBuilder;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, MutexGuard};
 use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 use winit::window::Window;
-
-#[cfg(not(feature = "scale_to_window"))]
-pub(crate) type PostProcessorBuilder = DefaultPostProcessorBuilder<true>;
-#[cfg(feature = "scale_to_window")]
-pub(crate) type PostProcessorBuilder = DefaultPostProcessorBuilder<false>;
 
 mod control;
 mod framework;
@@ -28,16 +29,14 @@ mod thread_pool;
 mod tokio_tasks;
 mod window_bounds;
 
-use crate::font_data::FontData;
-use crate::tasks::{Cancel, Liveness};
-use crate::thread_pool::ThreadPool;
-use crate::timer::{TimerDef, TimerHandle, Timers};
-#[cfg(feature = "async")]
-use crate::tokio_tasks::TokioTasks;
 pub use control::Control;
 pub use framework::run_tui;
-use ratatui_wgpu::ImageBuffer;
-pub use ratatui_wgpu::{CursorStyle, WgpuBackend};
+pub use rat_wgpu::WgpuBackend;
+pub use rat_wgpu::colors;
+pub use rat_wgpu::cursor;
+pub use rat_wgpu::font;
+use rat_wgpu::font::FontData;
+pub use rat_wgpu::image;
 pub use run_config::{RunConfig, TermInit};
 pub use window_bounds::WindowBounds;
 
@@ -47,8 +46,6 @@ pub mod dialog_stack;
 pub mod event;
 /// Support for different event-types.
 pub mod event_type;
-/// Support for fonts.
-pub mod font_data;
 /// Provides dummy implementations for some functions.
 pub mod mock;
 /// Event sources.
@@ -370,10 +367,15 @@ where
         self.salsa_ctx().term.borrow().clone().expect("terminal")
     }
 
-    /// Access the ImageBuffer of the backend.
+    /// Access the ImageFrame of the backend.
     #[inline]
-    fn image_buffer(&self) -> ImageBuffer {
-        self.salsa_ctx().image_buffer.clone()
+    fn image_frame(&self) -> ImageFrame {
+        self.salsa_ctx().image_frame.clone()
+    }
+
+    /// Access the ImageBuffer of the backend.
+    fn image_buffer(&'_ self) -> MutexGuard<'_, ImageBuffer> {
+        self.salsa_ctx().image_frame.buffer_mut()
     }
 
     /// Clear the terminal and do a full redraw before the next draw.
@@ -540,7 +542,7 @@ where
     /// Terminal area
     pub(crate) term: RefCell<Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>>>,
     /// Image buffer.
-    pub(crate) image_buffer: ImageBuffer,
+    pub(crate) image_frame: ImageFrame,
     /// Clear terminal before next draw.
     pub(crate) clear_terminal: Cell<bool>,
     /// Last render time.
@@ -608,7 +610,7 @@ where
             count: Default::default(),
             cursor: Default::default(),
             term: Default::default(),
-            image_buffer: Default::default(),
+            image_frame: Default::default(),
             clear_terminal: Cell::new(false),
             window: Default::default(),
             font_changed: Default::default(),

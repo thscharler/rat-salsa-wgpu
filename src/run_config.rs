@@ -1,12 +1,15 @@
 use crate::_private::NonExhaustive;
 use crate::event_type::ConvertEvent;
-use crate::font_data::FontData;
 use crate::poll::PollEvents;
-use crate::{Control, PostProcessorBuilder, WindowBounds};
+use crate::{Control, WindowBounds};
+use rat_wgpu::colors::ColorTable;
+use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::{Font, FontData, Fonts};
+use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
+use rat_wgpu::wgpu::Backends;
+use rat_wgpu::{Builder, WgpuBackend};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
-use ratatui_wgpu::wgpu::Backends;
-use ratatui_wgpu::{Builder, ColorTable, CursorStyle, Font, Fonts, WgpuBackend};
 use std::sync::Arc;
 use winit::error::EventLoopError;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
@@ -35,6 +38,7 @@ where
     /// fallback emoji font
     pub(crate) emoji_font: Option<Font<'static>>,
     /// terminal colors
+    pub(crate) colors: ColorTable,
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
     /// terminal cursor
@@ -78,6 +82,7 @@ where
             font_size: None,
             symbol_font: FontData.fallback_symbol_font(),
             emoji_font: FontData.fallback_emoji_font(),
+            colors: Default::default(),
             bg_color: Color::Black,
             fg_color: Color::White,
             cur_style: Default::default(),
@@ -92,6 +97,12 @@ where
             cr_term: Box::new(create_wgpu),
             poll: Default::default(),
         })
+    }
+
+    /// Set the base16 colors.
+    pub fn colors(mut self, colors: ColorTable) -> Self {
+        self.colors = colors;
+        self
     }
 
     /// Add a primary fallback font.
@@ -335,6 +346,8 @@ pub struct TermInit {
     pub fonts: Fonts<'static>,
     /// The window instance.
     pub window: Arc<Window>,
+    /// Base16-colors
+    pub colors: ColorTable,
     /// Terminal fg color.
     pub fg_color: Color,
     /// Terminal bg color.
@@ -382,30 +395,11 @@ fn create_window(
 fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
     let size = arg.window.inner_size();
 
-    // VGA base 16 colors.
-    let colors = ColorTable {
-        BLACK: [0, 0, 0],
-        RED: [170, 0, 0],
-        GREEN: [0, 170, 0],
-        YELLOW: [170, 85, 0],
-        BLUE: [0, 0, 170],
-        MAGENTA: [170, 0, 170],
-        CYAN: [0, 170, 170],
-        GRAY: [170, 170, 170],
-        DARKGRAY: [85, 85, 85],
-        LIGHTRED: [255, 85, 85],
-        LIGHTGREEN: [85, 255, 85],
-        LIGHTYELLOW: [255, 255, 85],
-        LIGHTBLUE: [85, 85, 255],
-        LIGHTMAGENTA: [255, 85, 255],
-        LIGHTCYAN: [85, 255, 255],
-        WHITE: [255, 255, 255],
-    };
-
     let backend = futures_lite::future::block_on({
-        Builder::<PostProcessorBuilder>::from_fonts(arg.fonts)
+        Builder::<DefaultPostProcessorBuilder>::new()
+            .with_fallback_fonts(arg.fonts)
             .with_backends(arg.backends)
-            .with_color_table(colors)
+            .with_color_table(arg.colors)
             .with_bg_color(arg.bg_color)
             .with_fg_color(arg.fg_color)
             .with_cursor_style(arg.cur_style)

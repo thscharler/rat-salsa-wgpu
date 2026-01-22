@@ -4,7 +4,6 @@ use log::{debug, error};
 use rat_event::{HandleEvent, Regular, ct_event, event_flow};
 use rat_salsa_wgpu::event_type::CompositeWinitEvent;
 use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrosstermEx;
-use rat_salsa_wgpu::font_data::FontData;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
@@ -24,6 +23,7 @@ use std::fs;
 use std::path::PathBuf;
 use winit::event::{ElementState, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
+use rat_wgpu::font::FontData;
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;

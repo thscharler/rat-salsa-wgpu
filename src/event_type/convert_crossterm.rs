@@ -1,5 +1,5 @@
 use crate::event_type::{CompositeWinitEvent, ConvertEvent, WinitEventState};
-use ratatui_wgpu::WgpuBackend;
+use rat_wgpu::WgpuBackend;
 
 /// Convert winit-events to crossterm-events.
 #[derive(Debug, Default)]

@@ -1,5 +1,5 @@
 use crate::event_type::{CompositeWinitEvent, ConvertEvent, WinitEventState};
-use ratatui_wgpu::WgpuBackend;
+use rat_wgpu::WgpuBackend;
 
 /// Does a noop conversion to CompositWinitEvent, that
 /// only adds the tracked modifier-state and window-size.
