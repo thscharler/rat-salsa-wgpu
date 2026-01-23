@@ -449,9 +449,8 @@ mod logscroll {
     use crossbeam::channel::Sender;
     use log::debug;
     use rat_focus::{FocusBuilder, FocusFlag};
-    use rat_salsa_wgpu::font_data::FontData;
     use rat_salsa_wgpu::tasks::{Cancel, Liveness};
-    use rat_salsa_wgpu::timer::{TimerDef, TimerHandle};
+    use rat_salsa_wgpu::timer::{ TimerHandle};
     use rat_salsa_wgpu::{Control, SalsaContext};
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
@@ -485,6 +484,7 @@ mod logscroll {
     use std::thread::sleep;
     use std::time::Duration;
     use unicode_segmentation::UnicodeSegmentation;
+    use rat_wgpu::font::FontData;
 
     #[derive(Debug)]
     pub struct LogScroll {
