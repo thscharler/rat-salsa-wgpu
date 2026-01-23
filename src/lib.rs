@@ -15,7 +15,7 @@ use ratatui_core::terminal::Terminal;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use std::sync::{Arc, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
@@ -374,8 +374,8 @@ where
     }
 
     /// Access the ImageBuffer of the backend.
-    fn image_buffer(&'_ self) -> MutexGuard<'_, ImageBuffer> {
-        self.salsa_ctx().image_frame.buffer_mut()
+    fn image_buffer(&'_ self) -> Arc<Mutex<ImageBuffer>> {
+        self.salsa_ctx().image_frame.buffer()
     }
 
     /// Clear the terminal and do a full redraw before the next draw.
