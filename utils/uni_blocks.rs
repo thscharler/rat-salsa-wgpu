@@ -41,8 +41,8 @@ use std::path::PathBuf;
 mod uni_blocks_data;
 
 // static SAMPLE_TEXT: &str = "ff fl <= >= ﬁ ﬂ";
-// static SAMPLE_TEXT: &str = "Hello World! مرحبا بالعالم 0123456789000000000";
-static SAMPLE_TEXT: &str = "مرحبا بالعالم";
+static SAMPLE_TEXT: &str = "Hello World! مرحبا بالعالم 0123456789000000000";
+// static SAMPLE_TEXT: &str = "مرحبا بالعالم";
 static SAMPLE_SPAN: &str = "";
 
 pub fn main() -> Result<(), Error> {

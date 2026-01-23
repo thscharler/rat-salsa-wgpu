@@ -12,6 +12,8 @@ use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
+use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::FontData;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
@@ -21,13 +23,11 @@ use std::fs;
 use std::path::PathBuf;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
-use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::font::FontData;
 
-static SAMPLES: &[&str] = &["a\u{1f90c}a"];
+static SAMPLES: &[&str] = &["Hello World! مرحبا بالعالم 0123456789000000000"];
 
 // const FONT: &str = "Geist Mono";
-const FONT: &str = "Overpass Mono";
+// const FONT: &str = "Overpass Mono";
 // const FONT: &str = "MS Gothic";
 
 pub fn main() -> Result<(), Error> {
@@ -47,10 +47,10 @@ pub fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
             .window_title("one span")
-            .window_position(1050, 30)
-            .window_size(200, 200)
-            .font_family(FONT)
-            .font_size(35.)
+            .window_position(30, 30)
+            .window_size(600, 80)
+            // .font_family(FONT)
+            .font_size(22.)
             .cursor_color(Color::Red)
             .poll(PollBlink::new(0, 200)),
     )?;
@@ -254,7 +254,7 @@ pub fn event(
             }),
             ct_event!(keycode press Right) => event_flow!({
                 let w = ctx.samples[state.sample_idx].graphemes(true).count();
-                if state.cursor + 1 < w {
+                if state.cursor < w {
                     state.cursor += 1;
                 }
                 Control::Changed
@@ -278,7 +278,7 @@ pub fn error(
 
 fn setup_logging() -> Result<(), Error> {
     let log_path = PathBuf::from("");
-    let log_file = log_path.join("one_glyph.log");
+    let log_file = log_path.join("one_span.log");
     _ = fs::remove_file(&log_file);
     fern::Dispatch::new()
         .format(|out, message, record| {
