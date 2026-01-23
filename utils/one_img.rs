@@ -11,15 +11,17 @@ use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
-use rat_theme4::{StyleName, create_salsa_theme};
+use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
 use rat_wgpu::font::FontData;
 use rat_wgpu::image::{ImageArg, ImageBuffer, ImageFit, ImageHandle};
+use rat_widget::scrolled::Scroll;
 use rat_widget::view::{View, ViewState};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Style;
 use ratatui_core::widgets::Widget;
 use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::BorderType;
 use std::fs;
 use std::path::PathBuf;
 
@@ -142,6 +144,8 @@ pub fn init(state: &mut Minimal, ctx: &mut Global) -> Result<(), Error> {
             .backend_mut()
             .add_image(&rgba.samples, w as u32, h as u32);
 
+    state.view.focus.set(true);
+
     Ok(())
 }
 
@@ -165,28 +169,30 @@ pub fn render(
 fn render_view(buf: &mut Buffer, ibuf: &mut ImageBuffer, state: &mut Minimal, ctx: &mut Global) {
     let mut view_img = ibuf.derive(Rect::new(0, 0, 40, 100));
     let mut view = View::new()
-        .layout(Rect::new(0, 0, 40, 100))
-        .style(ctx.theme.p.red(0))
-        .into_buffer(Rect::new(3, 3, 20, 10), &mut state.view);
+        .layout(Rect::new(10, 5, 40, 100))
+        .block(Block::bordered().border_type(BorderType::Double))
+        .scroll(Scroll::new())
+        .styles(ctx.theme.style(WidgetStyle::VIEW))
+        .into_buffer(Rect::new(3, 3, 40, 20), &mut state.view);
 
-    let area = Rect::new(0, 0, 10, 10);
+    let area = Rect::new(10, 5, 10, 10);
     view_img.render(&state.img1, area, ImageArg::default().fit(state.fit));
     view.render_widget(Block::bordered(), area);
 
-    let area = Rect::new(10, 0, 30, 10);
+    let area = Rect::new(20, 5, 30, 10);
     view_img.render(&state.img1, area, ImageArg::default().fit(state.fit));
     view.render_widget(Block::bordered(), area);
 
-    let area = Rect::new(0, 10, 10, 10);
+    let area = Rect::new(10, 15, 10, 10);
     view_img.render(&state.img2, area, ImageArg::default().fit(state.fit));
     view.render_widget(Block::bordered(), area);
 
-    let area = Rect::new(10, 10, 30, 10);
+    let area = Rect::new(20, 15, 30, 10);
     view_img.render(&state.img2, area, ImageArg::default().fit(state.fit));
     view.render_widget(Block::bordered(), area);
 
-    //
-    ibuf.append(view_img, view.shift(), Rect::new(3, 3, 20, 10));
+    // move everything to the main buffer
+    ibuf.append(view_img, view.shift(), view.clip());
     view.finish(buf, &mut state.view);
 }
 
@@ -218,7 +224,7 @@ pub fn event(
         match &event {
             ct_event!(resized) => event_flow!(Control::Changed),
             ct_event!(key press CONTROL-'q') => event_flow!(Control::Quit),
-            ct_event!(key press '4') => event_flow!({
+            ct_event!(keycode press F(1)) => event_flow!({
                 state.fit = match state.fit {
                     ImageFit::Fill => ImageFit::FitStart,
                     ImageFit::FitStart => ImageFit::FitCenter,
@@ -233,7 +239,7 @@ pub fn event(
                 };
                 Control::Changed
             }),
-            ct_event!(key press '5') => event_flow!({
+            ct_event!(keycode press SHIFT-F(1)) => event_flow!({
                 state.fit = match state.fit {
                     ImageFit::Fill => ImageFit::FitVerticalEnd,
                     ImageFit::FitStart => ImageFit::Fill,
