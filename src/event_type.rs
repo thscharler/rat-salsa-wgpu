@@ -126,7 +126,7 @@ impl WinitEventState {
         self.window_size = window_size.columns_rows;
         self.window_size_px = window_size.pixels;
 
-        (self.x, self.y) = backend.pos_to_cell((self.x_px as u32, self.y_px as u32));
+        (self.x, self.y) = backend.pos_to_cell((self.x_px as i32, self.y_px as i32));
     }
 
     pub fn x(&self) -> u16 {
@@ -242,7 +242,7 @@ impl WinitEventState {
             winit::event::WindowEvent::CursorMoved { position, .. } => {
                 self.x_px = position.x;
                 self.y_px = position.y;
-                (self.x, self.y) = backend.pos_to_cell((self.x_px as u32, self.y_px as u32));
+                (self.x, self.y) = backend.pos_to_cell((self.x_px as i32, self.y_px as i32));
             }
             winit::event::WindowEvent::CursorEntered { .. } => {}
             winit::event::WindowEvent::CursorLeft { .. } => {
