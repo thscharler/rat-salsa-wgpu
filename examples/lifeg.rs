@@ -59,6 +59,7 @@ fn main() -> Result<(), Error> {
         RunConfig::new(ConvertCrossterm::new())?
             .font_family("FiraCode Nerd Font Mono")
             .font_size(18.)
+            .backends("vulkan")
             .poll(poll_tick),
     )?;
 
@@ -403,8 +404,9 @@ pub mod life {
                     }
                     MenuOutcome::Activated(2) => {
                         let mut tick = ctx.tick.write().expect("rw-lock write");
-                        if tick.as_millis() <= 20 {
-                            // noop
+                        if tick.as_millis() <= 10 {
+                        } else if tick.as_millis() <= 20 {
+                            *tick -= Duration::from_millis(1);
                         } else if tick.as_millis() <= 100 {
                             *tick -= Duration::from_millis(10);
                         } else {

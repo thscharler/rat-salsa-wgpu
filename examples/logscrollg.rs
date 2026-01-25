@@ -69,6 +69,7 @@ fn main() -> Result<(), Error> {
         .poll(PollTimers::new())
         .poll(PollTasks::new(2))
         .poll(PollQuit);
+    run_config = run_config.backends("vulkan");
     run_config = run_config.window_icon(IMG.into(), 64, 64);
     run_config = run_config.window_title(format!("log/scroll {:?}", current));
     if let Some(window) = config.window {
@@ -309,6 +310,10 @@ pub fn render(
     ])
     .split(area);
 
+    let style = ctx.theme.style_style(Style::CONTAINER_BASE);
+    ctx.set_bg_color(style.bg.unwrap_or_default());
+    ctx.set_fg_color(style.fg.unwrap_or_default());
+
     logscroll::render(area, buf, &mut state.logscroll, ctx)?;
     ctx.set_screen_cursor(state.logscroll.screen_cursor());
 
@@ -450,10 +455,11 @@ mod logscroll {
     use log::debug;
     use rat_focus::{FocusBuilder, FocusFlag};
     use rat_salsa_wgpu::tasks::{Cancel, Liveness};
-    use rat_salsa_wgpu::timer::{ TimerHandle};
+    use rat_salsa_wgpu::timer::TimerHandle;
     use rat_salsa_wgpu::{Control, SalsaContext};
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
+    use rat_wgpu::font::FontData;
     use rat_widget::event::{
         HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome, ct_event, try_flow,
     };
@@ -484,7 +490,6 @@ mod logscroll {
     use std::thread::sleep;
     use std::time::Duration;
     use unicode_segmentation::UnicodeSegmentation;
-    use rat_wgpu::font::FontData;
 
     #[derive(Debug)]
     pub struct LogScroll {
