@@ -1,5 +1,5 @@
 use anyhow::{Error, anyhow};
-use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, mock, run_tui};
 use rat_widget::event::ct_event;
 use ratatui_core::buffer::Buffer;

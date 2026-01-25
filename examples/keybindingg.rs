@@ -1,8 +1,8 @@
 use anyhow::Error;
 use log::error;
 use rat_event::event_flow;
-use rat_salsa_wgpu::event_type::CompositeWinitEvent;
-use rat_salsa_wgpu::event_type::convert_winit::ConvertWinit;
+use rat_salsa_wgpu::events::CompositeWinitEvent;
+use rat_salsa_wgpu::events::ConvertWinit;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, mock, run_tui};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;

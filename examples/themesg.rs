@@ -4,7 +4,7 @@ use crate::themes::Themes;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_focus::FocusBuilder;
-use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};

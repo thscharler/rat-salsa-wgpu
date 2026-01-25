@@ -10,7 +10,7 @@
 use crate::game::LifeGameState;
 use crate::life::Life;
 use anyhow::Error;
-use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::PollEvents;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};

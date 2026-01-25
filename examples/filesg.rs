@@ -4,7 +4,7 @@
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
-use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::PollTasks;
 use rat_salsa_wgpu::tasks::Cancel;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};

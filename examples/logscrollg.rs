@@ -7,7 +7,7 @@ use crossterm::event::Event;
 use dirs::config_dir;
 use log::{debug, warn};
 use rat_salsa_wgpu::event::QuitEvent;
-use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollQuit, PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, WindowBounds, run_tui};
