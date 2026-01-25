@@ -3,8 +3,8 @@
 use anyhow::Error;
 use log::{debug, error};
 use rat_event::{ct_event, event_flow};
-use rat_salsa_wgpu::event_type::CompositeWinitEvent;
-use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
+use rat_salsa_wgpu::events::CompositeWinitEvent;
+use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};

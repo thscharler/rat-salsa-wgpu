@@ -1,5 +1,4 @@
 use crate::_private::NonExhaustive;
-use crate::event_type::ConvertEvent;
 use crate::framework::control_queue::ControlQueue;
 use crate::framework::poll_queue::PollQueue;
 #[cfg(feature = "async")]
@@ -36,6 +35,7 @@ use winit::application::ApplicationHandler;
 use winit::event::{MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
+use rat_wgpu::events::ConvertEvent;
 
 pub(crate) mod control_queue;
 mod poll_queue;

@@ -9,13 +9,14 @@ use log::debug;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
 use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::FontData;
 use rat_wgpu::image::{ImageBuffer, ImageFrame};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
@@ -35,8 +36,8 @@ pub use rat_wgpu::WgpuBackend;
 pub use rat_wgpu::colors;
 pub use rat_wgpu::cursor;
 pub use rat_wgpu::font;
-use rat_wgpu::font::FontData;
 pub use rat_wgpu::image;
+pub use rat_wgpu::events;
 pub use run_config::{RunConfig, TermInit};
 pub use window_bounds::WindowBounds;
 
@@ -44,8 +45,6 @@ pub use window_bounds::WindowBounds;
 pub mod dialog_stack;
 /// Event types.
 pub mod event;
-/// Support for different event-types.
-pub mod event_type;
 /// Provides dummy implementations for some functions.
 pub mod mock;
 /// Event sources.

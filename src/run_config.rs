@@ -1,9 +1,9 @@
 use crate::_private::NonExhaustive;
-use crate::event_type::ConvertEvent;
 use crate::poll::PollEvents;
 use crate::{Control, WindowBounds};
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::events::ConvertEvent;
 use rat_wgpu::font::{Font, FontData, Fonts};
 use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
 use rat_wgpu::wgpu::Backends;
