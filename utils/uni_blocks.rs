@@ -169,6 +169,7 @@ pub struct Minimal {
     pub font_size: SliderState<usize>,
     pub blocks: ChoiceState<usize>,
     pub underline: CheckboxState,
+    pub strikeout: CheckboxState,
     pub bold: CheckboxState,
     pub italic: CheckboxState,
     pub combining_base: MaskedInputState,
@@ -186,6 +187,7 @@ impl Minimal {
             font_size: Default::default(),
             blocks: Default::default(),
             underline: Default::default(),
+            strikeout: Default::default(),
             bold: Default::default(),
             italic: Default::default(),
             combining_base: MaskedInputState::new().with_mask("_").expect("valid mask"),
@@ -203,6 +205,7 @@ impl HasFocus for Minimal {
         builder.widget(&self.font_size);
         builder.widget(&self.blocks);
         builder.widget(&self.underline);
+        builder.widget(&self.strikeout);
         builder.widget(&self.bold);
         builder.widget(&self.italic);
         builder.widget(&self.combining_base);
@@ -298,13 +301,19 @@ pub fn render(
         .styles(ctx.theme.style(WidgetStyle::CHECKBOX))
         .render(underline_area, buf, &mut state.underline);
 
-    let bold_area = Rect::new(area.x + 20, area.y + 2, 9, 1);
+    let strikeout_area = Rect::new(area.x + 20, area.y + 2, 10, 1);
+    Checkbox::new()
+        .text("strike")
+        .styles(ctx.theme.style(WidgetStyle::CHECKBOX))
+        .render(strikeout_area, buf, &mut state.strikeout);
+
+    let bold_area = Rect::new(area.x + 30, area.y + 2, 9, 1);
     Checkbox::new()
         .text("bold")
         .styles(ctx.theme.style(WidgetStyle::CHECKBOX))
         .render(bold_area, buf, &mut state.bold);
 
-    let italic_area = Rect::new(area.x + 29, area.y + 2, 11, 1);
+    let italic_area = Rect::new(area.x + 39, area.y + 2, 11, 1);
     Checkbox::new()
         .text("italic")
         .styles(ctx.theme.style(WidgetStyle::CHECKBOX))
@@ -321,6 +330,9 @@ pub fn render(
     let mut free_text_style = ctx.theme.style::<TextStyle>(WidgetStyle::TEXT);
     if state.underline.checked() {
         free_text_style.style = free_text_style.style.underlined();
+    }
+    if state.strikeout.checked() {
+        free_text_style.style = free_text_style.style.crossed_out();
     }
     if state.bold.checked() {
         free_text_style.style = free_text_style.style.bold();
@@ -348,6 +360,7 @@ pub fn render(
         .combining_base(state.combining_base.text())
         .focus_style(ctx.theme.style(Style::FOCUS))
         .underline(state.underline.value())
+        .strikeout(state.strikeout.value())
         .bold(state.bold.value())
         .italic(state.italic.value())
         .start(block.range.low)
@@ -460,15 +473,19 @@ pub fn event(
                 Control::Changed
             }),
             ct_event!(keycode press F(5)) => event_flow!({
-                state.bold.flip_checked();
+                state.strikeout.flip_checked();
                 Control::Changed
             }),
             ct_event!(keycode press F(6)) => event_flow!({
+                state.bold.flip_checked();
+                Control::Changed
+            }),
+            ct_event!(keycode press F(7)) => event_flow!({
                 state.italic.flip_checked();
                 Control::Changed
             }),
 
-            ct_event!(keycode press F(7)) => event_flow!({
+            ct_event!(keycode press F(9)) => event_flow!({
                 let n = match ctx.terminal().borrow().backend().cursor_style() {
                     CursorStyle::Block => CursorStyle::Underscore,
                     CursorStyle::Underscore => CursorStyle::BoldUnderscore,
@@ -526,6 +543,7 @@ pub fn event(
             r => Control::from(r),
         });
         event_flow!(state.underline.handle(event, Regular));
+        event_flow!(state.strikeout.handle(event, Regular));
         event_flow!(state.bold.handle(event, Regular));
         event_flow!(state.italic.handle(event, Regular));
         event_flow!(state.combining_base.handle(event, Regular));
@@ -852,6 +870,7 @@ mod glyphs {
         start: char,
         end: char,
         underline: bool,
+        strikeout: bool,
         bold: bool,
         italic: bool,
         combining_base: &'a str,
@@ -886,6 +905,7 @@ mod glyphs {
                 start: '\u{0000}',
                 end: '\u{0000}',
                 underline: Default::default(),
+                strikeout: Default::default(),
                 bold: Default::default(),
                 italic: Default::default(),
                 combining_base: " ",
@@ -926,6 +946,11 @@ mod glyphs {
 
         pub fn underline(mut self, underline: bool) -> Self {
             self.underline = underline;
+            self
+        }
+
+        pub fn strikeout(mut self, strikeout: bool) -> Self {
+            self.strikeout = strikeout;
             self
         }
 
@@ -998,6 +1023,11 @@ mod glyphs {
             } else {
                 blank_style
             };
+            blank_style = if self.strikeout {
+                blank_style.crossed_out()
+            } else {
+                blank_style
+            };
             blank_style = if self.bold {
                 blank_style.bold()
             } else {
@@ -1029,6 +1059,11 @@ mod glyphs {
                 };
                 glyph_style = if self.underline {
                     glyph_style.underlined()
+                } else {
+                    glyph_style
+                };
+                glyph_style = if self.strikeout {
+                    glyph_style.crossed_out()
                 } else {
                     glyph_style
                 };
