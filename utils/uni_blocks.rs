@@ -103,6 +103,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
         let mut fonts = FontData.installed_fonts().clone();
+        fonts.push("Fairfax".to_string());
         fonts.push("Roboto Mono".to_string());
         fonts.push("Times New Roman".to_string());
         fonts.sort();
@@ -206,7 +207,12 @@ impl HasFocus for Minimal {
         builder.widget(&self.italic);
         builder.widget(&self.combining_base);
         builder.widget(&self.free_text);
-        builder.widget(&self.glyphs);
+        builder.widget_with_flags(
+            self.glyphs.focus(),
+            self.view.widget_area,
+            self.glyphs.area_z(),
+            self.glyphs.navigable(),
+        );
     }
 
     fn focus(&self) -> FocusFlag {
@@ -553,8 +559,10 @@ pub fn event(
                     state.blocks.set_value(ctx.blocks.len().saturating_sub(1));
                     Control::Changed
                 }),
-                ct_event!(keycode press PageDown) => event_flow!({ next_block(state, ctx)? }),
-                ct_event!(keycode press PageUp) => event_flow!({ prev_block(state, ctx)? }),
+                ct_event!(keycode press CONTROL-PageDown) => {
+                    event_flow!({ next_block(state, ctx)? })
+                }
+                ct_event!(keycode press CONTROL-PageUp) => event_flow!({ prev_block(state, ctx)? }),
                 _ => {}
             }
         }
@@ -794,10 +802,10 @@ mod glyph_info {
                 .font_db()
                 .faces()
                 .filter_map(|info| {
-                    if info.style != fontdb::Style::Normal || info.weight != fontdb::Weight::NORMAL
-                    {
-                        return None;
-                    }
+                    // if info.style != fontdb::Style::Normal || info.weight != fontdb::Weight::NORMAL
+                    // {
+                    //     return None;
+                    // }
                     for (v, _) in &info.families {
                         if v.as_str() == family {
                             return Some(info.id);
@@ -827,7 +835,7 @@ mod glyphs {
     use rat_widget::reloc::{RelocatableState, relocate_area, relocate_pos_tuple_opt};
     use rat_widget::text::HasScreenCursor;
     use ratatui_core::buffer::Buffer;
-    use ratatui_core::layout::Rect;
+    use ratatui_core::layout::{Position, Rect};
     use ratatui_core::style::Style;
     use ratatui_core::text::Span;
     use ratatui_core::widgets::{StatefulWidget, Widget};
@@ -984,6 +992,23 @@ mod glyphs {
 
             buf.set_style(area, self.style);
 
+            let mut blank_style = self.style;
+            blank_style = if self.underline {
+                blank_style.underlined()
+            } else {
+                blank_style
+            };
+            blank_style = if self.bold {
+                blank_style.bold()
+            } else {
+                blank_style
+            };
+            blank_style = if self.italic {
+                blank_style.italic()
+            } else {
+                blank_style
+            };
+
             let mut tmp = String::new();
             for cc in self.start..=self.end {
                 let off = cc as u32 - self.start as u32;
@@ -1024,6 +1049,8 @@ mod glyphs {
                     1,
                     1,
                 );
+                let cp_blank =
+                    Position::new(area.x + 9 + 2 * col as u16 + 1, area.y + 2 * row as u16);
                 if state.is_focused() && state.selected == off as usize {
                     state.screen_cursor = Some((cp_area.x, cp_area.y));
                 }
@@ -1055,6 +1082,10 @@ mod glyphs {
                     } else {
                         cell.set_symbol("?");
                     }
+                }
+
+                if let Some(cell) = buf.cell_mut(cp_blank) {
+                    cell.set_style(blank_style);
                 }
 
                 // need to skip. span et al. do this automatically.
@@ -1132,11 +1163,7 @@ mod glyphs {
         pub fn up(&mut self) -> bool {
             let old_idx = self.selected;
             if self.selected >= CLUSTER as usize {
-                if self.selected < self.codepoint.len() {
-                    self.selected -= CLUSTER as usize;
-                } else {
-                    self.selected = self.codepoint.len().saturating_sub(1);
-                }
+                self.selected -= CLUSTER as usize;
             }
 
             self.selected != old_idx
@@ -1146,7 +1173,33 @@ mod glyphs {
             let old_idx = self.selected;
             if (self.selected + CLUSTER as usize) < self.codepoint.len() {
                 self.selected += CLUSTER as usize;
-            } else if self.selected >= self.codepoint.len() {
+            } else {
+                self.selected = self.codepoint.len().saturating_sub(1);
+            }
+
+            self.selected != old_idx
+        }
+
+        pub fn page_up(&mut self) -> bool {
+            let old_idx = self.selected;
+
+            let page = (self.area.height / 2) as usize * CLUSTER as usize;
+            if self.selected >= page {
+                self.selected -= page;
+            } else {
+                self.selected = 0;
+            }
+
+            self.selected != old_idx
+        }
+
+        pub fn page_down(&mut self) -> bool {
+            let old_idx = self.selected;
+
+            let page = (self.area.height / 2) as usize * CLUSTER as usize;
+            if (self.selected + page) < self.codepoint.len() {
+                self.selected += page;
+            } else {
                 self.selected = self.codepoint.len().saturating_sub(1);
             }
 
@@ -1165,6 +1218,8 @@ mod glyphs {
                         ct_event!(keycode press Right) => self.next().into(),
                         ct_event!(keycode press Up) => self.up().into(),
                         ct_event!(keycode press Down) => self.down().into(),
+                        ct_event!(keycode press PageUp) => self.page_up().into(),
+                        ct_event!(keycode press PageDown) => self.page_down().into(),
                         _ => Outcome::Continue,
                     }
                 );

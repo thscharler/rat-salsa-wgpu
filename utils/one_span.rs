@@ -24,9 +24,14 @@ use std::path::PathBuf;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-static SAMPLES: &[&str] = &["Hello World! مرحبا بالعالم 0123456789000000000"];
+// static SAMPLES: &[&str] = &["Hello World! مرحبا بالعالم 0123456789000000000"];
+static SAMPLES: &[&str] = &[
+    "Ｈｅｌｌｏ, ｗｏｒｌｄ!", //
+    "H̴̢͕̠͖͇̻͓̙̞͔͕͓̰͋͛͂̃̌͂͆͜͠",
+    "TEST",
+];
 
-// const FONT: &str = "Geist Mono";
+const FONT: &str = "Fairfax";
 // const FONT: &str = "Overpass Mono";
 // const FONT: &str = "MS Gothic";
 
@@ -49,7 +54,7 @@ pub fn main() -> Result<(), Error> {
             .window_title("one span")
             .window_position(30, 30)
             .window_size(600, 80)
-            // .font_family(FONT)
+            .font_family(FONT)
             .font_size(22.)
             .cursor_color(Color::Red)
             .poll(PollBlink::new(0, 200)),
@@ -153,6 +158,10 @@ pub fn render(
         .style(glyph_style)
         .render(gl_span_area, buf);
 
+    for c in ctx.samples[state.sample_idx].chars() {
+        debug!(" {:?} {:08X}", c, c as u32);
+    }
+
     let cx = ctx.samples[state.sample_idx]
         .graphemes(true)
         .map(|v| v.width() as u16)
@@ -207,7 +216,7 @@ pub fn event(
                 }
             }),
 
-            ct_event!(keycode press F(3)) => event_flow!({
+            ct_event!(keycode press PageDown) => event_flow!({
                 if state.sample_idx + 1 < ctx.samples.len() {
                     state.sample_idx += 1;
                     Control::Changed
@@ -215,7 +224,7 @@ pub fn event(
                     Control::Continue
                 }
             }),
-            ct_event!(keycode press SHIFT-F(3)) => event_flow!({
+            ct_event!(keycode press PageUp) => event_flow!({
                 if state.sample_idx > 0 {
                     state.sample_idx -= 1;
                     Control::Changed

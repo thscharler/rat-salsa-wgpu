@@ -516,7 +516,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     }
     let mut fonts = Fonts::new_vec(fallback_fonts, 22);
     fonts.add_fonts(regular_fonts);
-    fonts.set_size_px(font_size_px);
+    fonts.set_height_px(font_size_px);
 
     let window = Arc::new(cr_window(event_loop, win_attr));
 

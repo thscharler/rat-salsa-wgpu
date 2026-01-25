@@ -12,15 +12,18 @@ use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
+use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::FontData;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
 use std::fs;
 use std::path::PathBuf;
-use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::font::FontData;
 
 static SAMPLES: &[&str] = &[
+    "Ｈｅｌｌｏ, ｗｏｒｌｄ!", //
+    "H̴̢͕̠͖͇̻͓̙̞͔͕͓̰͋͛͂̃̌͂͆͜͠",
+    "TEST",
     "ab\u{1f90c}yz",
     "\u{1f90c}",
     "X",  //
@@ -30,21 +33,11 @@ static SAMPLES: &[&str] = &[
     "<=",
     ">=",
     "ab",
-    // "\u{fb1e}",
-    // "\u{231a}",
-    // "\u{231b}",
-    // "\u{231c}",
-    // "a\u{08ca}",
-    // "\u{034f}",
-    // "\u{01c4}",
-    // "y\u{0301}",
-    // "y\u{0306}",
-    // "\u{038f}",
-    // "ab",
 ];
 
+const FONT: &str = "Fairfax";
 // const FONT: &str = "Geist Mono";
-const FONT: &str = "Overpass Mono";
+// const FONT: &str = "Overpass Mono";
 // const FONT: &str = "MS Gothic";
 
 pub fn main() -> Result<(), Error> {
