@@ -54,7 +54,7 @@ crossterm = { version = "0.29.0" }
 
 #ratatui-wgpu = { version = "0.4", features = [], git = "https://github.com/thscharler/ratatui-wgpu", branch = "remastered" }
 #ratatui-wgpu = { version = "0.4", features = [], path = "../ratatui-wgpu" }
-rat-wgpu = { version = "0.10", features = [] }
+rat-wgpu = { version = "0.10", git = "https://github.com/thscharler/rat-wgpu", features = [] }
 
 rat-event = { version = "2.0" }
 rat-focus = { version = "2.0" }
