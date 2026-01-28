@@ -232,25 +232,25 @@ pub fn event(
                     ImageFit::FitEnd => ImageFit::HorizontalStart,
                     ImageFit::HorizontalStart => ImageFit::HorizontalCenter,
                     ImageFit::HorizontalCenter => ImageFit::HorizontalEnd,
-                    ImageFit::HorizontalEnd => ImageFit::FitVerticalStart,
-                    ImageFit::FitVerticalStart => ImageFit::FitVerticalCenter,
-                    ImageFit::FitVerticalCenter => ImageFit::FitVerticalEnd,
-                    ImageFit::FitVerticalEnd => ImageFit::Fill,
+                    ImageFit::HorizontalEnd => ImageFit::VerticalStart,
+                    ImageFit::VerticalStart => ImageFit::VerticalCenter,
+                    ImageFit::VerticalCenter => ImageFit::VerticalEnd,
+                    ImageFit::VerticalEnd => ImageFit::Fill,
                 };
                 Control::Changed
             }),
             ct_event!(keycode press SHIFT-F(1)) => event_flow!({
                 state.fit = match state.fit {
-                    ImageFit::Fill => ImageFit::FitVerticalEnd,
+                    ImageFit::Fill => ImageFit::VerticalEnd,
                     ImageFit::FitStart => ImageFit::Fill,
                     ImageFit::FitCenter => ImageFit::FitStart,
                     ImageFit::FitEnd => ImageFit::FitCenter,
                     ImageFit::HorizontalStart => ImageFit::FitEnd,
                     ImageFit::HorizontalCenter => ImageFit::HorizontalStart,
                     ImageFit::HorizontalEnd => ImageFit::HorizontalCenter,
-                    ImageFit::FitVerticalStart => ImageFit::HorizontalEnd,
-                    ImageFit::FitVerticalCenter => ImageFit::FitVerticalStart,
-                    ImageFit::FitVerticalEnd => ImageFit::FitVerticalCenter,
+                    ImageFit::VerticalStart => ImageFit::HorizontalEnd,
+                    ImageFit::VerticalCenter => ImageFit::VerticalStart,
+                    ImageFit::VerticalEnd => ImageFit::VerticalCenter,
                 };
                 Control::Changed
             }),
