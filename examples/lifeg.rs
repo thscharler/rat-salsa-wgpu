@@ -463,7 +463,7 @@ pub mod game {
     use rat_theme4::theme::SalsaTheme;
     use ratatui_core::buffer::Buffer;
     use ratatui_core::layout::Rect;
-    use ratatui_core::style::{Color, Style, Stylize};
+    use ratatui_core::style::{Color, Style};
     use ratatui_core::widgets::StatefulWidget;
     use std::cmp::max;
     use std::fmt::{Debug, Formatter};
