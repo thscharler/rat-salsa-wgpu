@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 /// Holds all the timers.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct Timers {
     tags: AtomicUsize,
     timers: Mutex<Vec<TimerImpl>>,
@@ -21,6 +21,15 @@ struct TimerImpl {
     repeat: Option<usize>,
     next: Instant,
     timer: Duration,
+}
+
+impl Default for Timers {
+    fn default() -> Self {
+        Self {
+            tags: AtomicUsize::new(1),
+            timers: Default::default(),
+        }
+    }
 }
 
 impl Timers {
