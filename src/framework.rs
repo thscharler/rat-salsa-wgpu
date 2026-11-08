@@ -15,6 +15,7 @@ use log::info;
 use rat_wgpu::WgpuBackend;
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::{Blinking, CursorStyle};
+use rat_wgpu::events::ConvertEvent;
 use rat_wgpu::font::{Font, FontData, Fonts};
 use rat_wgpu::wgpu::Backends;
 use ratatui_core::backend::{Backend, WindowSize};
@@ -35,7 +36,6 @@ use winit::application::ApplicationHandler;
 use winit::event::{MouseScrollDelta, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
-use rat_wgpu::events::ConvertEvent;
 
 pub(crate) mod control_queue;
 mod poll_queue;
@@ -46,14 +46,14 @@ mod poll_queue;
 ///
 /// ```rust no_run
 /// use anyhow::{anyhow, Error};
-/// use rat_salsa_wgpu::event_type::convert_crossterm::ConvertCrossterm;
-/// use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, mock, run_tui};
+/// use rat_salsa_wgpu::events::ConvertCrossterm;
+/// use rat_salsa_wgpu::{Control, RunConfig, SalsaContext, SalsaAppContext, mock, run_tui};
 /// use rat_widget::event::ct_event;
-/// use ratatui::buffer::Buffer;
-/// use ratatui::layout::Rect;
-/// use ratatui::style::Stylize;
-/// use ratatui::text::{Line, Span};
-/// use ratatui::widgets::Widget;
+/// use ratatui_core::buffer::Buffer;
+/// use ratatui_core::layout::Rect;
+/// use ratatui_core::style::Stylize;
+/// use ratatui_core::text::{Line, Span};
+/// use ratatui_core::widgets::Widget;
 ///
 /// fn main() -> Result<(), Error> {
 ///     run_tui(
