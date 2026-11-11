@@ -12,7 +12,6 @@ use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
-use rat_wgpu::font::FontData;
 use rat_wgpu::image::{ImageArg, ImageBuffer, ImageFit, ImageHandle};
 use rat_widget::scrolled::Scroll;
 use rat_widget::view::{View, ViewState};
@@ -24,6 +23,7 @@ use ratatui_widgets::block::Block;
 use ratatui_widgets::borders::BorderType;
 use std::fs;
 use std::path::PathBuf;
+use rat_wgpu::font::installed_mono_fonts;
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -71,7 +71,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
-        let mut fonts = FontData.installed_fonts().clone();
+        let mut fonts = installed_mono_fonts().clone();
         fonts.insert(0, "<Fallback>".to_string());
         Self {
             ctx: Default::default(),

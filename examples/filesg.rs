@@ -33,13 +33,13 @@ use ratatui_core::style::Style;
 use ratatui_core::symbols::border::EMPTY;
 use ratatui_core::text::{Line, Text};
 use ratatui_core::widgets::{StatefulWidget, Widget};
+use ratatui_widgets::block::Block;
+use ratatui_widgets::borders::{BorderType, Borders};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
-use ratatui_widgets::block::Block;
-use ratatui_widgets::borders::{BorderType, Borders};
 use sysinfo::Disks;
 
 fn main() -> Result<(), Error> {
@@ -1070,8 +1070,8 @@ fn fs_roots() -> Vec<(String, PathBuf)> {
         roots.push(("Videos".into(), p));
     }
 
-    let disks = Disks::new_with_refreshed_list();
-    for d in disks.list() {
+    let disks = Disks::new_with_refreshed_list().expect("disks");
+    for d in disks.iter() {
         roots.push((
             d.name().to_string_lossy().to_string(),
             d.mount_point().to_path_buf(),

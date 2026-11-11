@@ -459,7 +459,6 @@ mod logscroll {
     use rat_salsa_wgpu::{Control, SalsaContext};
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
-    use rat_wgpu::font::FontData;
     use rat_widget::event::{
         HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome, ct_event, try_flow,
     };
@@ -490,6 +489,7 @@ mod logscroll {
     use std::thread::sleep;
     use std::time::Duration;
     use unicode_segmentation::UnicodeSegmentation;
+    use rat_wgpu::font::installed_mono_fonts;
 
     #[derive(Debug)]
     pub struct LogScroll {
@@ -922,7 +922,6 @@ mod logscroll {
         let text = state.find.text();
         let log_id = state.logtext_id;
         for (id, regex) in text.split('|').enumerate() {
-            // TODO: |
             if !regex.is_empty() {
                 let id = min(id, 9);
                 let rope = state.logtext.rope().clone();
@@ -1016,7 +1015,7 @@ mod logscroll {
                     }
                     ct_event!(keycode press CONTROL-F(8)) => {
                         let font = ctx.font_family();
-                        let installed = FontData.installed_fonts();
+                        let installed = installed_mono_fonts();
 
                         let idx = installed.iter().position(|v| v == &font);
                         let new_idx = if let Some(idx) = idx {

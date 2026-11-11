@@ -23,7 +23,7 @@ use std::fs;
 use std::path::PathBuf;
 use winit::event::{ElementState, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
-use rat_wgpu::font::FontData;
+use rat_wgpu::font::installed_mono_fonts;
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -73,7 +73,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
-        let mut fonts = FontData.installed_fonts().clone();
+        let mut fonts = installed_mono_fonts().clone();
         fonts.push("Fairfax".into());
 
         Self {

@@ -12,7 +12,7 @@ use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
 use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::font::FontData;
+use rat_wgpu::font::installed_mono_fonts;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
@@ -74,7 +74,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
-        let mut fonts = FontData.installed_fonts().clone();
+        let mut fonts = installed_mono_fonts().clone();
         fonts.insert(0, "<Fallback>".to_string());
         Self {
             ctx: Default::default(),

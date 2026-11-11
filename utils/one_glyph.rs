@@ -13,12 +13,12 @@ use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
 use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::font::FontData;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
 use std::fs;
 use std::path::PathBuf;
+use rat_wgpu::font::installed_mono_fonts;
 
 static SAMPLES: &[&str] = &[
     "Ｈｅｌｌｏ, ｗｏｒｌｄ!", //
@@ -91,7 +91,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme, samples: &'static [&'static str]) -> Self {
-        let mut fonts = FontData.installed_fonts().clone();
+        let mut fonts = installed_mono_fonts().clone();
         fonts.insert(0, "<Fallback>".to_string());
         Self {
             ctx: Default::default(),

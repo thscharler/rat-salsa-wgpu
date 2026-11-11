@@ -15,7 +15,7 @@ use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
 use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::font::FontData;
+use rat_wgpu::font::{installed_mono_fonts, load_font_by_name};
 use rat_widget::checkbox::{Checkbox, CheckboxState};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::{ChoiceOutcome, SliderOutcome, TextOutcome};
@@ -68,10 +68,7 @@ pub fn main() -> Result<(), Error> {
             // .window_size(0, 0)
             //.cursor_color(Color::Red)
             //.cursor_style(CursorStyle::BoldUnderscore)
-            .fallback_font(
-                "SegoeUI".to_string(),
-                FontData.load_font_by_name("SegoeUI").unwrap(),
-            )
+            .fallback_font("SegoeUI".to_string(), load_font_by_name("SegoeUI").unwrap())
             .font_size(23.)
             .poll(PollBlink::default()),
     )?;
@@ -102,7 +99,7 @@ impl SalsaContext<AppEvent, Error> for Global {
 
 impl Global {
     pub fn new(cfg: Config, theme: SalsaTheme) -> Self {
-        let mut fonts = FontData.installed_fonts().clone();
+        let mut fonts = installed_mono_fonts().clone();
         fonts.push("Fairfax".to_string());
         fonts.push("Roboto Mono".to_string());
         fonts.push("Times New Roman".to_string());
@@ -614,7 +611,7 @@ fn prev_block(state: &mut Minimal, _ctx: &mut Global) -> Result<Control<AppEvent
 fn change_font_family(state: &mut Minimal, ctx: &mut Global) -> Result<Control<AppEvent>, Error> {
     let font = ctx.fonts[state.fonts.value()].as_str();
     debug!("set_font_family {:?}", font);
-    ctx.set_font_family(font);
+    let _ = ctx.set_font_family(font);
     state.glyphinfo.set_font_family(font);
     Ok(Control::Changed)
 }
@@ -645,14 +642,14 @@ fn setup_logging() -> Result<(), Error> {
 }
 
 mod glyph_info {
-    use rat_wgpu::font::FontData;
+    use rat_wgpu::font::{Font, font_db};
     use ratatui_core::buffer::Buffer;
     use ratatui_core::layout::Rect;
     use ratatui_core::style::Style;
     use ratatui_core::text::Text;
     use ratatui_core::widgets::{StatefulWidget, Widget};
     use rustybuzz::ttf_parser::GlyphId;
-    use rustybuzz::{Direction, Face, ShapePlan, UnicodeBuffer, shape_with_plan, ttf_parser};
+    use rustybuzz::{Direction,  ShapePlan, UnicodeBuffer, shape_with_plan, ttf_parser};
     use std::fmt::{Debug, Formatter};
     use std::marker::PhantomData;
     use unic_ucd::{CanonicalCombiningClass, Name};
@@ -669,7 +666,7 @@ mod glyph_info {
     #[derive(Default)]
     pub struct GlyphInfoState {
         pub area: Rect,
-        pub font: Option<Face<'static>>,
+        pub font: Option<Font>,
     }
 
     impl Debug for GlyphInfoState {
@@ -725,6 +722,8 @@ mod glyph_info {
             txt.push_line("");
 
             if let Some(font) = &state.font {
+                let font = font.as_face();
+
                 txt.push_line(format!(
                     "font-height {} a {} d {}",
                     font.height(),
@@ -767,14 +766,14 @@ mod glyph_info {
                 buffer.set_direction(Direction::LeftToRight);
 
                 let plan_cache = ShapePlan::new(
-                    font,
+                    &font,
                     buffer.direction(),
                     Some(buffer.script()),
                     buffer.language().as_ref(),
                     &[],
                 );
 
-                let glyph_buffer = shape_with_plan(font, &plan_cache, buffer);
+                let glyph_buffer = shape_with_plan(&font, &plan_cache, buffer);
 
                 for (n, (info, position)) in glyph_buffer
                     .glyph_infos()
@@ -816,25 +815,23 @@ mod glyph_info {
         }
 
         pub fn set_font_family(&mut self, family: &str) {
-            let font_ids = FontData
-                .font_db()
-                .faces()
-                .filter_map(|info| {
-                    // if info.style != fontdb::Style::Normal || info.weight != fontdb::Weight::NORMAL
-                    // {
-                    //     return None;
-                    // }
-                    for (v, _) in &info.families {
-                        if v.as_str() == family {
-                            return Some(info.id);
+            let font_ids = {
+                let font_db = font_db().read().expect("font-db");
+                font_db
+                    .faces()
+                    .filter_map(|info| {
+                        for (v, _) in &info.families {
+                            if v.as_str() == family {
+                                return Some(info.id);
+                            }
                         }
-                    }
-                    None
-                })
-                .collect::<Vec<_>>();
+                        None
+                    })
+                    .collect::<Vec<_>>()
+            };
             if let Some(fid) = font_ids.first() {
-                if let Some(font) = FontData.load_font(*fid) {
-                    self.font = Some(font.into_face());
+                if let Some(font) = Font::new(*fid) {
+                    self.font = Some(font);
                 } else {
                     self.font = None;
                 }
