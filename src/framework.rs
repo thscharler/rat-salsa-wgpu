@@ -520,7 +520,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         cur_color,
         non_exhaustive: NonExhaustive,
     })));
-    let backend_image_frame = terminal.borrow().backend().image_frame();
+    let image_buffer = terminal.borrow().backend().image_buffer();
 
     // window-size can be determined when we have the fonts installed.
     let window_size = terminal
@@ -538,7 +538,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         count: Default::default(),
         cursor: Default::default(),
         term: RefCell::new(Some(terminal.clone())),
-        image_frame: backend_image_frame,
+        image_buffer,
         clear_terminal: Default::default(),
         last_render: Default::default(),
         last_event: Default::default(),

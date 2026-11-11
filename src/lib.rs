@@ -8,7 +8,7 @@ use crossbeam::channel::{SendError, Sender};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
 use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::image::{ImageBuffer, ImageFrame};
+use rat_wgpu::image::ImageBuffer;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use std::cell::{Cell, Ref, RefCell, RefMut};
@@ -365,15 +365,10 @@ where
         self.salsa_ctx().term.borrow().clone().expect("terminal")
     }
 
-    /// Access the ImageFrame of the backend.
-    #[inline]
-    fn image_frame(&self) -> ImageFrame {
-        self.salsa_ctx().image_frame.clone()
-    }
-
     /// Access the ImageBuffer of the backend.
+    #[inline]
     fn image_buffer(&'_ self) -> Arc<Mutex<ImageBuffer>> {
-        self.salsa_ctx().image_frame.buffer()
+        self.salsa_ctx().image_buffer.clone()
     }
 
     /// Clear the terminal and do a full redraw before the next draw.
@@ -547,7 +542,7 @@ where
     /// Terminal area
     pub(crate) term: RefCell<Option<Rc<RefCell<Terminal<WgpuBackend<'static>>>>>>,
     /// Image buffer.
-    pub(crate) image_frame: ImageFrame,
+    pub(crate) image_buffer: Arc<Mutex<ImageBuffer>>,
     /// Clear terminal before next draw.
     pub(crate) clear_terminal: Cell<bool>,
     /// Last render time.
@@ -620,7 +615,7 @@ where
             count: Default::default(),
             cursor: Default::default(),
             term: Default::default(),
-            image_frame: Default::default(),
+            image_buffer: Default::default(),
             clear_terminal: Cell::new(false),
             window: Default::default(),
             font_changed: Default::default(),

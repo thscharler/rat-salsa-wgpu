@@ -167,7 +167,7 @@ pub fn render(
 }
 
 fn render_view(buf: &mut Buffer, ibuf: &mut ImageBuffer, state: &mut Minimal, ctx: &mut Global) {
-    let mut view_img = ibuf.derive(Rect::new(0, 0, 40, 100));
+    let mut view_img = ibuf.new_view(Rect::new(0, 0, 40, 100));
     let mut view = View::new()
         .layout(Rect::new(10, 5, 40, 100))
         .block(Block::bordered().border_type(BorderType::Double))
@@ -192,7 +192,7 @@ fn render_view(buf: &mut Buffer, ibuf: &mut ImageBuffer, state: &mut Minimal, ct
     view.render_widget(Block::bordered(), area);
 
     // move everything to the main buffer
-    ibuf.append(view_img, view.shift(), view.clip());
+    ibuf.append_view(view_img, view.shift(), view.clip());
     view.finish(buf, &mut state.view);
 }
 
