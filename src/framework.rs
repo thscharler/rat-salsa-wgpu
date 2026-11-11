@@ -16,7 +16,7 @@ use rat_wgpu::WgpuBackend;
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::{Blinking, CursorStyle};
 use rat_wgpu::events::ConvertEvent;
-use rat_wgpu::font::{Font, FontData, Fonts};
+use rat_wgpu::font::{Font, Fonts};
 use rat_wgpu::wgpu::Backends;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
@@ -184,9 +184,10 @@ where
     let RunConfig {
         event_loop,
         event_type,
-        cr_fonts,
+        fallback_family,
         fallback_font,
         font_family,
+        regular_fonts,
         font_size,
         symbol_font,
         emoji_font,
@@ -253,9 +254,10 @@ where
         error,
         global,
         state,
-        cr_fonts,
+        fallback_family,
         fallback_font,
         font_family,
+        regular_fonts,
         font_size,
         symbol_font,
         emoji_font,
@@ -312,13 +314,13 @@ where
     global: &'a mut Global,
     state: &'a mut State,
 
-    /// font loading callback
-    cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
-    fallback_font: Vec<(String, Font<'static>)>,
+    fallback_family: Option<String>,
+    fallback_font: Option<Font>,
     font_family: Option<String>,
+    regular_fonts: Vec<Font>,
     font_size: Option<f64>,
-    symbol_font: Option<Font<'static>>,
-    emoji_font: Option<Font<'static>>,
+    symbol_font: Option<Font>,
+    emoji_font: Option<Font>,
     colors: ColorTable,
     bg_color: Color,
     fg_color: Color,
@@ -335,7 +337,7 @@ where
 
     /// terminal callback
     backends: Backends,
-    cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>>>,
+    cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static>>>,
 
     event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
@@ -376,7 +378,7 @@ where
     window: Option<Arc<Window>>,
     window_size: WindowSize,
     window_focused: bool,
-    terminal: Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>>,
+    terminal: Option<Rc<RefCell<Terminal<WgpuBackend<'static>>>>>,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
@@ -428,9 +430,10 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         error,
         global,
         state,
-        cr_fonts,
+        fallback_family,
         fallback_font,
         font_family,
+        regular_fonts,
         font_size,
         symbol_font,
         emoji_font,
@@ -484,35 +487,19 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     }
 
     let font_size = font_size.unwrap_or(22.0);
-    let font_ids = cr_fonts(FontData.font_db());
     let font_size_px = (font_size * scale_factor).round() as u32;
-    let font_family = font_family.unwrap_or(
-        // guess
-        fallback_font
-            .iter()
-            .map(|v| v.0.clone())
-            .next()
-            .unwrap_or_default(),
-    );
+    let font_family = font_family.or(fallback_family);
 
     // setup fonts
-    let mut fallback_fonts = Vec::from_iter(fallback_font.into_iter().map(|(_name, font)| font));
+    let mut fallback_fonts = Vec::new();
+    if let Some(font) = fallback_font {
+        fallback_fonts.push(font);
+    }
     if let Some(font) = emoji_font {
         fallback_fonts.push(font);
     }
     if let Some(font) = symbol_font {
         fallback_fonts.push(font);
-    }
-    let mut regular_fonts = font_ids
-        .iter()
-        .filter_map(|id| FontData.load_font(*id))
-        .collect::<Vec<_>>();
-    if regular_fonts.is_empty() {
-        if let Some(fallback_font) = fallback_fonts.first() {
-            regular_fonts.push(fallback_font.clone());
-        } else {
-            panic!("need at least one valid font or a fallback font");
-        }
     }
     let mut fonts = Fonts::new_vec(fallback_fonts, 22);
     fonts.add_fonts(regular_fonts);
@@ -564,8 +551,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         window: RefCell::new(Some(window.clone())),
         font_changed: Default::default(),
         font_size_changed: Default::default(),
-        font_ids: RefCell::new(font_ids),
-        font_family: RefCell::new(font_family),
+        fonts: Default::default(),
+        font_family: RefCell::new(font_family.unwrap_or_default()),
         font_size: Cell::new(font_size),
         bg_color: Cell::new(bg_color),
         fg_color: Cell::new(fg_color),
@@ -887,14 +874,7 @@ where
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let font_vec = app
-        .global
-        .salsa_ctx()
-        .font_ids
-        .borrow()
-        .iter()
-        .filter_map(|id| FontData.load_font(*id))
-        .collect::<Vec<_>>();
+    let font_vec = app.global.salsa_ctx().fonts.take();
     app.terminal
         .as_ref()
         .expect("terminal")
@@ -902,9 +882,9 @@ where
         .backend_mut()
         .update_font_vec(font_vec);
 
-    let font_size_px = (app.global.salsa_ctx().font_size.get()
-        * app.window.as_ref().expect("window").scale_factor())
-    .round() as u32;
+    let font_size = app.global.salsa_ctx().font_size();
+    let scale_factor = app.window.as_ref().expect("window").scale_factor();
+    let font_size_px = (font_size * scale_factor).round() as u32;
     app.terminal
         .as_ref()
         .expect("terminal")

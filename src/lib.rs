@@ -4,12 +4,10 @@ use crate::timer::{TimerDef, TimerHandle, Timers};
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
-use log::debug;
 #[allow(dead_code)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
 use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::font::FontData;
 use rat_wgpu::image::{ImageBuffer, ImageFrame};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
@@ -35,9 +33,10 @@ pub use framework::run_tui;
 pub use rat_wgpu::WgpuBackend;
 pub use rat_wgpu::colors;
 pub use rat_wgpu::cursor;
-pub use rat_wgpu::font;
-pub use rat_wgpu::image;
 pub use rat_wgpu::events;
+pub use rat_wgpu::font;
+use rat_wgpu::font::{Font, font_db};
+pub use rat_wgpu::image;
 pub use run_config::{RunConfig, TermInit};
 pub use window_bounds::WindowBounds;
 
@@ -362,7 +361,7 @@ where
 
     /// Access the terminal.
     #[inline]
-    fn terminal(&self) -> Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>> {
+    fn terminal(&self) -> Rc<RefCell<Terminal<WgpuBackend<'static>>>> {
         self.salsa_ctx().term.borrow().clone().expect("terminal")
     }
 
@@ -425,38 +424,45 @@ where
         ))
     }
 
-    /// Change the font-size
+    /// Change the font-size.
     fn set_font_size(&self, size: f64) {
         self.salsa_ctx().font_size.set(size);
         self.salsa_ctx().font_size_changed.set(true);
         self.salsa_ctx().window().request_redraw();
     }
 
-    /// Current font-size
+    /// Current font-size.
     fn font_size(&self) -> f64 {
         self.salsa_ctx().font_size.get()
     }
 
-    /// Change the font-family
-    fn set_font_family(&self, family: &str) {
-        *self.salsa_ctx().font_family.borrow_mut() = family.to_string();
-        let font_ids = FontData
-            .font_db()
-            .faces()
-            .filter_map(|info| {
-                for (v, _) in &info.families {
-                    if v.as_str() == family {
-                        debug!("use font {}", info.post_script_name);
-                        return Some(info.id);
+    /// Change the font-family.
+    ///
+    /// Returns an error if the font cannot be loaded.
+    fn set_font_family(&self, family: &str) -> Result<(), ()> {
+        let font_ids = {
+            let font_db = font_db().read().expect("font-db");
+            font_db
+                .faces()
+                .filter_map(|info| {
+                    for (v, _) in &info.families {
+                        if v.as_str() == family {
+                            return Some(info.id);
+                        }
                     }
-                }
-                None
-            })
-            .collect::<Vec<_>>();
+                    None
+                })
+                .collect::<Vec<_>>()
+        };
         if !font_ids.is_empty() {
-            self.salsa_ctx().font_ids.replace(font_ids);
+            *self.salsa_ctx().font_family.borrow_mut() = family.to_string();
+            *self.salsa_ctx().fonts.borrow_mut() =
+                font_ids.into_iter().filter_map(|v| Font::new(v)).collect();
             self.salsa_ctx().font_changed.set(true);
             self.salsa_ctx().window().request_redraw();
+            Ok(())
+        } else {
+            Err(())
         }
     }
 
@@ -539,7 +545,7 @@ where
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
-    pub(crate) term: RefCell<Option<Rc<RefCell<Terminal<WgpuBackend<'static, 'static>>>>>>,
+    pub(crate) term: RefCell<Option<Rc<RefCell<Terminal<WgpuBackend<'static>>>>>>,
     /// Image buffer.
     pub(crate) image_frame: ImageFrame,
     /// Clear terminal before next draw.
@@ -564,11 +570,16 @@ where
 
     pub(crate) font_changed: Cell<bool>,
     pub(crate) font_size_changed: Cell<bool>,
-    pub(crate) font_ids: RefCell<Vec<fontdb::ID>>,
+    /// Holds newly set fonts before forwarding to the backend.
+    pub(crate) fonts: RefCell<Vec<Font>>,
+    /// Primary font family name.
     pub(crate) font_family: RefCell<String>,
+    /// Current font size.
     pub(crate) font_size: Cell<f64>,
 
+    /// Base bg for the window.
     pub(crate) bg_color: Cell<Color>,
+    /// Base fg for the window.
     pub(crate) fg_color: Cell<Color>,
 }
 
@@ -586,7 +597,7 @@ impl<Event, Error> Debug for SalsaAppContext<Event, Error> {
             .field("queue", &self.queue)
             .field("font_changed", &self.font_changed.get())
             .field("font_size_changed", &self.font_size_changed.get())
-            .field("font_ids", &self.font_ids.borrow())
+            .field("fonts", &self.fonts.borrow())
             .field("font_family", &self.font_family.borrow())
             .field("font_size", &self.font_size.get());
         #[cfg(feature = "async")]
@@ -614,7 +625,7 @@ where
             window: Default::default(),
             font_changed: Default::default(),
             font_size_changed: Default::default(),
-            font_ids: Default::default(),
+            fonts: Default::default(),
             last_render: Default::default(),
             last_event: Default::default(),
             timers: Default::default(),

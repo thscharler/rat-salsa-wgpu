@@ -4,12 +4,15 @@ use crate::{Control, WindowBounds};
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::CursorStyle;
 use rat_wgpu::events::ConvertEvent;
-use rat_wgpu::font::{Font, FontData, Fonts};
+use rat_wgpu::font::{
+    Font, Fonts, fallback_emoji_font, fallback_family, fallback_font, fallback_symbol_font, font_db,
+};
 use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
 use rat_wgpu::wgpu::Backends;
 use rat_wgpu::{Builder, WgpuBackend};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 use winit::error::EventLoopError;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
@@ -25,18 +28,20 @@ where
     pub(crate) event_loop: EventLoop<Result<Control<Event>, Error>>,
     /// app event type
     pub(crate) event_type: Box<dyn ConvertEvent<Event>>,
-    /// font loading callback
-    pub(crate) cr_fonts: Box<dyn FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static>,
+    /// fallback font family name. only informational.
+    pub(crate) fallback_family: Option<String>,
     /// fallback font
-    pub(crate) fallback_font: Vec<(String, Font<'static>)>,
-    /// font family
+    pub(crate) fallback_font: Option<Font>,
+    /// font family, only informational.
     pub(crate) font_family: Option<String>,
+    /// regular fonts
+    pub(crate) regular_fonts: Vec<Font>,
     /// font size
     pub(crate) font_size: Option<f64>,
     /// fallback symbol font
-    pub(crate) symbol_font: Option<Font<'static>>,
+    pub(crate) symbol_font: Option<Font>,
     /// fallback emoji font
-    pub(crate) emoji_font: Option<Font<'static>>,
+    pub(crate) emoji_font: Option<Font>,
     /// terminal colors
     pub(crate) colors: ColorTable,
     pub(crate) bg_color: Color,
@@ -55,12 +60,37 @@ where
         Box<dyn FnOnce(&ActiveEventLoop, winit::window::WindowAttributes) -> Window>,
     pub(crate) backends: Backends,
     /// terminal callback
-    pub(crate) cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>>>,
+    pub(crate) cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static>>>,
 
     /// List of all event-handlers for the application.
     ///
     /// Defaults to PollTimers, PollCrossterm, PollTasks. Add yours here.
     pub(crate) poll: Vec<Box<dyn PollEvents<Event, Error> + Send>>,
+}
+
+impl<Event, Error> Debug for RunConfig<Event, Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RunConfig")
+            .field("event_loop", &self.event_loop)
+            .field("fallback_family", &self.fallback_family)
+            .field("fallback_font", &self.fallback_font)
+            .field("font_family", &self.font_family)
+            .field("regular_fonts", &self.regular_fonts)
+            .field("font_size", &self.font_size)
+            .field("symbol_font", &self.symbol_font)
+            .field("emoji_font", &self.emoji_font)
+            .field("colors", &self.colors)
+            .field("bg_color", &self.bg_color)
+            .field("fg_color", &self.fg_color)
+            .field("cur_style", &self.cur_style)
+            .field("cur_blink", &self.cur_blink)
+            .field("cur_color", &self.cur_color)
+            .field("rapid_blink", &self.rapid_blink)
+            .field("slow_blink", &self.slow_blink)
+            .field("win_attr", &self.win_attr)
+            .field("backends", &self.backends)
+            .finish()
+    }
 }
 
 impl<Event, Error> RunConfig<Event, Error>
@@ -72,16 +102,13 @@ where
         Ok(Self {
             event_loop: EventLoop::with_user_event().build()?,
             event_type: Box::new(event_type),
-            cr_fonts: Box::new(mock_create_fonts),
-            fallback_font: FontData
-                .fallback_font()
-                .map(|f| ("CascadiaMono-Regular".to_string(), f))
-                .into_iter()
-                .collect(),
-            font_family: None,
-            font_size: None,
-            symbol_font: FontData.fallback_symbol_font(),
-            emoji_font: FontData.fallback_emoji_font(),
+            fallback_family: fallback_family(),
+            fallback_font: fallback_font(),
+            font_family: Default::default(),
+            regular_fonts: Default::default(),
+            font_size: Default::default(),
+            symbol_font: fallback_symbol_font(),
+            emoji_font: fallback_emoji_font(),
             colors: Default::default(),
             bg_color: Color::Black,
             fg_color: Color::White,
@@ -123,15 +150,16 @@ where
     /// In that case you probably want to deactivate the feature and save 560KB
     /// of binary size.
     ///
-    pub fn fallback_font(mut self, font_name: String, fallback_font: Font<'static>) -> Self {
-        self.fallback_font.push((font_name, fallback_font));
+    pub fn fallback_font(mut self, font_name: String, fallback_font: Font) -> Self {
+        self.fallback_family = Some(font_name);
+        self.fallback_font = Some(fallback_font);
         self
     }
 
     /// Set the fallback symbol-font.
     /// When glyphs are not found in the other installed fonts
     /// this is one of the fallback fonts.
-    pub fn symbol_font(mut self, symbol_font: Font<'static>) -> Self {
+    pub fn symbol_font(mut self, symbol_font: Font) -> Self {
         self.symbol_font = Some(symbol_font);
         self
     }
@@ -139,27 +167,39 @@ where
     /// Set the fallback emoji-font.
     /// When glyphs are not found in the other installed fonts
     /// this is one of the fallback fonts.
-    pub fn emoji_font(mut self, emoji_font: Font<'static>) -> Self {
+    pub fn emoji_font(mut self, emoji_font: Font) -> Self {
         self.emoji_font = Some(emoji_font);
         self
     }
 
     /// Set the name of the font family that should be loaded as
-    /// regular fonts.
+    /// regular fonts. This loads all the fonts of the family.
     pub fn font_family(mut self, font_family: impl Into<String>) -> Self {
         let font_family = font_family.into();
         self.font_family = Some(font_family.clone());
-        self.cr_fonts = Box::new(create_font_by_family(font_family));
+
+        let font_ids = {
+            let font_db = font_db().read().expect("font_db");
+            font_db
+                .faces()
+                .filter_map(|info| {
+                    for (v, _) in &info.families {
+                        if v.as_str() == font_family.as_str() {
+                            return Some(info.id);
+                        }
+                    }
+                    None
+                })
+                .collect::<Vec<_>>()
+        };
+        self.regular_fonts = font_ids.into_iter().filter_map(|v| Font::new(v)).collect();
         self
     }
 
-    /// Set a constructor for the regular fonts.
-    pub fn fonts(
-        mut self,
-        font_init: impl FnOnce(&fontdb::Database) -> Vec<fontdb::ID> + 'static,
-    ) -> Self {
-        self.font_family = None;
-        self.cr_fonts = Box::new(font_init);
+    /// Sets the regular fonts.
+    /// Replaces any previous fonts.
+    pub fn fonts(mut self, fonts: Vec<Font>) -> Self {
+        self.regular_fonts = fonts;
         self
     }
 
@@ -325,7 +365,7 @@ where
     /// This gets a [TermInit] struct with all the collected parameters.
     pub fn terminal(
         mut self,
-        wgpu_init: impl FnOnce(TermInit) -> Terminal<WgpuBackend<'static, 'static>> + 'static,
+        wgpu_init: impl FnOnce(TermInit) -> Terminal<WgpuBackend<'static>> + 'static,
     ) -> Self {
         self.cr_term = Box::new(wgpu_init);
         self
@@ -343,7 +383,7 @@ pub struct TermInit {
     /// Which backends
     pub backends: Backends,
     /// The fallback fonts to use.
-    pub fonts: Fonts<'static>,
+    pub fonts: Fonts,
     /// The window instance.
     pub window: Arc<Window>,
     /// Base16-colors
@@ -364,26 +404,6 @@ pub struct TermInit {
     pub non_exhaustive: NonExhaustive,
 }
 
-fn create_font_by_family(family: String) -> impl FnOnce(&fontdb::Database) -> Vec<fontdb::ID> {
-    move |fontdb| {
-        fontdb
-            .faces()
-            .filter_map(|info| {
-                for (v, _) in &info.families {
-                    if v.as_str() == family.as_str() {
-                        return Some(info.id);
-                    }
-                }
-                None
-            })
-            .collect::<Vec<_>>()
-    }
-}
-
-fn mock_create_fonts(_: &fontdb::Database) -> Vec<fontdb::ID> {
-    Vec::default()
-}
-
 fn create_window(
     event_loop: &ActiveEventLoop,
     mut attr: winit::window::WindowAttributes,
@@ -392,7 +412,7 @@ fn create_window(
     event_loop.create_window(attr).expect("event-loop")
 }
 
-fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static, 'static>> {
+fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static>> {
     let size = arg.window.inner_size();
 
     let backend = futures_lite::future::block_on({
