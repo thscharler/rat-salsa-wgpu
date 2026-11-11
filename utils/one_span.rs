@@ -13,6 +13,7 @@ use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
 use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::installed_mono_fonts;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
@@ -22,7 +23,6 @@ use std::fs;
 use std::path::PathBuf;
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
-use rat_wgpu::font::installed_mono_fonts;
 
 // static SAMPLES: &[&str] = &["Hello World! مرحبا بالعالم 0123456789000000000"];
 static SAMPLES: &[&str] = &[
@@ -55,7 +55,7 @@ pub fn main() -> Result<(), Error> {
             .window_position(30, 30)
             .window_size(600, 80)
             .font_family(FONT)
-            .font_size(22.)
+            .font_size(22)
             .cursor_color(Color::Red)
             .poll(PollBlink::new(0, 200)),
     )?;
@@ -199,8 +199,8 @@ pub fn event(
 
             ct_event!(keycode press F(2)) => event_flow!({
                 let v = ctx.font_size();
-                if v < 60.0 {
-                    ctx.set_font_size(v + 1.0);
+                if v < 60 {
+                    ctx.set_font_size(v + 1);
                     Control::Changed
                 } else {
                     Control::Continue
@@ -208,8 +208,8 @@ pub fn event(
             }),
             ct_event!(keycode press SHIFT-F(2)) => event_flow!({
                 let v = ctx.font_size();
-                if v > 7.0 {
-                    ctx.set_font_size(v - 1.0);
+                if v > 7 {
+                    ctx.set_font_size(v - 1);
                     Control::Changed
                 } else {
                     Control::Continue

@@ -16,7 +16,7 @@ use rat_wgpu::WgpuBackend;
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::{Blinking, CursorStyle};
 use rat_wgpu::events::ConvertEvent;
-use rat_wgpu::font::{Font, Fonts};
+use rat_wgpu::font::Font;
 use rat_wgpu::wgpu::Backends;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
@@ -318,7 +318,7 @@ where
     fallback_font: Option<Font>,
     font_family: Option<String>,
     regular_fonts: Vec<Font>,
-    font_size: Option<f64>,
+    font_size: Option<u32>,
     symbol_font: Option<Font>,
     emoji_font: Option<Font>,
     colors: ColorTable,
@@ -486,8 +486,8 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         }
     }
 
-    let font_size = font_size.unwrap_or(22.0);
-    let font_size_px = (font_size * scale_factor).round() as u32;
+    let font_size = font_size.unwrap_or(22);
+    let font_size_px = (font_size as f64 * scale_factor).round() as u32;
     let font_family = font_family.or(fallback_family);
 
     // setup fonts
@@ -501,15 +501,14 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     if let Some(font) = symbol_font {
         fallback_fonts.push(font);
     }
-    let mut fonts = Fonts::new_vec(fallback_fonts, 22);
-    fonts.add_fonts(regular_fonts);
-    fonts.set_height_px(font_size_px);
 
     let window = Arc::new(cr_window(event_loop, win_attr));
 
     let terminal = Rc::new(RefCell::new(cr_term(TermInit {
         backends,
-        fonts,
+        fallback_fonts,
+        regular_fonts,
+        font_size_px,
         window: window.clone(),
         colors,
         bg_color,
@@ -656,11 +655,11 @@ fn process_event<'a, Global, State, Event, Error>(
         }) = event
         {
             if dy > 0.0 {
-                if app.global.salsa_ctx().font_size.get() > 7.0 {
-                    app.global.salsa_ctx().font_size.update(|v| v - 1.0);
+                if app.global.salsa_ctx().font_size.get() > 7 {
+                    app.global.salsa_ctx().font_size.update(|v| v - 1);
                 }
             } else {
-                app.global.salsa_ctx().font_size.update(|v| v + 1.0);
+                app.global.salsa_ctx().font_size.update(|v| v + 1);
             }
             app.global.salsa_ctx().font_size_changed.set(true);
             event = None;
@@ -884,7 +883,7 @@ where
 
     let font_size = app.global.salsa_ctx().font_size();
     let scale_factor = app.window.as_ref().expect("window").scale_factor();
-    let font_size_px = (font_size * scale_factor).round() as u32;
+    let font_size_px = (font_size as f64 * scale_factor).round() as u32;
     app.terminal
         .as_ref()
         .expect("terminal")
@@ -913,7 +912,7 @@ fn change_font_size<'a, Global, State, Event, Error>(
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let font_size_px = (app.global.salsa_ctx().font_size.get()
+    let font_size_px = (app.global.salsa_ctx().font_size.get() as f64
         * app.window.as_ref().expect("window").scale_factor())
     .round() as u32;
     app.terminal

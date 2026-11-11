@@ -30,7 +30,7 @@ fn main() -> Result<(), Error> {
         RunConfig::new(ConvertWinit::new())?
             .window_position(30, 30)
             .font_family("Courier New")
-            .font_size(20.),
+            .font_size(20),
     )
 }
 

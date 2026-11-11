@@ -44,7 +44,7 @@ pub fn main() -> Result<(), Error> {
             .window_position(1050, 30)
             .window_size(200, 200)
             .font_family(FONT)
-            .font_size(35.)
+            .font_size(35)
             .cursor_color(Color::Red)
             .poll(PollBlink::new(0, 200)),
     )?;
@@ -196,8 +196,8 @@ pub fn event(
 
             ct_event!(keycode press F(2)) => event_flow!({
                 let v = ctx.font_size();
-                if v < 60.0 {
-                    ctx.set_font_size(v + 1.0);
+                if v < 60 {
+                    ctx.set_font_size(v + 1);
                     Control::Changed
                 } else {
                     Control::Continue
@@ -205,8 +205,8 @@ pub fn event(
             }),
             ct_event!(keycode press SHIFT-F(2)) => event_flow!({
                 let v = ctx.font_size();
-                if v > 7.0 {
-                    ctx.set_font_size(v - 1.0);
+                if v > 7 {
+                    ctx.set_font_size(v - 1);
                     Control::Changed
                 } else {
                     Control::Continue

@@ -103,7 +103,7 @@ pub struct LogScrollConfig {
     split_pos: u16,
     theme: String,
     font: Option<String>,
-    font_size: f64,
+    font_size: u32,
     window: Option<WindowBounds>,
 }
 
@@ -130,7 +130,7 @@ fn load_config() -> Result<LogScrollConfig, Error> {
                 .get("default", "font-size")
                 .unwrap_or("22".to_string())
                 .parse()
-                .unwrap_or(22.0);
+                .unwrap_or(22);
             let window = ini
                 .get("default", "window")
                 .map(|v| v.parse::<WindowBounds>().ok())
@@ -150,7 +150,7 @@ fn load_config() -> Result<LogScrollConfig, Error> {
         split_pos: 25,
         theme: Default::default(),
         font: None,
-        font_size: 22.0,
+        font_size: 22,
         window: None,
     })
 }
@@ -459,6 +459,7 @@ mod logscroll {
     use rat_salsa_wgpu::{Control, SalsaContext};
     use rat_theme4::theme::SalsaTheme;
     use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
+    use rat_wgpu::font::installed_mono_fonts;
     use rat_widget::event::{
         HandleEvent, Outcome, ReadOnly, Regular, TableOutcome, TextOutcome, ct_event, try_flow,
     };
@@ -489,7 +490,6 @@ mod logscroll {
     use std::thread::sleep;
     use std::time::Duration;
     use unicode_segmentation::UnicodeSegmentation;
-    use rat_wgpu::font::installed_mono_fonts;
 
     #[derive(Debug)]
     pub struct LogScroll {

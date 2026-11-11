@@ -38,7 +38,7 @@ fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
             .font_family("FiraCode Nerd Font Mono")
-            .font_size(18.)
+            .font_size(18)
             .poll(PollTimers::default())
             .poll(PollTasks::default()),
     )?;

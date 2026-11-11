@@ -68,8 +68,8 @@ pub fn main() -> Result<(), Error> {
             // .window_size(0, 0)
             //.cursor_color(Color::Red)
             //.cursor_style(CursorStyle::BoldUnderscore)
-            .fallback_font("SegoeUI".to_string(), load_font_by_name("SegoeUI").unwrap())
-            .font_size(23.)
+            // .fallback_font("SegoeUI".to_string(), load_font_by_name("SegoeUI").unwrap())
+            .font_size(20)
             .poll(PollBlink::default()),
     )?;
 
@@ -163,7 +163,7 @@ impl From<TimeOut> for AppEvent {
 #[derive(Debug)]
 pub struct Minimal {
     pub fonts: ChoiceState<usize>,
-    pub font_size: SliderState<usize>,
+    pub font_size: SliderState<u32>,
     pub blocks: ChoiceState<usize>,
     pub underline: CheckboxState,
     pub strikeout: CheckboxState,
@@ -417,7 +417,7 @@ pub fn event(
 
         match event {
             ct_event!(resized) => event_flow!({
-                state.font_size.set_value(ctx.font_size() as usize);
+                state.font_size.set_value(ctx.font_size());
                 Control::Changed
             }),
             ct_event!(key press CONTROL-'q') => event_flow!(Control::Quit),
@@ -445,7 +445,7 @@ pub fn event(
                 let v = state.font_size.value();
                 if v < state.font_size.range.1 {
                     state.font_size.set_value(v + 1);
-                    ctx.set_font_size(v as f64 + 1.0);
+                    ctx.set_font_size(v + 1);
                     Control::Changed
                 } else {
                     Control::Continue
@@ -455,7 +455,7 @@ pub fn event(
                 let v = state.font_size.value();
                 if v > state.font_size.range.0 {
                     state.font_size.set_value(v - 1);
-                    ctx.set_font_size(v as f64 - 1.0);
+                    ctx.set_font_size(v - 1);
                     Control::Changed
                 } else {
                     Control::Continue
@@ -534,7 +534,7 @@ pub fn event(
         event_flow!(match state.font_size.handle(event, Regular) {
             SliderOutcome::Value => {
                 let v = state.font_size.value();
-                ctx.set_font_size(v as f64);
+                ctx.set_font_size(v);
                 Control::Changed
             }
             r => Control::from(r),
@@ -649,7 +649,7 @@ mod glyph_info {
     use ratatui_core::text::Text;
     use ratatui_core::widgets::{StatefulWidget, Widget};
     use rustybuzz::ttf_parser::GlyphId;
-    use rustybuzz::{Direction,  ShapePlan, UnicodeBuffer, shape_with_plan, ttf_parser};
+    use rustybuzz::{Direction, ShapePlan, UnicodeBuffer, shape_with_plan, ttf_parser};
     use std::fmt::{Debug, Formatter};
     use std::marker::PhantomData;
     use unic_ucd::{CanonicalCombiningClass, Name};

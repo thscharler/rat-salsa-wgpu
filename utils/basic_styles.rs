@@ -42,7 +42,7 @@ pub fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrosstermEx::new())?
             .window_position(30, 30)
-            .font_size(22.)
+            .font_size(22)
             .rapid_blink(1)
             .slow_blink(4)
             .poll(PollBlink::new(0, 250)),
@@ -396,12 +396,12 @@ pub fn event(
 }
 
 fn incr_font(_state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
-    ctx.set_font_size(ctx.font_size() + 1.0);
+    ctx.set_font_size(ctx.font_size() + 1);
     Control::Changed
 }
 
 fn decr_font(_state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
-    ctx.set_font_size(ctx.font_size() - 1.0);
+    ctx.set_font_size(ctx.font_size() - 1);
     Control::Changed
 }
 

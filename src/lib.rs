@@ -425,14 +425,14 @@ where
     }
 
     /// Change the font-size.
-    fn set_font_size(&self, size: f64) {
+    fn set_font_size(&self, size: u32) {
         self.salsa_ctx().font_size.set(size);
         self.salsa_ctx().font_size_changed.set(true);
         self.salsa_ctx().window().request_redraw();
     }
 
     /// Current font-size.
-    fn font_size(&self) -> f64 {
+    fn font_size(&self) -> u32 {
         self.salsa_ctx().font_size.get()
     }
 
@@ -575,7 +575,7 @@ where
     /// Primary font family name.
     pub(crate) font_family: RefCell<String>,
     /// Current font size.
-    pub(crate) font_size: Cell<f64>,
+    pub(crate) font_size: Cell<u32>,
 
     /// Base bg for the window.
     pub(crate) bg_color: Cell<Color>,

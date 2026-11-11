@@ -42,7 +42,7 @@ pub fn main() -> Result<(), Error> {
         &mut state,
         RunConfig::new(ConvertCrossterm::new())?
             .window_title("one img")
-            .font_size(22.)
+            .font_size(22)
             .poll(PollBlink::new(0, 200)),
     )?;
 

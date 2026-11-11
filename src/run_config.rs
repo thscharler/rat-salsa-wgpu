@@ -4,9 +4,7 @@ use crate::{Control, WindowBounds};
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::CursorStyle;
 use rat_wgpu::events::ConvertEvent;
-use rat_wgpu::font::{
-    Font, Fonts, fallback_emoji_font, fallback_family, fallback_font, fallback_symbol_font, font_db,
-};
+use rat_wgpu::font::{Font, font_db};
 use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
 use rat_wgpu::wgpu::Backends;
 use rat_wgpu::{Builder, WgpuBackend};
@@ -37,7 +35,7 @@ where
     /// regular fonts
     pub(crate) regular_fonts: Vec<Font>,
     /// font size
-    pub(crate) font_size: Option<f64>,
+    pub(crate) font_size: Option<u32>,
     /// fallback symbol font
     pub(crate) symbol_font: Option<Font>,
     /// fallback emoji font
@@ -102,13 +100,13 @@ where
         Ok(Self {
             event_loop: EventLoop::with_user_event().build()?,
             event_type: Box::new(event_type),
-            fallback_family: fallback_family(),
-            fallback_font: fallback_font(),
+            fallback_family: Default::default(),
+            fallback_font: Default::default(),
             font_family: Default::default(),
             regular_fonts: Default::default(),
             font_size: Default::default(),
-            symbol_font: fallback_symbol_font(),
-            emoji_font: fallback_emoji_font(),
+            symbol_font: Default::default(),
+            emoji_font: Default::default(),
             colors: Default::default(),
             bg_color: Color::Black,
             fg_color: Color::White,
@@ -205,7 +203,7 @@ where
 
     /// Set the initial font size in pixel. Defaults to 22px.
     /// This will be adjusted by the scaling factor of the system.
-    pub fn font_size(mut self, pt_size: f64) -> Self {
+    pub fn font_size(mut self, pt_size: u32) -> Self {
         self.font_size = Some(pt_size);
         self
     }
@@ -383,7 +381,11 @@ pub struct TermInit {
     /// Which backends
     pub backends: Backends,
     /// The fallback fonts to use.
-    pub fonts: Fonts,
+    pub fallback_fonts: Vec<Font>,
+    /// Regular fonts to use.
+    pub regular_fonts: Vec<Font>,
+    /// Fontsize
+    pub font_size_px: u32,
     /// The window instance.
     pub window: Arc<Window>,
     /// Base16-colors
@@ -417,7 +419,9 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static>> {
 
     let backend = futures_lite::future::block_on({
         Builder::<DefaultPostProcessorBuilder>::new()
-            .with_fallback_fonts(arg.fonts)
+            .with_font_size_px(arg.font_size_px)
+            .with_fallback_fonts(arg.fallback_fonts)
+            .with_fonts(arg.regular_fonts)
             .with_backends(arg.backends)
             .with_color_table(arg.colors)
             .with_bg_color(arg.bg_color)
