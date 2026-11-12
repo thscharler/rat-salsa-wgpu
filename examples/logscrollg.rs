@@ -12,7 +12,7 @@ use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, WindowBounds, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
-use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
+use rat_wgpu::event::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;

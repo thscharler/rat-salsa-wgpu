@@ -9,7 +9,7 @@ use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{WidgetStyle, create_salsa_theme};
-use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
+use rat_wgpu::event::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::{Dialog, HandleEvent, ct_event, try_flow};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};

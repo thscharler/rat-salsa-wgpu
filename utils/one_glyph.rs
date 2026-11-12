@@ -3,7 +3,7 @@
 use anyhow::Error;
 use log::error;
 use rat_event::{ct_event, event_flow};
-use rat_salsa_wgpu::events::CompositeWindowEvent;
+use rat_salsa_wgpu::event::CompositeWindowEvent;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
@@ -12,7 +12,7 @@ use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
 use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
+use rat_wgpu::event::{WindowEventState, winit_to_crossterm_event};
 use rat_wgpu::font::installed_mono_fonts;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;

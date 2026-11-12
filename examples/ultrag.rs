@@ -1,6 +1,6 @@
 use anyhow::{Error, anyhow};
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, mock, run_tui};
-use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
+use rat_wgpu::event::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::ct_event;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;

@@ -10,7 +10,7 @@ use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui}
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
-use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
+use rat_wgpu::event::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::{
     Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup, ReadOnly, Regular,
     TableOutcome, ct_event, try_flow,
