@@ -17,6 +17,7 @@ use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::{Blinking, CursorStyle};
 use rat_wgpu::event::WindowEventState;
 use rat_wgpu::font::Font;
+use rat_wgpu::postprocessor::PostProcessorBuilder;
 use rat_wgpu::wgpu::Backends;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
@@ -202,6 +203,7 @@ where
         cr_window,
         backends,
         cr_term,
+        postprocessor,
         poll,
     } = cfg;
 
@@ -272,6 +274,7 @@ where
         cr_window,
         backends,
         cr_term,
+        postprocessor,
         quit_event,
         rendered_event,
         timers_ctrl,
@@ -336,6 +339,8 @@ where
     /// terminal callback
     backends: Backends,
     cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static>>>,
+
+    postprocessor: Box<dyn PostProcessorBuilder>,
 
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
@@ -446,6 +451,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         cr_window,
         backends,
         cr_term,
+        postprocessor,
         quit_event,
         rendered_event,
         timers_ctrl,
@@ -501,6 +507,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     let window = Arc::new(cr_window(event_loop, win_attr));
 
     let terminal = Rc::new(RefCell::new(cr_term(TermInit {
+        postprocessor,
         backends,
         fallback_fonts,
         regular_fonts,

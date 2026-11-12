@@ -4,6 +4,7 @@ use crate::{Control, WindowBounds};
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::CursorStyle;
 use rat_wgpu::font::{Font, font_db};
+use rat_wgpu::postprocessor::PostProcessorBuilder;
 use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
 use rat_wgpu::wgpu::Backends;
 use rat_wgpu::{Builder, WgpuBackend};
@@ -56,6 +57,8 @@ where
     pub(crate) backends: Backends,
     /// terminal callback
     pub(crate) cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static>>>,
+    /// postprocessor
+    pub(crate) postprocessor: Box<dyn PostProcessorBuilder>,
 
     /// List of all event-handlers for the application.
     ///
@@ -116,6 +119,7 @@ where
             cr_window: Box::new(create_window),
             backends: Default::default(),
             cr_term: Box::new(create_wgpu),
+            postprocessor: Box::new(DefaultPostProcessorBuilder::default()),
             poll: Default::default(),
         })
     }
@@ -365,6 +369,12 @@ where
         self
     }
 
+    /// Set the postprocessor
+    pub fn postprocessor(mut self, postprocessor: Box<dyn PostProcessorBuilder>) -> Self {
+        self.postprocessor = postprocessor;
+        self
+    }
+
     /// Add one more poll impl.
     pub fn poll(mut self, poll: impl PollEvents<Event, Error> + Send + 'static) -> Self {
         self.poll.push(Box::new(poll));
@@ -374,6 +384,8 @@ where
 
 /// Parameters passed to the terminal init function.
 pub struct TermInit {
+    /// Postprocessor
+    pub postprocessor: Box<dyn PostProcessorBuilder>,
     /// Which backends
     pub backends: Backends,
     /// The fallback fonts to use.
@@ -414,7 +426,8 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static>> {
     let size = arg.window.inner_size();
 
     let backend = futures_lite::future::block_on({
-        Builder::<DefaultPostProcessorBuilder>::new()
+        Builder::new()
+            .with_postprocessor(arg.postprocessor)
             .with_font_size_px(arg.font_size_px)
             .with_fallback_fonts(arg.fallback_fonts)
             .with_fonts(arg.regular_fonts)
