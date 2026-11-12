@@ -3,7 +3,6 @@ use crate::poll::PollEvents;
 use crate::{Control, WindowBounds};
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::events::ConvertEvent;
 use rat_wgpu::font::{Font, font_db};
 use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
 use rat_wgpu::wgpu::Backends;
@@ -24,8 +23,6 @@ where
 {
     /// winit event-loop
     pub(crate) event_loop: EventLoop<Result<Control<Event>, Error>>,
-    /// app event type
-    pub(crate) event_type: Box<dyn ConvertEvent<Event>>,
     /// fallback font family name. only informational.
     pub(crate) fallback_family: Option<String>,
     /// fallback font
@@ -96,10 +93,9 @@ where
     Event: 'static,
     Error: 'static,
 {
-    pub fn new(event_type: impl ConvertEvent<Event> + 'static) -> Result<Self, EventLoopError> {
+    pub fn new() -> Result<Self, EventLoopError> {
         Ok(Self {
             event_loop: EventLoop::with_user_event().build()?,
-            event_type: Box::new(event_type),
             fallback_family: Default::default(),
             fallback_font: Default::default(),
             font_family: Default::default(),

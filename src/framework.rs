@@ -15,7 +15,7 @@ use log::info;
 use rat_wgpu::WgpuBackend;
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::{Blinking, CursorStyle};
-use rat_wgpu::events::ConvertEvent;
+use rat_wgpu::events::WindowEventState;
 use rat_wgpu::font::Font;
 use rat_wgpu::wgpu::Backends;
 use ratatui_core::backend::{Backend, WindowSize};
@@ -176,14 +176,13 @@ pub fn run_tui<Global, State, Event, Error>(
 ) -> Result<(), Error>
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send,
+    Event: 'static + Send + for<'s> TryFrom<(&'s WindowEvent, &'s WindowEventState)>,
     Error: 'static + Debug + Send + From<winit::error::EventLoopError> + From<io::Error>,
 {
     // rat_widget::text::cursor::set_cursor_type(CursorType::RenderedCursor);
 
     let RunConfig {
         event_loop,
-        event_type,
         fallback_family,
         fallback_font,
         font_family,
@@ -273,7 +272,6 @@ where
         cr_window,
         backends,
         cr_term,
-        event_type,
         quit_event,
         rendered_event,
         timers_ctrl,
@@ -339,7 +337,6 @@ where
     backends: Backends,
     cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static>>>,
 
-    event_type: Box<dyn ConvertEvent<Event>>,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
 
@@ -369,7 +366,7 @@ where
     global: &'a mut Global,
     state: &'a mut State,
 
-    event_type: Box<dyn ConvertEvent<Event>>,
+    event_state: WindowEventState,
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
 
@@ -395,7 +392,7 @@ impl<'a, Global, State, Event, Error> ApplicationHandler<Result<Control<Event>, 
     for WgpuApp<'a, Global, State, Event, Error>
 where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send,
+    Event: 'static + Send + for<'s> TryFrom<(&'s WindowEvent, &'s WindowEventState)>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -449,7 +446,6 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         cr_window,
         backends,
         cr_term,
-        mut event_type,
         quit_event,
         rendered_event,
         timers_ctrl,
@@ -522,13 +518,15 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     })));
     let image_buffer = terminal.borrow().backend().image_buffer();
 
+    let mut event_state = WindowEventState::new();
+
     // window-size can be determined when we have the fonts installed.
     let window_size = terminal
         .borrow_mut()
         .backend_mut()
         .window_size()
         .expect("window_size");
-    event_type.set_window_size(window_size, terminal.borrow().backend());
+    event_state.update_window_size(window_size, terminal.borrow().backend());
 
     // create other event-polling
     let (poll_start, poll) = create_poll(proxy, poll);
@@ -563,7 +561,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         error,
         global,
         state,
-        event_type,
+        event_state,
         quit_event,
         rendered_event,
         poll,
@@ -594,7 +592,7 @@ fn process_event<'a, Global, State, Event, Error>(
     user: Option<Result<Control<Event>, Error>>,
 ) where
     Global: SalsaContext<Event, Error>,
-    Event: 'static + Send,
+    Event: 'static + Send + for<'s> TryFrom<(&'s WindowEvent, &'s WindowEventState)>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
     let WgpuApp::Running(app) = app else {
@@ -611,11 +609,10 @@ fn process_event<'a, Global, State, Event, Error>(
         return;
     }
 
+    // framework event-handling
+
     if let Some(event) = &event {
-        app.event_type.update_state(
-            event,
-            app.terminal.as_ref().expect("terminal").borrow().backend(),
-        );
+        update_event_state(app, event);
     }
     if let Some(WindowEvent::CloseRequested) = event {
         app.global.salsa_ctx().queue.push(Ok(Control::Quit));
@@ -630,25 +627,13 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if let Some(WindowEvent::Resized(size)) = event {
         resize(app, size);
-        app.terminal
-            .as_ref()
-            .expect("terminal")
-            .borrow_mut()
-            .clear()
-            .expect("clear terminal");
-        if let Some(event) = resized_event(app) {
-            app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
-        } else {
-            app.global.salsa_ctx().queue.push(Ok(Control::Changed));
-        }
-        event = None;
-    }
-    if let Some(WindowEvent::ScaleFactorChanged { .. }) = event {
-        app.global.salsa_ctx().font_size_changed.set(true);
+        clear(app);
+        let resized = resized_event(app);
+        app.global.salsa_ctx().queue.push(resized);
         event = None;
     }
     // font scaling
-    if app.event_type.state().ctrl_pressed() {
+    if app.event_state.ctrl_pressed() {
         if let Some(WindowEvent::MouseWheel {
             delta: MouseScrollDelta::LineDelta(_, dy),
             ..
@@ -665,55 +650,31 @@ fn process_event<'a, Global, State, Event, Error>(
             event = None;
         }
     }
-    if app.global.salsa_ctx().clear_terminal.get() {
-        app.terminal
-            .as_ref()
-            .expect("terminal")
-            .borrow_mut()
-            .clear()
-            .expect("clear terminal");
-        app.global.salsa_ctx().clear_terminal.set(false);
+    // device dpi changed
+    if let Some(WindowEvent::ScaleFactorChanged { .. }) = event {
+        app.global.salsa_ctx().font_size_changed.set(true);
+        event = None;
     }
-    if app.global.salsa_ctx().font_changed.get() {
-        // reload backend font
+
+    if app.global.salsa_ctx().clear_terminal.take() {
+        clear(app);
+    }
+    if app.global.salsa_ctx().font_changed.take() {
         reload_fonts(app);
-        app.terminal
-            .as_ref()
-            .expect("terminal")
-            .borrow_mut()
-            .clear()
-            .expect("clear terminal");
-        if let Some(event) = resized_event(app) {
-            app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
-        } else {
-            app.global.salsa_ctx().queue.push(Ok(Control::Changed));
-        }
-        app.global.salsa_ctx().font_changed.set(false);
-        app.global.salsa_ctx().font_size_changed.set(false);
+        clear(app);
+        let resized = resized_event(app);
+        app.global.salsa_ctx().queue.push(resized);
     }
-    if app.global.salsa_ctx().font_size_changed.get() {
-        // reload backend
+    if app.global.salsa_ctx().font_size_changed.take() {
         change_font_size(app);
-        app.terminal
-            .as_ref()
-            .expect("terminal")
-            .borrow_mut()
-            .clear()
-            .expect("clear terminal");
-        if let Some(event) = resized_event(app) {
-            app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
-        } else {
-            app.global.salsa_ctx().queue.push(Ok(Control::Changed));
-        }
-        app.global.salsa_ctx().font_size_changed.set(false);
+        clear(app);
+        let resized = resized_event(app);
+        app.global.salsa_ctx().queue.push(resized);
     }
 
     if let Some(event) = event {
-        if let Some(event) = app.event_type.convert(event) {
-            app.global
-                .salsa_ctx()
-                .queue
-                .push(Ok(Control::Event(event.into())));
+        if let Ok(event) = TryFrom::try_from((&event, &app.event_state)) {
+            app.global.salsa_ctx().queue.push(Ok(Control::Event(event)));
         } else {
             // noop
         }
@@ -733,7 +694,7 @@ fn process_event<'a, Global, State, Event, Error>(
             }
         }
 
-        // Result of event-handling.
+        // Queued events.
         if let Some(ctrl) = app.global.salsa_ctx().queue.take() {
             // filter out double Changed events.
             // no need to render twice in a row.
@@ -778,6 +739,7 @@ fn process_event<'a, Global, State, Event, Error>(
                                 match (app.event)(&a, app.state, app.global) {
                                     Ok(Control::Quit) => { /* really quit now */ }
                                     v => {
+                                        // quit canceled
                                         app.global.salsa_ctx().queue.push(v);
                                         continue;
                                     }
@@ -819,24 +781,16 @@ where
 {
     let mut r = Ok(());
 
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
+    let mut terminal = app.terminal.as_ref().expect("terminal").borrow_mut();
+
+    terminal
         .backend_mut()
         .set_fg_color(app.global.salsa_ctx().fg_color.get());
-
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
+    terminal
         .backend_mut()
         .set_bg_color(app.global.salsa_ctx().bg_color.get());
 
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
+    terminal
         .draw(&mut |frame: &mut Frame| {
             let frame_area = frame.area();
             let ttt = SystemTime::now();
@@ -867,42 +821,33 @@ where
     }
 }
 
+fn clear<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
+where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    app.terminal
+        .as_ref()
+        .expect("terminal")
+        .borrow_mut()
+        .clear()
+        .expect("clear terminal");
+}
+
 fn reload_fonts<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
 where
     Global: SalsaContext<Event, Error>,
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
+    let mut terminal = app.terminal.as_ref().expect("terminal").borrow_mut();
+
     let font_vec = app.global.salsa_ctx().fonts.take();
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .backend_mut()
-        .update_font_vec(font_vec);
 
-    let font_size = app.global.salsa_ctx().font_size();
-    let scale_factor = app.window.as_ref().expect("window").scale_factor();
-    let font_size_px = (font_size as f64 * scale_factor).round() as u32;
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .backend_mut()
-        .update_font_size(font_size_px);
-
-    app.window_size = app
-        .terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .backend_mut()
-        .window_size()
-        .expect("window_size");
-    app.event_type.set_window_size(
-        app.window_size,
-        app.terminal.as_ref().expect("terminal").borrow().backend(),
-    );
+    app.window_size = terminal.backend_mut().update_font_vec(font_vec);
+    app.event_state
+        .update_window_size(app.window_size, terminal.backend());
 }
 
 fn change_font_size<'a, Global, State, Event, Error>(
@@ -912,41 +857,15 @@ fn change_font_size<'a, Global, State, Event, Error>(
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let font_size_px = (app.global.salsa_ctx().font_size.get() as f64
-        * app.window.as_ref().expect("window").scale_factor())
-    .round() as u32;
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .backend_mut()
-        .update_font_size(font_size_px);
+    let mut terminal = app.terminal.as_ref().expect("terminal").borrow_mut();
 
-    app.window_size = app
-        .terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .backend_mut()
-        .window_size()
-        .expect("window_size");
-    app.event_type.set_window_size(
-        app.window_size,
-        app.terminal.as_ref().expect("terminal").borrow().backend(),
-    );
-}
+    let font_size = app.global.salsa_ctx().font_size();
+    let scale_factor = app.window.as_ref().expect("window").scale_factor();
+    let font_size_px = (font_size as f64 * scale_factor).round() as u32;
 
-fn resized_event<'a, Global, State, Event, Error>(
-    app: &mut Running<'a, Global, State, Event, Error>,
-) -> Option<Event>
-where
-    Global: SalsaContext<Event, Error>,
-    Event: 'static + Send,
-    Error: 'static + Debug + Send + From<io::Error>,
-{
-    let size = app.window_size.pixels;
-    let size = winit::dpi::PhysicalSize::new(size.width as u32, size.height as u32);
-    app.event_type.convert(WindowEvent::Resized(size))
+    app.window_size = terminal.backend_mut().update_font_size(font_size_px);
+    app.event_state
+        .update_window_size(app.window_size, terminal.backend());
 }
 
 fn resize<'a, Global, State, Event, Error>(
@@ -957,26 +876,40 @@ fn resize<'a, Global, State, Event, Error>(
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .backend_mut()
-        .resize(size.width, size.height);
+    let mut terminal = app.terminal.as_ref().expect("terminal").borrow_mut();
 
-    app.window_size = app
-        .terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .backend_mut()
-        .window_size()
-        .expect("window_size");
+    app.window_size = terminal.backend_mut().resize(size.width, size.height);
+    app.event_state
+        .update_window_size(app.window_size, terminal.backend());
+}
 
-    app.event_type.set_window_size(
-        app.window_size,
-        app.terminal.as_ref().expect("terminal").borrow().backend(),
-    );
+fn update_event_state<'a, Global, State, Event, Error>(
+    app: &mut Running<'a, Global, State, Event, Error>,
+    event: &WindowEvent,
+) where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + for<'s> TryFrom<(&'s WindowEvent, &'s WindowEventState)>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    let terminal = app.terminal.as_ref().expect("terminal").borrow();
+    app.event_state.update_state(event, terminal.backend());
+}
+
+fn resized_event<'a, Global, State, Event, Error>(
+    app: &mut Running<'a, Global, State, Event, Error>,
+) -> Result<Control<Event>, Error>
+where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send + for<'s> TryFrom<(&'s WindowEvent, &'s WindowEventState)>,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    let size = app.window_size.pixels;
+    let size = winit::dpi::PhysicalSize::new(size.width as u32, size.height as u32);
+
+    let resized = WindowEvent::Resized(size);
+    let event: Result<Event, _> = TryFrom::try_from((&resized, &app.event_state));
+
+    event.map_or_else(|_| Ok(Control::Changed), |v| Ok(Control::Event(v)))
 }
 
 fn shutdown<'a, Global, State, Event, Error>(
