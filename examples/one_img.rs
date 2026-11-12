@@ -4,14 +4,15 @@ use anyhow::Error;
 use image::ImageReader;
 use log::error;
 use rat_event::{HandleEvent, Regular, ct_event, event_flow};
-use rat_salsa_wgpu::events::CompositeWinitEvent;
-use rat_salsa_wgpu::events::ConvertCrossterm;
+use rat_salsa_wgpu::events::CompositeWindowEvent;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
+use rat_wgpu::font::installed_mono_fonts;
 use rat_wgpu::image::{ImageArg, ImageBuffer, ImageFit, ImageHandle};
 use rat_widget::scrolled::Scroll;
 use rat_widget::view::{View, ViewState};
@@ -23,7 +24,7 @@ use ratatui_widgets::block::Block;
 use ratatui_widgets::borders::BorderType;
 use std::fs;
 use std::path::PathBuf;
-use rat_wgpu::font::installed_mono_fonts;
+use winit::event::WindowEvent;
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -40,7 +41,7 @@ pub fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(ConvertCrossterm::new())?
+        RunConfig::new()?
             .window_title("one img")
             .font_size(22)
             .poll(PollBlink::new(0, 200)),
@@ -89,22 +90,21 @@ pub struct Config {}
 #[derive(Debug)]
 pub enum AppEvent {
     NoOp,
-    Event(CompositeWinitEvent),
+    Event(CompositeWindowEvent),
     CtEvent(crossterm::event::Event),
     TimeOut(TimeOut),
     Quit,
     Rendered,
 }
 
-impl From<crossterm::event::Event> for AppEvent {
-    fn from(value: crossterm::event::Event) -> Self {
-        AppEvent::CtEvent(value)
-    }
-}
+impl TryFrom<(&WindowEvent, &WindowEventState)> for AppEvent {
+    type Error = ();
 
-impl From<CompositeWinitEvent> for AppEvent {
-    fn from(value: CompositeWinitEvent) -> Self {
-        AppEvent::Event(value)
+    fn try_from(event: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(event).map_or_else(
+            |e| Ok(AppEvent::Event(event.into())),
+            |v| Ok(AppEvent::CtEvent(v)),
+        )
     }
 }
 

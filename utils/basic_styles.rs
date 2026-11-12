@@ -1,15 +1,16 @@
 use anyhow::Error;
 use crossterm::event::MouseEventKind;
-use log::{debug, error};
+use log::error;
 use rat_event::{HandleEvent, Regular, ct_event, event_flow};
-use rat_salsa_wgpu::events::CompositeWinitEvent;
-use rat_salsa_wgpu::events::ConvertCrosstermEx;
+use rat_salsa_wgpu::events::CompositeWindowEvent;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
+use rat_wgpu::font::installed_mono_fonts;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::statusline_stacked::StatusLineStacked;
 use rat_widget::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
@@ -23,7 +24,6 @@ use std::fs;
 use std::path::PathBuf;
 use winit::event::{ElementState, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
-use rat_wgpu::font::installed_mono_fonts;
 
 pub fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -40,7 +40,7 @@ pub fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(ConvertCrosstermEx::new())?
+        RunConfig::new()?
             .window_position(30, 30)
             .font_size(22)
             .rapid_blink(1)
@@ -92,19 +92,18 @@ pub struct Config {}
 #[derive(Debug)]
 pub enum AppEvent {
     NoOp,
-    WEvent(CompositeWinitEvent),
+    WEvent(CompositeWindowEvent),
     CtEvent(crossterm::event::Event),
 }
 
-impl From<crossterm::event::Event> for AppEvent {
-    fn from(value: crossterm::event::Event) -> Self {
-        AppEvent::CtEvent(value)
-    }
-}
+impl TryFrom<(&WindowEvent, &WindowEventState)> for AppEvent {
+    type Error = ();
 
-impl From<CompositeWinitEvent> for AppEvent {
-    fn from(value: CompositeWinitEvent) -> Self {
-        AppEvent::WEvent(value)
+    fn try_from(value: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(value).map_or_else(
+            |e| Ok(AppEvent::WEvent(value.into())),
+            |v| Ok(AppEvent::CtEvent(v)),
+        )
     }
 }
 
@@ -412,8 +411,7 @@ fn next_font(state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
         state.font_idx = 0;
     }
     let font = ctx.fonts[state.font_idx].as_str();
-    debug!("set_font {:?}", font);
-    ctx.set_font_family(font);
+    _ = ctx.set_font_family(font);
     Control::Changed
 }
 
@@ -424,8 +422,7 @@ fn prev_font(state: &mut Minimal, ctx: &mut Global) -> Control<AppEvent> {
         state.font_idx = ctx.fonts.len().saturating_sub(1);
     }
     let font = ctx.fonts[state.font_idx].as_str();
-    debug!("set_font {:?}", font);
-    ctx.set_font_family(font);
+    _ = ctx.set_font_family(font);
     Control::Changed
 }
 

@@ -4,13 +4,13 @@
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
-use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::PollTasks;
 use rat_salsa_wgpu::tasks::Cancel;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::palette::Colors;
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme, salsa_themes};
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::{
     Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Popup, ReadOnly, Regular,
     TableOutcome, ct_event, try_flow,
@@ -41,6 +41,7 @@ use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use sysinfo::Disks;
+use winit::event::WindowEvent;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -57,7 +58,7 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(ConvertCrossterm::new())?
+        RunConfig::new()?
             .font_family("FiraCode Nerd Font Mono")
             .font_size(18)
             .poll(PollTasks::default()),
@@ -111,6 +112,14 @@ pub enum FilesEvent {
         Option<String>,
     ),
     UpdateFile(PathBuf, String),
+}
+
+impl TryFrom<(&WindowEvent, &WindowEventState)> for FilesEvent {
+    type Error = ();
+
+    fn try_from(value: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(value).map(|v| Self::Event(v))
+    }
 }
 
 impl From<crossterm::event::Event> for FilesEvent {

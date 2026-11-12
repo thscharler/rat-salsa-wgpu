@@ -1,10 +1,9 @@
 #![allow(text_direction_codepoint_in_literal)]
 
 use anyhow::Error;
-use log::{debug, error};
+use log::error;
 use rat_event::{ct_event, event_flow};
-use rat_salsa_wgpu::events::CompositeWinitEvent;
-use rat_salsa_wgpu::events::ConvertCrossterm;
+use rat_salsa_wgpu::events::CompositeWindowEvent;
 use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
@@ -12,12 +11,14 @@ use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, create_salsa_theme};
 use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
 use rat_wgpu::font::installed_mono_fonts;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::{Color, Style};
 use std::fs;
 use std::path::PathBuf;
+use winit::event::WindowEvent;
 
 const MIN: u32 = 0x2500;
 const MAX: u32 = 0x257F;
@@ -39,7 +40,7 @@ pub fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(ConvertCrossterm::new())?
+        RunConfig::new()?
             .window_title("one glyph")
             .window_position(1050, 30)
             .window_size(200, 200)
@@ -92,22 +93,21 @@ pub struct Config {}
 #[derive(Debug)]
 pub enum AppEvent {
     NoOp,
-    Event(CompositeWinitEvent),
+    Event(CompositeWindowEvent),
     CtEvent(crossterm::event::Event),
     TimeOut(TimeOut),
     Quit,
     Rendered,
 }
 
-impl From<crossterm::event::Event> for AppEvent {
-    fn from(value: crossterm::event::Event) -> Self {
-        AppEvent::CtEvent(value)
-    }
-}
+impl TryFrom<(&WindowEvent, &WindowEventState)> for AppEvent {
+    type Error = ();
 
-impl From<CompositeWinitEvent> for AppEvent {
-    fn from(value: CompositeWinitEvent) -> Self {
-        AppEvent::Event(value)
+    fn try_from(value: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(value).map_or_else(
+            |_| Ok(AppEvent::Event(value.into())),
+            |v| Ok(AppEvent::CtEvent(v)),
+        )
     }
 }
 
@@ -182,15 +182,13 @@ pub fn event(
             ct_event!(keycode press F(1)) => event_flow!({
                 state.font_idx = (state.font_idx + 1) % ctx.fonts.len();
                 let font = ctx.fonts[state.font_idx].as_str();
-                debug!("set_font_family {:?}", font);
-                ctx.set_font_family(font);
+                _ = ctx.set_font_family(font);
                 Control::Changed
             }),
             ct_event!(keycode press SHIFT-F(1)) => event_flow!({
                 state.font_idx = (state.font_idx.saturating_sub(1)) % ctx.fonts.len();
                 let font = ctx.fonts[state.font_idx].as_str();
-                debug!("set_font_family {:?}", font);
-                ctx.set_font_family(font);
+                _ = ctx.set_font_family(font);
                 Control::Changed
             }),
 

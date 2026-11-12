@@ -1,12 +1,13 @@
 use anyhow::{Error, anyhow};
-use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, mock, run_tui};
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::ct_event;
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::style::Stylize;
 use ratatui_core::text::{Line, Span};
 use ratatui_core::widgets::Widget;
+use winit::event::WindowEvent;
 
 type Global = SalsaAppContext<UltraEvent, Error>;
 
@@ -18,7 +19,7 @@ fn main() -> Result<(), Error> {
         error,
         &mut Global::default(),
         &mut Ultra::default(),
-        RunConfig::new(ConvertCrossterm::default())?,
+        RunConfig::new()?,
     )
 }
 
@@ -27,9 +28,11 @@ pub enum UltraEvent {
     Event(crossterm::event::Event),
 }
 
-impl From<crossterm::event::Event> for UltraEvent {
-    fn from(value: crossterm::event::Event) -> Self {
-        Self::Event(value)
+impl TryFrom<(&WindowEvent, &WindowEventState)> for UltraEvent {
+    type Error = ();
+
+    fn try_from(value: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(value).map(|v| Self::Event(v))
     }
 }
 

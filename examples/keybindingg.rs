@@ -1,9 +1,9 @@
 use anyhow::Error;
 use log::error;
 use rat_event::event_flow;
-use rat_salsa_wgpu::events::CompositeWinitEvent;
-use rat_salsa_wgpu::events::ConvertWinit;
+use rat_salsa_wgpu::events::CompositeWindowEvent;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, mock, run_tui};
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
 use ratatui_core::text::Span;
@@ -27,7 +27,7 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(ConvertWinit::new())?
+        RunConfig::new()?
             .window_position(30, 30)
             .font_family("Courier New")
             .font_size(20),
@@ -59,8 +59,19 @@ impl Global {
 #[allow(unused)]
 enum AppEvent {
     NoOp,
-    WEvent(CompositeWinitEvent),
+    WEvent(CompositeWindowEvent),
     CtEvent(crossterm::event::Event),
+}
+
+impl TryFrom<(&WindowEvent, &WindowEventState)> for AppEvent {
+    type Error = ();
+
+    fn try_from(event: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(event).map_or_else(
+            |_| Ok(AppEvent::WEvent(event.into())),
+            |v| Ok(AppEvent::CtEvent(v)),
+        )
+    }
 }
 
 impl From<crossterm::event::Event> for AppEvent {
@@ -69,8 +80,8 @@ impl From<crossterm::event::Event> for AppEvent {
     }
 }
 
-impl From<CompositeWinitEvent> for AppEvent {
-    fn from(value: CompositeWinitEvent) -> Self {
+impl From<CompositeWindowEvent> for AppEvent {
+    fn from(value: CompositeWindowEvent) -> Self {
         AppEvent::WEvent(value)
     }
 }

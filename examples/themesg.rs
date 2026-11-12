@@ -4,12 +4,12 @@ use crate::themes::Themes;
 use anyhow::Error;
 use crossterm::event::Event;
 use rat_focus::FocusBuilder;
-use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{WidgetStyle, create_salsa_theme};
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::{Dialog, HandleEvent, ct_event, try_flow};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -20,6 +20,7 @@ use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+use winit::event::WindowEvent;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -36,7 +37,7 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(ConvertCrossterm::new())?
+        RunConfig::new()?
             .font_family("FiraCode Nerd Font Mono")
             .font_size(18)
             .poll(PollTimers::default())
@@ -83,9 +84,11 @@ pub enum ThemesEvent {
     Status(usize, String),
 }
 
-impl From<Event> for ThemesEvent {
-    fn from(value: Event) -> Self {
-        Self::Event(value)
+impl TryFrom<(&WindowEvent, &WindowEventState)> for ThemesEvent {
+    type Error = ();
+
+    fn try_from(value: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(value).map(|v| Self::Event(v))
     }
 }
 
@@ -227,10 +230,10 @@ pub mod themes {
     use ratatui_core::buffer::Buffer;
     use ratatui_core::layout::{Constraint, Layout, Rect};
     use ratatui_core::text::Span;
-    use std::fmt::Debug;
-    use std::slice;
     use ratatui_core::widgets::{StatefulWidget, Widget};
     use ratatui_widgets::block::{Block, Padding};
+    use std::fmt::Debug;
+    use std::slice;
 
     #[derive(Debug)]
     pub struct Themes {

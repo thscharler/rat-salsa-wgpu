@@ -7,12 +7,12 @@ use crossterm::event::Event;
 use dirs::config_dir;
 use log::{debug, warn};
 use rat_salsa_wgpu::event::QuitEvent;
-use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::{PollQuit, PollTasks, PollTimers};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, RunConfig, SalsaAppContext, SalsaContext, WindowBounds, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{StyleName, WidgetStyle, create_salsa_theme};
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Regular, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::layout::layout_middle;
@@ -32,6 +32,7 @@ use std::fs::create_dir_all;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
+use winit::event::WindowEvent;
 
 static IMG: &'static [u8] = include_bytes!("lumber-ico.raw");
 
@@ -65,7 +66,7 @@ fn main() -> Result<(), Error> {
 
     let config = load_config()?;
 
-    let mut run_config = RunConfig::new(ConvertCrossterm::new())?
+    let mut run_config = RunConfig::new()?
         .poll(PollTimers::new())
         .poll(PollTasks::new(2))
         .poll(PollQuit);
@@ -276,9 +277,11 @@ impl From<QuitEvent> for LogScrollEvent {
     }
 }
 
-impl From<Event> for LogScrollEvent {
-    fn from(value: Event) -> Self {
-        Self::Event(value)
+impl TryFrom<(&WindowEvent, &WindowEventState)> for LogScrollEvent {
+    type Error = ();
+
+    fn try_from(event: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(event).map(|v| Self::Event(v))
     }
 }
 

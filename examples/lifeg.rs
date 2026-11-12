@@ -10,12 +10,12 @@
 use crate::game::LifeGameState;
 use crate::life::Life;
 use anyhow::Error;
-use rat_salsa_wgpu::events::ConvertCrossterm;
 use rat_salsa_wgpu::poll::PollEvents;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::theme::SalsaTheme;
 use rat_theme4::{WidgetStyle, create_salsa_theme};
+use rat_wgpu::events::{WindowEventState, winit_to_crossterm_event};
 use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, ct_event};
 use rat_widget::focus::FocusBuilder;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -30,6 +30,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime};
+use winit::event::WindowEvent;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -56,7 +57,7 @@ fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new(ConvertCrossterm::new())?
+        RunConfig::new()?
             .font_family("FiraCode Nerd Font Mono")
             .font_size(18)
             .backends("vulkan")
@@ -170,6 +171,14 @@ pub enum LifeEvent {
     Tick,
     Message(String),
     Status(usize, String),
+}
+
+impl TryFrom<(&WindowEvent, &WindowEventState)> for LifeEvent {
+    type Error = ();
+
+    fn try_from(value: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
+        winit_to_crossterm_event(value).map(|v| Self::Event(v))
+    }
 }
 
 impl From<crossterm::event::Event> for LifeEvent {
