@@ -9,3 +9,5 @@ pub struct RenderedEvent;
 /// Event sent immediately before quitting the application.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct QuitEvent;
+
+pub use winit::event::WindowEvent;
