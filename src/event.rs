@@ -11,3 +11,4 @@ pub struct RenderedEvent;
 pub struct QuitEvent;
 
 pub use winit::event::WindowEvent;
+pub use rat_wgpu::event::{CompositeWindowEvent, WindowEventState, winit_to_crossterm_event};

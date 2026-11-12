@@ -33,7 +33,6 @@ pub use framework::run_tui;
 pub use rat_wgpu::WgpuBackend;
 pub use rat_wgpu::colors;
 pub use rat_wgpu::cursor;
-pub use rat_wgpu::events;
 pub use rat_wgpu::font;
 use rat_wgpu::font::{Font, font_db};
 pub use rat_wgpu::image;

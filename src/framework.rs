@@ -15,7 +15,7 @@ use log::info;
 use rat_wgpu::WgpuBackend;
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::{Blinking, CursorStyle};
-use rat_wgpu::events::WindowEventState;
+use rat_wgpu::event::WindowEventState;
 use rat_wgpu::font::Font;
 use rat_wgpu::wgpu::Backends;
 use ratatui_core::backend::{Backend, WindowSize};
@@ -46,7 +46,7 @@ mod poll_queue;
 ///
 /// ```rust no_run
 /// use anyhow::{anyhow, Error};
-/// use rat_salsa_wgpu::events::ConvertCrossterm;
+/// use rat_salsa_wgpu::event::ConvertCrossterm;
 /// use rat_salsa_wgpu::{Control, RunConfig, SalsaContext, SalsaAppContext, mock, run_tui};
 /// use rat_widget::event::ct_event;
 /// use ratatui_core::buffer::Buffer;
