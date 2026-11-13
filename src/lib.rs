@@ -53,6 +53,18 @@ pub mod tasks;
 /// Support for timers.
 pub mod timer;
 
+/// Reexport rat-wgpu.
+pub mod backend {
+    pub use rat_wgpu::WgpuBackend;
+    pub use rat_wgpu::WgpuBackendBuilder;
+    pub use rat_wgpu::colors;
+    pub use rat_wgpu::cursor;
+    pub use rat_wgpu::font;
+    pub use rat_wgpu::image;
+    pub use rat_wgpu::event;
+    pub use rat_wgpu::postprocessor;
+}
+
 /// This trait gives access to all facilities built into rat-salsa.
 ///
 /// Your global state struct has to implement this trait. This allows
