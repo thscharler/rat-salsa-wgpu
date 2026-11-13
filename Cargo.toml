@@ -1,6 +1,6 @@
 [package]
 name = "rat-salsa-wgpu"
-version = "0.10.0"
+version = "1.0.0"
 authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2024"
 description = "ratatui + wgpu + winit event-loop and widgets"
@@ -8,7 +8,7 @@ license = "MIT/Apache-2.0"
 repository = "https://github.com/thscharler/rat-salsa-wgpu"
 readme = "readme.md"
 keywords = ["ratatui", "input", "event-loop", "wgpu"]
-categories = ["command-line-interface"]
+categories = ["command-line-interface", "gui"]
 exclude = [".idea/*", ".gitignore", "NotoColorEmoji-Regular.ttf",
     "NotoEmoji-Bold.ttf", "NotoEmoji-Regular.ttf",
     "Symbola.ttf", "files.gif", "mdedit.gif"
@@ -41,22 +41,19 @@ fallback_emoji_font = ["rat-wgpu/fallback_emoji_font"]
 fallback_symbol_font = ["rat-wgpu/fallback_symbol_font"]
 
 [dependencies]
-log = "0.4"
 crossbeam = "0.8"
-try_as_traits = { version = "0.1", optional = true }
-winit = "0.30"
+crossterm = { version = "0.29.0" }
 fontdb = "0.24.0"
 futures-lite = "2.6.1"
-tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
-
-ratatui-core = { version = "0.1.0" }
-crossterm = { version = "0.29.0" }
-
-rat-wgpu = { version = "0.10", git = "https://github.com/thscharler/rat-wgpu", features = ["winit-event"] }
-
+log = "0.4"
 rat-event = { version = "2.1" }
 rat-focus = { version = "2.2" }
+rat-wgpu = { version = "1.0", features = ["winit-event"] }
 rat-widget = { version = "3.3", optional = true, features = ["user_directories"] }
+ratatui-core = { version = "0.1.0" }
+tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
+try_as_traits = { version = "0.1", optional = true }
+winit = "0.30"
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -66,19 +63,17 @@ dirs = "7.0"
 fern = "0.7"
 image = "0.25"
 rand = "0.10"
+rat-theme4 = { version = "4.5" }
+rat-widget = { version = "3.3", features = ["user_directories", "cli-clipboard"] }
+ratatui-widgets = { version = "0.3.0" }
 regex-cursor = "0.1.5"
 ropey = "1.6.1"
+rustybuzz = "0.20"
 sysinfo = "0.40"
-unicode-segmentation = "1.11"
-unicode-width = "0.2.0"
 unic-ucd = "0.9"
 unicode-script = "0.5"
-rustybuzz = "0.20"
-
-ratatui-widgets = { version = "0.3.0" }
-
-rat-widget = { version = "3.3", features = ["user_directories", "cli-clipboard"] }
-rat-theme4 = { version = "4.5" }
+unicode-segmentation = "1.11"
+unicode-width = "0.2.0"
 
 [[example]]
 name = "img_icon"
