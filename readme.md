@@ -22,11 +22,17 @@ to switch out the `RunConfig` and `run_tui` from rat-salsa-wgpu.
 ## Dual use
 
 If you want to compile with either rat-salsa or rat-salsa-wgpu
-the best way today is to use the crate rat-salsa-switch.
-You can switch between the two implementations with a feature flag.
-You may still need some `#[cfg(feature = "wgpu")]` and
-`#[cfg(feature = "term")]` to make your application work, but
-most of it is pretty seamless.
+the best way today is to create two features and use them
+to switch between the crates.
+
+```
+    #[cfg(feature = "term")]
+    pub(crate) use rat_salsa;
+    #[cfg(feature = "wgpu")]
+    pub(crate) use rat_salsa_wgpu as rat_salsa;
+```
+
+You may still need some more `#[cfg]` to make your application work.
 
 ## Additions
 
