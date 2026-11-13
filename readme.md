@@ -6,18 +6,18 @@
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ![](https://tokei.rs/b1/github/thscharler/rat-salsa-wgpu)
 
-# rat-salsa [wgpu]
+# rat-salsa (wgpu)
 
 Implements the same API as [rat-salsa][rat-salsa], but uses
 [rat-wgpu][rat-wgpu] as the backend.
 
-Kudos to https://github.com/Jesterhearts/ratatui-wgpu which
+Kudos to <https://github.com/Jesterhearts/ratatui-wgpu> which
 was the base for rat-wgpu.
 
 # Running it
 
 To run a rat-salsa application with rat-salsa-wgpu you have
-to switch out the RunConfig and run the run_tui from rat-salsa-wgpu.
+to switch out the `RunConfig` and `run_tui` from rat-salsa-wgpu.
 
 ## Dual use
 

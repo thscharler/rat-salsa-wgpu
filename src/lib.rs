@@ -1,3 +1,5 @@
+#![doc = include_str!("../readme.md")]
+
 use crate::tasks::{Cancel, Liveness};
 use crate::thread_pool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
