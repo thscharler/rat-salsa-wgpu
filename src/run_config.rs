@@ -137,8 +137,8 @@ where
     /// If a glyph can not be found in any of the regular fonts
     /// the fallback order is:
     /// * this fallback font
-    /// * the [symbol_font]
-    /// * the [emoji_font]
+    /// * the [symbol_font](RunConfig::symbol_font)
+    /// * the [emoji_font](RunConfig::emoji_font)
     ///
     /// __Note__
     ///
@@ -231,7 +231,7 @@ where
     /// The divisor says the for every n-th blink event blinking is switched.
     ///
     /// Note that this is not enough to start blinking text. You also need
-    /// to add [PollBlink] for the timer.
+    /// to add [PollBlink](crate::poll::PollBlink) for the timer.
     pub fn cursor_blink(mut self, t: u8) -> Self {
         self.cur_blink = t;
         self
@@ -248,7 +248,7 @@ where
     /// The divisor says the for every n-th blink event blinking is switched.
     ///
     /// Note that this is not enough to start blinking text. You also need
-    /// to add [PollBlink] for the timer.
+    /// to add [PollBlink](crate::poll::PollBlink) for the timer.
     pub fn rapid_blink(mut self, t: u8) -> Self {
         self.rapid_blink = t;
         self
@@ -259,7 +259,7 @@ where
     /// The divisor says the for every n-th blink event blinking is switched.
     ///
     /// Note that this is not enough to start blinking text. You also need
-    /// to add [PollBlink] for the timer.
+    /// to add [PollBlink](crate::poll::PollBlink) for the timer.
     pub fn slow_blink(mut self, t: u8) -> Self {
         self.slow_blink = t;
         self

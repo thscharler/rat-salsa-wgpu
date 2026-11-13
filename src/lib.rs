@@ -8,6 +8,7 @@ use crossbeam::channel::{SendError, Sender};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
 use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::{Font, font_db};
 use rat_wgpu::image::ImageBuffer;
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
@@ -30,11 +31,11 @@ mod window_bounds;
 
 pub use control::Control;
 pub use framework::run_tui;
+/// Reexport from rat-wgpu.
 pub use rat_wgpu::WgpuBackend;
 pub use rat_wgpu::colors;
 pub use rat_wgpu::cursor;
 pub use rat_wgpu::font;
-use rat_wgpu::font::{Font, font_db};
 pub use rat_wgpu::image;
 pub use run_config::{RunConfig, TermInit};
 pub use window_bounds::WindowBounds;

@@ -26,8 +26,9 @@ pub mod msgdialog;
 ///
 /// This feature is not built into rat-salsa.
 /// Rather you add it to your global state when needed.
-/// You need to call [render] at the end of rendering
-/// and [handle] at the beginning of event-handling.
+/// You need to call [render](DialogStack::render) at the end
+/// of rendering and [handle](DialogStack::handle) at the beginning
+/// of event-handling.
 ///
 /// The event-handler will consume all crossterm events
 /// and block any widget interaction later in event-handling.
@@ -135,11 +136,14 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
     ///
     /// It will return None if the stack is empty.
     ///
-    /// Panic
+    /// __Panic__
     ///
-    /// This function is partially reentrant. When called during rendering/event-handling
-    /// it will panic when trying to pop your current dialog-window.
-    /// Return [WindowControl::Close] instead of calling this function.
+    /// This function is partially reentrant. When called during
+    /// rendering/event-handling it will panic when trying to pop
+    /// your current dialog-window.
+    ///
+    /// Return [Control::Close] from event-handling instead of
+    /// calling this function.
     pub fn pop(&self) -> Option<Box<dyn Any>> {
         self.core.len.update(|v| v - 1);
         self.core.type_id.borrow_mut().pop();
@@ -156,11 +160,12 @@ impl<Event, Context, Error> DialogStack<Event, Context, Error> {
 
     /// Remove some dialog-window.
     ///
-    /// Panic
+    /// __Panic__
     ///
-    /// This function is not reentrant. It will panic when called during
-    /// rendering or event-handling of any dialog-window.
-    /// Return [WindowControl::Close] instead of calling this function.
+    /// This function is not reentrant. It will panic when called
+    /// during rendering or event-handling of any dialog-window.
+    /// Return [Control::Close] from event-handling instead of
+    /// calling this function.
     ///
     /// Panics when out-of-bounds.
     pub fn remove(&self, n: usize) -> Box<dyn Any> {
