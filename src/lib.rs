@@ -31,17 +31,15 @@ mod window_bounds;
 
 pub use control::Control;
 pub use framework::run_tui;
-/// Reexport from rat-wgpu.
-pub use rat_wgpu::WgpuBackend;
-pub use rat_wgpu::colors;
-pub use rat_wgpu::cursor;
-pub use rat_wgpu::font;
-pub use rat_wgpu::image;
 pub use run_config::{RunConfig, TermInit};
 pub use window_bounds::WindowBounds;
 
 #[cfg(feature = "dialog")]
 pub mod dialog_stack;
+#[cfg(feature = "dialog")]
+pub use try_as_traits::{TryAsMut, TryAsRef, TypedContainer};
+use rat_wgpu::WgpuBackend;
+
 /// Event types.
 pub mod event;
 /// Provides dummy implementations for some functions.

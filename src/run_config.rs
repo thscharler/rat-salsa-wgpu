@@ -7,7 +7,7 @@ use rat_wgpu::font::{Font, font_db};
 use rat_wgpu::postprocessor::PostProcessorBuilder;
 use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
 use rat_wgpu::wgpu::Backends;
-use rat_wgpu::{Builder, WgpuBackend};
+use rat_wgpu::{WgpuBackendBuilder, WgpuBackend};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use std::fmt::{Debug, Formatter};
@@ -426,7 +426,7 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static>> {
     let size = arg.window.inner_size();
 
     let backend = futures_lite::future::block_on({
-        Builder::new()
+        WgpuBackendBuilder::new()
             .with_postprocessor(arg.postprocessor)
             .with_font_size_px(arg.font_size_px)
             .with_fallback_fonts(arg.fallback_fonts)
