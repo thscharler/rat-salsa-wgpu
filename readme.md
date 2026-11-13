@@ -9,139 +9,28 @@
 # rat-salsa [wgpu]
 
 Implements the same API as [rat-salsa][rat-salsa], but uses
-[ratatui-wgpu][ratatui-wgpu] as the backend.
+[rat-wgpu][rat-wgpu] as the backend.
 
-## Running this
+Kudos to https://github.com/Jesterhearts/ratatui-wgpu which
+was the base for rat-wgpu.
 
-I'm still waiting for some feedback from upstream about the changes/fixes
-I added to ratatui-wgpu.
+# Running it
 
-So for now there is a `main` branch that runs on par with
-jesterharts's ratatui-wgpu. This one has a lot of broken rendering and
-is lacking ergonomic features.
-
-All my changes are in the `remastered` branch. If you want to report anything
-try this branch first.
-
-## Status
-
-I'm happy with what I can do with the remastered branch, and I'm currently
-waiting for some feedback.
-
-So this will stay as a github only repo for the foreseeable future.
-
-I still stick a 1.0 to it, just to signal that I think it's fine but
-with drawbacks.
-
-## RunConfig
-
-Usually all you have to do to switch is use the RunConfig
-provided by rat-salsa-wgpu, which has a different API to accommodate
-for the different setting.
-
-```
-RunConfig::new(ConvertCrossterm::new())?
-            .font_family("JetBrainsMono Nerd Font Mono")
-            .font_size(20.)
-            .window_title("MD Edit")
-            .rapid_blink_millis(200)
-            .poll(PollRendered)
-            .poll(PollTasks::default())
-            .poll(PollTimers::default())
-            .poll(PollRendered)
-            .poll(PollQuit),
-```
-
-- ConvertCrossterm: Converts winit-events to crossterm events.
-- font_family(): UI font ...
-- window_title(): Set the window title
-- ...: There are more such settings.
-
-## SalsaContext
-
-- Gives access to the underlying window.
-- Allows changing the font-family and font-size.
-
-## Quirks
-
-Except from the difficult status ...
-
-But the font-rendering looks fine now. It'll even cope if you
-accidentially use a variable width font and only look half-broken.
-
-If you activate all the fallback fonts most things should render fine.
-I don't use color-emojis and rather have more text-like ones, but you
-can easily switch this out.
+To run a rat-salsa application with rat-salsa-wgpu you have
+to switch out the RunConfig and run the run_tui from rat-salsa-wgpu.
 
 ## Dual use
 
-If you want to compile with either rat-salsa or rat-salsa-wgpu I found
-this approach.
+If you want to compile with either rat-salsa or rat-salsa-wgpu
+the best way today is to use the crate rat-salsa-switch.
+You can switch between the two implementations with a feature flag.
+You may still need some `#[cfg(feature = "wgpu")]` and
+`#[cfg(feature = "term")]` to make your application work, but
+most of it is pretty seamless.
 
-* define two features
-
-```
-[features]
-default = ["wgpu"]
-wgpu = ["dep:rat-salsa-wgpu"]
-term = ["dep:rat-salsa"]
-```
-
-and use the crates optionally.
-
-```
-rat-salsa = { version = "3.0", optional = true }
-rat-salsa-wgpu = { version = "1.0", optional = true }
-```
-
-In your main
-
-```
-#[cfg(feature = "term")]
-pub(crate) use rat_salsa;
-#[cfg(feature = "wgpu")]
-pub(crate) use rat_salsa_wgpu as rat_salsa;
-```
-
-Where ever you are using rat-salsa, refer to the crate-wide alias.
-
-```
-use crate::rat_salsa::{Control, SalsaContext};
-```
-
-## Included Fonts
-
-> This is currently pending, there are a few PR's waiting.
-> But there is a fallback font if you don't set anything.
-
-* [OpenMoji-black-glyf][refOpenMoji]  (CC-BY-SA-4.0 license)
-* NotoSansSymbols2-Regular (OFL license)
-* CascadiaMono-Regular (OFL License)
-
-There is a feature flag for each of the fonts. They are all
-active by default, but you can turn them off and save a few MB in
-binary size.
-
-If you turn them all off, you need to set a font.
-
-## Icons
-
-If you want to use an icon, there is `img_icon` in the examples,
-that will dump the image as a raw rgba file that can be directly `include!`d.
-
-![image][refFilesGif]
-![image][refMDEditGif]
-
-## uni_blocks
-
-This is another sample that lets you see the rendering of glyphs for all monospaced
-fonts found on the system.
-
-## Diff rat-salsa
+## Additions
 
 ### SalsaContext
-
-Adds functions only useful for the graphical context or simply not available for a TUI.
 
 * window() - access the underlying window
 * font_size()/set_font_size()
@@ -150,58 +39,23 @@ Adds functions only useful for the graphical context or simply not available for
 * cursor_color()/set_cursor_color()
 * set_fg_color() - default color
 * set_bg_color() - default color
+* image_buffer() - image rendering
 
 ### Control
 
-* Control::Blink - One extra control to make the cursor blink and to enable blinking text.
+Adds one event `Control::Blink`. This is uses together with
+PollBlink to make blinking text and cursor work.
 
-  This is necessary to communicate the need for a targeted redraw of just the blinking
-  things. ratatui-wgpu relies on an external source for time.
+### Included Fonts
 
-  It's pretty useless for anything else, but it allows you to add `PollBlink`
-  and adjust the timings for blinking.
+rat-wgpu can statically include fallbacks for a regular font a
+symbol font and an emoji font.
 
-### run_tui and RunConfig
+## Examples
 
-Those are completely different from rat-salsa but try to
-provide an analog api.
+Are always a good starting point ...
 
-The main event-loop runs as a winit-eventloop. All the extra event-sources
-are run in a separate polling thread and communicate back using winit's user-event
-feature.
-
-This allows it to run your application in one thread, eliminating the
-need for unwanted Send/Sync, but it still adds a Send bound to a few things
-to make this work.
-
-## Additions
-
-### PollBlink
-
-This is the event source for all blinking things. Add this to run-config if you
-want a blinking cursor.
-
-### FontData
-
-Fallback fonts and store for loaded fonts.
-
-### EventTypes
-
-ConvertCrossterm and ConvertCrosstermEx convert winit events to crossterm events.
-ConvertCrosstermEx additionally forwards any unmapped winit event to your application
-event type.
-
-ConvertWinit just forwards the winit event to your application event. And it keeps
-track of modifier states and the mouse cursor position. And it maps pixel to cell coordinates.
-
-
-[refOpenMoji]: https://github.com/hfg-gmuend/openmoji/tree/master/font/OpenMoji-black-glyf
-
-[refFilesGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa-wgpu/files.gif?raw=true
-
-[refMDEditGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa-wgpu/mdedit.gif?raw=true
-
-[ratatui-wgpu]: https://github.com/Jesterhearts/ratatui-wgpu
+[rat-wgpu]: https://github.com/thscharler/rat-wgpu
 
 [rat-salsa]: https://github.com/thscharler/rat-salsa
 
