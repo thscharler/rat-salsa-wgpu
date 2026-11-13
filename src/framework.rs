@@ -18,7 +18,6 @@ use rat_wgpu::cursor::{Blinking, CursorStyle};
 use rat_wgpu::event::WindowEventState;
 use rat_wgpu::font::Font;
 use rat_wgpu::postprocessor::PostProcessorBuilder;
-use rat_wgpu::wgpu::Backends;
 use ratatui_core::backend::{Backend, WindowSize};
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
@@ -337,7 +336,7 @@ where
     cr_window: Box<dyn FnOnce(&ActiveEventLoop, WindowAttributes) -> Window>,
 
     /// terminal callback
-    backends: Backends,
+    backends: String,
     cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static>>>,
 
     postprocessor: Box<dyn PostProcessorBuilder>,

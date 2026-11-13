@@ -6,7 +6,6 @@ use rat_wgpu::cursor::CursorStyle;
 use rat_wgpu::font::{Font, font_db};
 use rat_wgpu::postprocessor::PostProcessorBuilder;
 use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
-use rat_wgpu::wgpu::Backends;
 use rat_wgpu::{WgpuBackendBuilder, WgpuBackend};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
@@ -54,7 +53,7 @@ where
     /// window callback
     pub(crate) cr_window:
         Box<dyn FnOnce(&ActiveEventLoop, winit::window::WindowAttributes) -> Window>,
-    pub(crate) backends: Backends,
+    pub(crate) backends: String,
     /// terminal callback
     pub(crate) cr_term: Box<dyn FnOnce(TermInit) -> Terminal<WgpuBackend<'static>>>,
     /// postprocessor
@@ -348,13 +347,8 @@ where
     /// - gles   = "opengl" or "gles" or "gl"
     /// - webgpu = "webgpu"
     /// - all    = "*"
-    pub fn backends(mut self, backends: impl AsRef<str>) -> Self {
-        let backends = backends.as_ref();
-        if backends == "*" {
-            self.backends = Backends::all();
-        } else {
-            self.backends = Backends::from_comma_list(backends.as_ref());
-        }
+    pub fn backends(mut self, backends: &str) -> Self {
+        self.backends = backends.into();
         self
     }
 
@@ -387,7 +381,7 @@ pub struct TermInit {
     /// Postprocessor
     pub postprocessor: Box<dyn PostProcessorBuilder>,
     /// Which backends
-    pub backends: Backends,
+    pub backends: String,
     /// The fallback fonts to use.
     pub fallback_fonts: Vec<Font>,
     /// Regular fonts to use.
@@ -431,7 +425,7 @@ fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static>> {
             .with_font_size_px(arg.font_size_px)
             .with_fallback_fonts(arg.fallback_fonts)
             .with_fonts(arg.regular_fonts)
-            .with_backends(arg.backends)
+            .with_backends(&arg.backends)
             .with_color_table(arg.colors)
             .with_bg_color(arg.bg_color)
             .with_fg_color(arg.fg_color)

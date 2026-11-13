@@ -38,9 +38,9 @@ pub use window_bounds::WindowBounds;
 
 #[cfg(feature = "dialog")]
 pub mod dialog_stack;
+use rat_wgpu::WgpuBackend;
 #[cfg(feature = "dialog")]
 pub use try_as_traits::{TryAsMut, TryAsRef, TypedContainer};
-use rat_wgpu::WgpuBackend;
 
 /// Event types.
 pub mod event;
