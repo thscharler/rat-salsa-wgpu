@@ -30,8 +30,6 @@ dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
 dialog_widgets = ["dialog", "rat-widget"]
 
-# Scale the resulting TUI to the exact window-size. Might look a bit stretched.
-scale_to_window = ["rat-wgpu/scale_to_window"]
 # Add CascadiaMono-Regular as fallback font.
 fallback_font = ["rat-wgpu/fallback_font"]
 # Add NotoEmoji-Regular as default emoji font.
