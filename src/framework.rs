@@ -668,11 +668,13 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if app.global.salsa_ctx().font_changed.take() {
         reload_fonts(app);
+        clear(app);
         let resized = resized_event(app);
         app.global.salsa_ctx().queue.push(resized);
     }
     if app.global.salsa_ctx().font_size_changed.take() {
         change_font_size(app);
+        clear(app);
         let resized = resized_event(app);
         app.global.salsa_ctx().queue.push(resized);
     }
