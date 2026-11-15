@@ -242,8 +242,7 @@ where
     ///
     /// The divisor says the for every n-th blink event blinking is switched.
     ///
-    /// Note that this is not enough to start blinking text. You also need
-    /// to add [PollBlink](crate::poll::PollBlink) for the timer.
+    /// See [RunConfig::blink] for the timer.
     pub fn cursor_blink(mut self, t: u8) -> Self {
         self.cur_blink = t;
         self
@@ -259,8 +258,7 @@ where
     ///
     /// The divisor says the for every n-th blink event blinking is switched.
     ///
-    /// Note that this is not enough to start blinking text. You also need
-    /// to add [PollBlink](crate::poll::PollBlink) for the timer.
+    /// See [RunConfig::blink] for the timer.
     pub fn rapid_blink(mut self, t: u8) -> Self {
         self.rapid_blink = t;
         self
@@ -270,8 +268,7 @@ where
     ///
     /// The divisor says the for every n-th blink event blinking is switched.
     ///
-    /// Note that this is not enough to start blinking text. You also need
-    /// to add [PollBlink](crate::poll::PollBlink) for the timer.
+    /// See [RunConfig::blink] for the timer.
     pub fn slow_blink(mut self, t: u8) -> Self {
         self.slow_blink = t;
         self
