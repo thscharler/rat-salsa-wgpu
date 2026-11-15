@@ -1,6 +1,6 @@
 [package]
 name = "rat-salsa-wgpu"
-version = "1.0.5"
+version = "1.0.6"
 authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2024"
 description = "ratatui + wgpu + winit event-loop and widgets"

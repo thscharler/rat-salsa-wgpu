@@ -1,3 +1,9 @@
+# 1.0.6
+
+* feat: make font-resizing a feature.
+* refactor: cleanup shutdown with one more app state.
+* refactor: cleanup polling extra event sources.
+
 # 1.0.5
 
 * refactor: remove Control::Blink. Can replace this with
