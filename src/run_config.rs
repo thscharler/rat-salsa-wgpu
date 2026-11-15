@@ -6,7 +6,7 @@ use rat_wgpu::cursor::CursorStyle;
 use rat_wgpu::font::{Font, font_db};
 use rat_wgpu::postprocessor::PostProcessorBuilder;
 use rat_wgpu::postprocessor::default::DefaultPostProcessorBuilder;
-use rat_wgpu::{WgpuBackendBuilder, WgpuBackend};
+use rat_wgpu::{WgpuBackend, WgpuBackendBuilder};
 use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use std::fmt::{Debug, Formatter};
@@ -419,25 +419,23 @@ fn create_window(
 fn create_wgpu(arg: TermInit) -> Terminal<WgpuBackend<'static>> {
     let size = arg.window.inner_size();
 
-    let backend = futures_lite::future::block_on({
-        WgpuBackendBuilder::new()
-            .with_postprocessor(arg.postprocessor)
-            .with_font_size_px(arg.font_size_px)
-            .with_fallback_fonts(arg.fallback_fonts)
-            .with_fonts(arg.regular_fonts)
-            .with_backends(&arg.backends)
-            .with_color_table(arg.colors)
-            .with_bg_color(arg.bg_color)
-            .with_fg_color(arg.fg_color)
-            .with_cursor_style(arg.cur_style)
-            .with_cursor_blink(arg.cur_blink)
-            .with_cursor_color(arg.cur_color)
-            .with_rapid_blink(arg.rapid_blink)
-            .with_slow_blink(arg.slow_blink)
-            .with_width_and_height(size.width, size.height)
-            .build_with_target(arg.window)
-    })
-    .expect("ratatui-wgpu-backend");
+    let backend = WgpuBackendBuilder::new()
+        .with_postprocessor(arg.postprocessor)
+        .with_font_size_px(arg.font_size_px)
+        .with_fallback_fonts(arg.fallback_fonts)
+        .with_fonts(arg.regular_fonts)
+        .with_backends(&arg.backends)
+        .with_color_table(arg.colors)
+        .with_bg_color(arg.bg_color)
+        .with_fg_color(arg.fg_color)
+        .with_cursor_style(arg.cur_style)
+        .with_cursor_blink(arg.cur_blink)
+        .with_cursor_color(arg.cur_color)
+        .with_rapid_blink(arg.rapid_blink)
+        .with_slow_blink(arg.slow_blink)
+        .with_width_and_height(size.width, size.height)
+        .build_with_target(arg.window)
+        .expect("ratatui-wgpu-backend");
 
     Terminal::new(backend).expect("ratatui-terminal")
 }

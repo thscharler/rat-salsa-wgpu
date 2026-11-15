@@ -626,6 +626,8 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if let Some(WindowEvent::RedrawRequested) = event {
         app.global.salsa_ctx().queue.push(Ok(Control::Changed));
+        // need full redraw
+        clear(app);
         event = None;
     }
     if let Some(WindowEvent::Focused(f)) = event {
