@@ -1,3 +1,11 @@
+# 1.0.5
+
+* refactor: remove Control::Blink. Can replace this with
+a builtin timer in winit. Make Control exactly the same as
+in rat-salsa. 
+
+* feat: add RunConfig::blink(Duration) for the timer.
+
 # 1.0.4
 
 * fix: RedrawRequested event needs a Terminal::clear() for
