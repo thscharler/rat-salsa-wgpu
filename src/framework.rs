@@ -1,6 +1,5 @@
 use crate::_private::NonExhaustive;
 use crate::framework::control_queue::ControlQueue;
-use crate::framework::poll_queue::PollQueue;
 #[cfg(feature = "async")]
 use crate::poll::PollTokio;
 use crate::poll::{PollEvents, PollQuit, PollRendered, PollTasks, PollTimers};
@@ -11,7 +10,7 @@ use crate::timer::Timers;
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::{info};
+use log::info;
 use rat_wgpu::WgpuBackend;
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::{Blinking, CursorStyle};
@@ -38,7 +37,6 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
 
 pub(crate) mod control_queue;
-mod poll_queue;
 
 /// Start the UI and run the event-loop.
 ///
@@ -1047,9 +1045,6 @@ where
     let t_cancel = cancel.clone();
     let t_can_start = Arc::clone(&can_start);
     let join_handle = thread::spawn(move || {
-        let poll_queue = PollQueue::default();
-        let mut poll_sleep = Duration::from_micros(SLEEP);
-
         // Wait till we are free to start polling.
         let (lock, cvar) = &*t_can_start;
         let mut can_start = lock.lock().unwrap();
@@ -1057,6 +1052,8 @@ where
             can_start = cvar.wait(can_start).unwrap();
         }
 
+        // Run polling.
+        let mut poll_sleep = Duration::from_micros(SLEEP);
         'l: loop {
             if t_cancel.is_canceled() {
                 break 'l;
@@ -1064,24 +1061,29 @@ where
 
             // The events are not processed immediately, but all
             // notifies are queued in the poll_queue.
-            if poll_queue.is_empty() {
-                for (n, p) in poll.iter_mut().enumerate() {
-                    match p.poll() {
-                        Ok(true) => {
-                            poll_queue.push(n);
+            let mut poll_any = false;
+            for p in poll.iter_mut() {
+                match p.poll() {
+                    Ok(true) => {
+                        let event = p.read().expect("poll fine");
+                        if event_loop.send_event(Ok(event)).is_err() {
+                            break 'l;
                         }
-                        Ok(false) => {}
-                        Err(e) => {
-                            if event_loop.send_event(Err(e)).is_err() {
-                                break 'l;
-                            }
+                        // Shorter sleep immediately after an event.
+                        poll_sleep = Duration::from_micros(FAST_SLEEP);
+                        poll_any = true;
+                    }
+                    Ok(false) => {}
+                    Err(e) => {
+                        if event_loop.send_event(Err(e)).is_err() {
+                            break 'l;
                         }
                     }
                 }
             }
 
             // Sleep regime.
-            if poll_queue.is_empty() {
+            if !poll_any {
                 let mut t = poll_sleep;
                 for p in poll.iter_mut() {
                     if let Some(timer_sleep) = p.sleep_time() {
@@ -1092,16 +1094,6 @@ where
                 if poll_sleep < Duration::from_micros(SLEEP) {
                     // Back off slowly.
                     poll_sleep += Duration::from_micros(BACKOFF);
-                }
-            } else {
-                // Shorter sleep immediately after an event.
-                poll_sleep = Duration::from_micros(FAST_SLEEP);
-
-                while let Some(p_idx) = poll_queue.take() {
-                    let event = poll[p_idx].read().expect("poll fine");
-                    if event_loop.send_event(Ok(event)).is_err() {
-                        break 'l;
-                    }
                 }
             }
         }
