@@ -5,9 +5,8 @@ use anyhow::Error;
 use log::{debug, error};
 use rat_event::{HandleEvent, Outcome, Popup, Regular, ct_event, event_flow};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
-use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::event::CompositeWindowEvent;
-use rat_salsa_wgpu::poll::PollBlink;
+use rat_salsa_wgpu::event::{QuitEvent, RenderedEvent};
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
@@ -70,8 +69,7 @@ pub fn main() -> Result<(), Error> {
             //.cursor_color(Color::Red)
             //.cursor_style(CursorStyle::BoldUnderscore)
             // .fallback_font("SegoeUI".to_string(), load_font_by_name("SegoeUI").unwrap())
-            .font_size(20)
-            .poll(PollBlink::default()),
+            .font_size(20),
     )?;
 
     Ok(())
@@ -499,7 +497,7 @@ pub fn event(
                     .borrow_mut()
                     .backend_mut()
                     .set_cursor_style(n);
-                Control::Blink
+                Control::Changed
             }),
 
             ct_event!(keycode press F(8)) => event_flow!({

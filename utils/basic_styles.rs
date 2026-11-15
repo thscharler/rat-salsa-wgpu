@@ -3,7 +3,6 @@ use crossterm::event::MouseEventKind;
 use log::error;
 use rat_event::{HandleEvent, Regular, ct_event, event_flow};
 use rat_salsa_wgpu::event::CompositeWindowEvent;
-use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
 use rat_theme4::palette::Colors;
@@ -22,6 +21,7 @@ use ratatui_core::widgets::{StatefulWidget, Widget};
 use ratatui_widgets::block::Block;
 use std::fs;
 use std::path::PathBuf;
+use std::time::Duration;
 use winit::event::{ElementState, WindowEvent};
 use winit::keyboard::{Key, SmolStr};
 
@@ -45,7 +45,7 @@ pub fn main() -> Result<(), Error> {
             .font_size(22)
             .rapid_blink(1)
             .slow_blink(4)
-            .poll(PollBlink::new(0, 250)),
+            .blink(Duration::from_millis(250)),
     )?;
 
     Ok(())
@@ -101,7 +101,7 @@ impl TryFrom<(&WindowEvent, &WindowEventState)> for AppEvent {
 
     fn try_from(value: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
         winit_to_crossterm_event(value).map_or_else(
-            |e| Ok(AppEvent::WEvent(value.into())),
+            |_| Ok(AppEvent::WEvent(value.into())),
             |v| Ok(AppEvent::CtEvent(v)),
         )
     }

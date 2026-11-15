@@ -11,6 +11,7 @@ use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
+use std::time::Duration;
 use winit::error::EventLoopError;
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::Window;
@@ -41,6 +42,8 @@ where
     pub(crate) colors: ColorTable,
     pub(crate) bg_color: Color,
     pub(crate) fg_color: Color,
+    /// blink timer
+    pub(crate) blink: Duration,
     /// terminal cursor
     pub(crate) cur_style: CursorStyle,
     pub(crate) cur_blink: u8,
@@ -108,6 +111,7 @@ where
             colors: Default::default(),
             bg_color: Color::Black,
             fg_color: Color::White,
+            blink: Duration::from_millis(200),
             cur_style: Default::default(),
             cur_blink: 4,
             cur_color: Color::Reset,
@@ -216,6 +220,15 @@ where
     /// Set the terminal fg color.
     pub fn fg_color(mut self, color: Color) -> Self {
         self.fg_color = color;
+        self
+    }
+
+    /// Set the timer for blinking.
+    ///
+    /// See [RunConfig::cursor_blink], [RunConfig::rapid_blink] and
+    /// [RunConfig::rapid_blink]
+    pub fn blink(mut self, timer: Duration) -> Self {
+        self.blink = timer;
         self
     }
 

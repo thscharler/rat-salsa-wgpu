@@ -4,7 +4,6 @@ use anyhow::Error;
 use log::error;
 use rat_event::{ct_event, event_flow};
 use rat_salsa_wgpu::event::CompositeWindowEvent;
-use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
@@ -62,8 +61,7 @@ pub fn main() -> Result<(), Error> {
             .window_size(200, 200)
             .font_family(FONT)
             .font_size(35)
-            .cursor_color(Color::Red)
-            .poll(PollBlink::new(0, 200)),
+            .cursor_color(Color::Red),
     )?;
 
     Ok(())
@@ -250,7 +248,7 @@ pub fn event(
                     .borrow_mut()
                     .backend_mut()
                     .set_cursor_style(n);
-                Control::Blink
+                Control::Changed
             }),
 
             _ => {}

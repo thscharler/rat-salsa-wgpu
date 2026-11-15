@@ -50,12 +50,6 @@ pub enum Control<Event> {
     /// separately and close the window.
     #[cfg(feature = "dialog")]
     Close(Event),
-    /// Internal event to switch blinking text.
-    ///
-    /// __Warning__
-    ///
-    /// This flag is only available for rat-salsa-wgpu not for terminal rat-salsa.
-    Blink,
     /// Quit the application.
     Quit,
 }
@@ -78,7 +72,6 @@ impl<Event> Ord for Control<Event> {
                 Control::Event(_) => Ordering::Less,
                 #[cfg(feature = "dialog")]
                 Control::Close(_) => Ordering::Less,
-                Control::Blink => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             Control::Unchanged => match other {
@@ -88,7 +81,6 @@ impl<Event> Ord for Control<Event> {
                 Control::Event(_) => Ordering::Less,
                 #[cfg(feature = "dialog")]
                 Control::Close(_) => Ordering::Less,
-                Control::Blink => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             Control::Changed => match other {
@@ -98,7 +90,6 @@ impl<Event> Ord for Control<Event> {
                 Control::Event(_) => Ordering::Less,
                 #[cfg(feature = "dialog")]
                 Control::Close(_) => Ordering::Less,
-                Control::Blink => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             Control::Event(_) => match other {
@@ -108,7 +99,6 @@ impl<Event> Ord for Control<Event> {
                 Control::Event(_) => Ordering::Equal,
                 #[cfg(feature = "dialog")]
                 Control::Close(_) => Ordering::Less,
-                Control::Blink => Ordering::Less,
                 Control::Quit => Ordering::Less,
             },
             #[cfg(feature = "dialog")]
@@ -118,17 +108,6 @@ impl<Event> Ord for Control<Event> {
                 Control::Changed => Ordering::Greater,
                 Control::Event(_) => Ordering::Greater,
                 Control::Close(_) => Ordering::Equal,
-                Control::Blink => Ordering::Less,
-                Control::Quit => Ordering::Less,
-            },
-            Control::Blink => match other {
-                Control::Continue => Ordering::Greater,
-                Control::Unchanged => Ordering::Greater,
-                Control::Changed => Ordering::Greater,
-                Control::Event(_) => Ordering::Greater,
-                #[cfg(feature = "dialog")]
-                Control::Close(_) => Ordering::Greater,
-                Control::Blink => Ordering::Equal,
                 Control::Quit => Ordering::Less,
             },
             Control::Quit => match other {
@@ -138,7 +117,6 @@ impl<Event> Ord for Control<Event> {
                 Control::Event(_) => Ordering::Greater,
                 #[cfg(feature = "dialog")]
                 Control::Close(_) => Ordering::Greater,
-                Control::Blink => Ordering::Greater,
                 Control::Quit => Ordering::Equal,
             },
         }

@@ -1030,7 +1030,7 @@ mod logscroll {
                         } else {
                             0
                         };
-                        ctx.set_font_family(installed[new_idx].as_str());
+                        _ = ctx.set_font_family(installed[new_idx].as_str());
                         ctx.queue_event(LogScrollEvent::StoreCfg);
                         ctx.queue_event(LogScrollEvent::Status(0, installed[new_idx].clone()));
                         Control::Changed

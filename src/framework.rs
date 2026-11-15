@@ -33,8 +33,8 @@ use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
 use std::{io, mem, thread};
 use winit::application::ApplicationHandler;
-use winit::event::{MouseScrollDelta, WindowEvent};
-use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
+use winit::event::{MouseScrollDelta, StartCause, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
 
 pub(crate) mod control_queue;
@@ -193,6 +193,7 @@ where
         colors,
         bg_color,
         fg_color,
+        blink,
         cur_style,
         cur_blink,
         cur_color,
@@ -264,6 +265,7 @@ where
         colors,
         bg_color,
         fg_color,
+        blink,
         rapid_blink,
         slow_blink,
         cur_style,
@@ -324,6 +326,7 @@ where
     colors: ColorTable,
     bg_color: Color,
     fg_color: Color,
+    blink: Duration,
     rapid_blink: u8,
     slow_blink: u8,
     /// terminal cursor
@@ -374,6 +377,7 @@ where
     quit_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
     rendered_event: Option<Box<dyn PollEvents<Event, Error> + Send>>,
 
+    blink: Duration,
     poll: Poll,
 
     window: Option<Arc<Window>>,
@@ -399,6 +403,15 @@ where
     Event: 'static + Send + for<'s> TryFrom<(&'s WindowEvent, &'s WindowEventState)>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        match cause {
+            StartCause::ResumeTimeReached { .. } => {
+                blink_timer(self, event_loop);
+            }
+            _ => {}
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         initialize_terminal(self, event_loop);
     }
@@ -410,6 +423,36 @@ where
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
         process_event(self, event_loop, Some(event), None);
     }
+}
+
+fn blink_timer<'a, Global, State, Event, Error>(
+    app: &mut WgpuApp<'a, Global, State, Event, Error>,
+    event_loop: &ActiveEventLoop,
+) where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    let WgpuApp::Running(app) = app else {
+        panic!("not initialized");
+    };
+
+    if app.terminal.is_none() || app.window.is_none() {
+        info!("skip event during shutdown.");
+        return;
+    }
+
+    if let Some(terminal) = &mut app.terminal {
+        let mut terminal = terminal.borrow_mut();
+
+        let mut blink = Blinking::TEXT;
+        if app.window_focused {
+            blink = blink | Blinking::CURSOR;
+        }
+        terminal.backend_mut().blink(blink);
+    }
+
+    event_loop.set_control_flow(ControlFlow::wait_duration(app.blink));
 }
 
 fn initialize_terminal<'a, Global, State, Event, Error>(
@@ -441,6 +484,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         colors,
         bg_color,
         fg_color,
+        blink,
         rapid_blink,
         slow_blink,
         cur_style,
@@ -570,6 +614,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         event_state,
         quit_event,
         rendered_event,
+        blink,
         poll,
         window: Some(window),
         window_size,
@@ -583,6 +628,9 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
     // initial render
     run_state.window.as_ref().expect("window").set_visible(true);
     run_state.window.as_ref().expect("window").request_redraw();
+
+    // setup blink timer
+    event_loop.set_control_flow(ControlFlow::wait_duration(run_state.blink));
 
     // set up running state.
     *app = WgpuApp::Running(run_state);
@@ -760,18 +808,6 @@ fn process_event<'a, Global, State, Event, Error>(
                     }
                     shutdown(app, event_loop);
                     break 'ui;
-                }
-                Ok(Control::Blink) => {
-                    let mut blink = Blinking::TEXT;
-                    if app.window_focused {
-                        blink = blink | Blinking::CURSOR;
-                    }
-                    app.terminal
-                        .as_ref()
-                        .expect("terminal")
-                        .borrow_mut()
-                        .backend_mut()
-                        .blink(blink);
                 }
             }
         }

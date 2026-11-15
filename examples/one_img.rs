@@ -5,7 +5,6 @@ use image::ImageReader;
 use log::error;
 use rat_event::{HandleEvent, Regular, ct_event, event_flow};
 use rat_salsa_wgpu::event::CompositeWindowEvent;
-use rat_salsa_wgpu::poll::PollBlink;
 use rat_salsa_wgpu::timer::TimeOut;
 use rat_salsa_wgpu::{Control, SalsaAppContext, SalsaContext};
 use rat_salsa_wgpu::{RunConfig, run_tui};
@@ -41,10 +40,7 @@ pub fn main() -> Result<(), Error> {
         error,
         &mut global,
         &mut state,
-        RunConfig::new()?
-            .window_title("one img")
-            .font_size(22)
-            .poll(PollBlink::new(0, 200)),
+        RunConfig::new()?.window_title("one img").font_size(22),
     )?;
 
     Ok(())
@@ -102,7 +98,7 @@ impl TryFrom<(&WindowEvent, &WindowEventState)> for AppEvent {
 
     fn try_from(event: (&WindowEvent, &WindowEventState)) -> Result<Self, Self::Error> {
         winit_to_crossterm_event(event).map_or_else(
-            |e| Ok(AppEvent::Event(event.into())),
+            |_| Ok(AppEvent::Event(event.into())),
             |v| Ok(AppEvent::CtEvent(v)),
         )
     }
