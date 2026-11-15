@@ -29,6 +29,8 @@ async = ["dep:tokio"]
 dialog = ["try_as_traits"]
 # Add some support for rat-widget::FileDialog and rat-widget::MsgDialog
 dialog_widgets = ["dialog", "rat-widget"]
+# Resize the font with ctrl+mouse wheel
+font_resize = []
 
 # Add CascadiaMono-Regular as fallback font.
 fallback_font = ["rat-wgpu/fallback_font"]

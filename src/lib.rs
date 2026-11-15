@@ -575,7 +575,9 @@ where
     /// Window
     pub(crate) window: RefCell<Option<Arc<Window>>>,
 
+    /// Flag a changed font.
     pub(crate) font_changed: Cell<bool>,
+    /// Flag a changed font-size.
     pub(crate) font_size_changed: Cell<bool>,
     /// Holds newly set fonts before forwarding to the backend.
     pub(crate) fonts: RefCell<Vec<Font>>,

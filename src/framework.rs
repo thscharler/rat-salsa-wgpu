@@ -674,7 +674,6 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if let Some(WindowEvent::RedrawRequested) = event {
         app.global.salsa_ctx().queue.push(Ok(Control::Changed));
-        // need full redraw
         clear(app);
         event = None;
     }
@@ -683,36 +682,23 @@ fn process_event<'a, Global, State, Event, Error>(
     }
     if let Some(WindowEvent::Resized(size)) = event {
         resize(app, size);
-        // need full redraw
         clear(app);
         let resized = resized_event(app);
         app.global.salsa_ctx().queue.push(resized);
         event = None;
     }
     // font scaling
-    if app.event_state.ctrl_pressed() {
-        if let Some(WindowEvent::MouseWheel {
-            delta: MouseScrollDelta::LineDelta(_, dy),
-            ..
-        }) = event
-        {
-            if dy > 0.0 {
-                if app.global.salsa_ctx().font_size.get() > 7 {
-                    app.global.salsa_ctx().font_size.update(|v| v - 1);
-                }
-            } else {
-                app.global.salsa_ctx().font_size.update(|v| v + 1);
-            }
-            app.global.salsa_ctx().font_size_changed.set(true);
-            event = None;
-        }
+    #[cfg(feature = "font_resize")]
+    if let Some(WindowEvent::MouseWheel { .. }) = event
+        && app.event_state.ctrl_pressed()
+    {
+        resize_font(app, &mut event);
     }
     // device dpi changed
     if let Some(WindowEvent::ScaleFactorChanged { .. }) = event {
         app.global.salsa_ctx().font_size_changed.set(true);
         event = None;
     }
-
     if app.global.salsa_ctx().clear_terminal.take() {
         clear(app);
     }
@@ -878,6 +864,34 @@ where
         .borrow_mut()
         .clear()
         .expect("clear terminal");
+}
+
+#[cfg(feature = "font_resize")]
+fn resize_font<'a, Global, State, Event, Error>(
+    app: &mut Running<'a, Global, State, Event, Error>,
+    event: &mut Option<WindowEvent>,
+) where
+    Global: SalsaContext<Event, Error>,
+    Event: 'static + Send,
+    Error: 'static + Debug + Send + From<io::Error>,
+{
+    if app.event_state.ctrl_pressed() {
+        if let Some(WindowEvent::MouseWheel {
+            delta: MouseScrollDelta::LineDelta(_, dy),
+            ..
+        }) = event
+        {
+            if *dy > 0.0 {
+                if app.global.salsa_ctx().font_size.get() > 7 {
+                    app.global.salsa_ctx().font_size.update(|v| v - 1);
+                }
+            } else {
+                app.global.salsa_ctx().font_size.update(|v| v + 1);
+            }
+            app.global.salsa_ctx().font_size_changed.set(true);
+            *event = None;
+        }
+    }
 }
 
 fn reload_fonts<'a, Global, State, Event, Error>(app: &mut Running<'a, Global, State, Event, Error>)
