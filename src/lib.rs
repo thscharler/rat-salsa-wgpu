@@ -6,21 +6,22 @@ use crate::timer::{TimerDef, TimerHandle, Timers};
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crossbeam::channel::{SendError, Sender};
-#[allow(dead_code)]
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
-use rat_wgpu::cursor::CursorStyle;
-use rat_wgpu::font::{Font, font_db};
-use rat_wgpu::image::ImageBuffer;
-use ratatui_core::style::Color;
 use ratatui_core::terminal::Terminal;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
+
+use rat_wgpu::WgpuBackend;
+use rat_wgpu::cursor::CursorStyle;
+use rat_wgpu::font::{Font, font_db};
+use rat_wgpu::image::ImageBuffer;
+use ratatui_core::style::Color;
+use std::sync::{Arc, Mutex};
 use winit::window::Window;
 
 mod control;
@@ -29,19 +30,15 @@ mod run_config;
 mod thread_pool;
 #[cfg(feature = "async")]
 mod tokio_tasks;
-mod window_bounds;
 
 pub use control::Control;
 pub use framework::run_tui;
 pub use run_config::{RunConfig, TermInit};
-pub use window_bounds::WindowBounds;
 
 #[cfg(feature = "dialog")]
 pub mod dialog_stack;
-use rat_wgpu::WgpuBackend;
 #[cfg(feature = "dialog")]
 pub use try_as_traits::{TryAsMut, TryAsRef, TypedContainer};
-
 /// Event types.
 pub mod event;
 /// Provides dummy implementations for some functions.
@@ -53,15 +50,18 @@ pub mod tasks;
 /// Support for timers.
 pub mod timer;
 
+mod window_bounds;
+pub use window_bounds::WindowBounds;
+
 /// Reexport rat-wgpu.
 pub mod backend {
     pub use rat_wgpu::WgpuBackend;
     pub use rat_wgpu::WgpuBackendBuilder;
     pub use rat_wgpu::colors;
     pub use rat_wgpu::cursor;
+    pub use rat_wgpu::event;
     pub use rat_wgpu::font;
     pub use rat_wgpu::image;
-    pub use rat_wgpu::event;
     pub use rat_wgpu::postprocessor;
 }
 
