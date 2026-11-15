@@ -1,5 +1,6 @@
 #![doc = include_str!("../readme.md")]
 
+use crate::framework::control_queue::ControlQueue;
 use crate::tasks::{Cancel, Liveness};
 use crate::thread_pool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
@@ -12,7 +13,9 @@ use ratatui_core::terminal::Terminal;
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::fmt::{Debug, Formatter};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::{rc, sync};
 #[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
@@ -21,7 +24,6 @@ use rat_wgpu::cursor::CursorStyle;
 use rat_wgpu::font::{Font, font_db};
 use rat_wgpu::image::ImageBuffer;
 use ratatui_core::style::Color;
-use std::sync::{Arc, Mutex};
 use winit::window::Window;
 
 mod control;
@@ -374,7 +376,7 @@ where
     /// Access the terminal.
     #[inline]
     fn terminal(&self) -> Rc<RefCell<Terminal<WgpuBackend<'static>>>> {
-        self.salsa_ctx().term.borrow().clone().expect("terminal")
+        self.salsa_ctx().term.upgrade().expect("terminal")
     }
 
     /// Access the ImageBuffer of the backend.
@@ -393,16 +395,15 @@ where
     /// Access the window.
     #[inline]
     fn window(&self) -> Arc<Window> {
-        self.salsa_ctx().window.borrow().clone().expect("window")
+        self.salsa_ctx().window.upgrade().expect("window")
     }
 
     /// Get the window dimensions
     fn window_bounds(&self) -> WindowBounds {
-        let w = self.salsa_ctx().window.borrow();
-        let w = w.as_ref().expect("window");
-        let p = w.outer_position().ok();
-        let s = w.inner_size();
-        let maximized = w.is_maximized();
+        let window = self.salsa_ctx().window.upgrade().expect("window");
+        let p = window.outer_position().ok();
+        let s = window.inner_size();
+        let maximized = window.is_maximized();
 
         let (x, y) = p.map(|v| (v.x, v.y)).unwrap_or((0, 0));
         let (width, height) = (s.width, s.height);
@@ -419,14 +420,12 @@ where
     /// Set the window dimensions.
     /// Might fail to do so.
     fn set_window_bounds(&self, bounds: WindowBounds) {
-        let w = self.salsa_ctx().window.borrow();
-        let w = w.as_ref().expect("window");
-
-        _ = w.request_inner_size(winit::dpi::Size::Physical(winit::dpi::PhysicalSize::new(
+        let window = self.salsa_ctx().window.upgrade().expect("window");
+        _ = window.request_inner_size(winit::dpi::Size::Physical(winit::dpi::PhysicalSize::new(
             bounds.width,
             bounds.height,
         )));
-        w.set_outer_position(winit::dpi::Position::Physical(
+        window.set_outer_position(winit::dpi::Position::Physical(
             winit::dpi::PhysicalPosition::new(bounds.x, bounds.y),
         ))
     }
@@ -552,7 +551,7 @@ where
     /// Output cursor position. Set to Frame after rendering is complete.
     pub(crate) cursor: Cell<Option<(u16, u16)>>,
     /// Terminal area
-    pub(crate) term: RefCell<Option<Rc<RefCell<Terminal<WgpuBackend<'static>>>>>>,
+    pub(crate) term: rc::Weak<RefCell<Terminal<WgpuBackend<'static>>>>,
     /// Image buffer.
     pub(crate) image_buffer: Arc<Mutex<ImageBuffer>>,
     /// Clear terminal before next draw.
@@ -570,10 +569,10 @@ where
     #[cfg(feature = "async")]
     pub(crate) tokio: Option<Arc<TokioTasks<Event, Error>>>,
     /// Queue foreground tasks.
-    pub(crate) queue: framework::control_queue::ControlQueue<Event, Error>,
+    pub(crate) queue: ControlQueue<Event, Error>,
 
     /// Window
-    pub(crate) window: RefCell<Option<Arc<Window>>>,
+    pub(crate) window: sync::Weak<Window>,
 
     /// Flag a changed font.
     pub(crate) font_changed: Cell<bool>,

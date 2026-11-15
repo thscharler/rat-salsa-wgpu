@@ -11,7 +11,7 @@ use crate::timer::Timers;
 #[cfg(feature = "async")]
 use crate::tokio_tasks::TokioTasks;
 use crate::{Control, RunConfig, SalsaAppContext, SalsaContext};
-use log::info;
+use log::{info};
 use rat_wgpu::WgpuBackend;
 use rat_wgpu::colors::ColorTable;
 use rat_wgpu::cursor::{Blinking, CursorStyle};
@@ -380,10 +380,10 @@ where
     blink: Duration,
     poll: Poll,
 
-    window: Option<Arc<Window>>,
+    window: Arc<Window>,
     window_size: WindowSize,
     window_focused: bool,
-    terminal: Option<Rc<RefCell<Terminal<WgpuBackend<'static>>>>>,
+    terminal: Rc<RefCell<Terminal<WgpuBackend<'static>>>>,
 }
 
 enum WgpuApp<'a, Global, State, Event, Error>
@@ -394,6 +394,7 @@ where
     Invalid,
     Startup(Startup<'a, Global, State, Event, Error>),
     Running(Running<'a, Global, State, Event, Error>),
+    Shutdown,
 }
 
 impl<'a, Global, State, Event, Error> ApplicationHandler<Result<Control<Event>, Error>>
@@ -404,6 +405,10 @@ where
     Error: 'static + Debug + Send + From<io::Error>,
 {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+        if let WgpuApp::Shutdown = self {
+            info!("skip new_events during shutdown: {:?}", cause);
+            return;
+        }
         match cause {
             StartCause::ResumeTimeReached { .. } => {
                 blink_timer(self, event_loop);
@@ -417,54 +422,59 @@ where
     }
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: Result<Control<Event>, Error>) {
+        if let WgpuApp::Shutdown = self {
+            info!("skip user_event during shutdown");
+            return;
+        }
         process_event(self, event_loop, None, Some(event));
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
+        if let WindowEvent::Destroyed = event {
+            info!("window destroyed. exit event-loop.");
+            event_loop.exit();
+            return;
+        }
+        if let WgpuApp::Shutdown = self {
+            info!("skip window_event during shutdown: {:?}", event);
+            return;
+        }
         process_event(self, event_loop, Some(event), None);
     }
 }
 
 fn blink_timer<'a, Global, State, Event, Error>(
-    app: &mut WgpuApp<'a, Global, State, Event, Error>,
+    wgpu_app: &mut WgpuApp<'a, Global, State, Event, Error>,
     event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let WgpuApp::Running(app) = app else {
+    let WgpuApp::Running(app) = wgpu_app else {
         panic!("not initialized");
     };
 
-    if app.terminal.is_none() || app.window.is_none() {
-        info!("skip event during shutdown.");
-        return;
+    let mut terminal = app.terminal.borrow_mut();
+    let mut blink = Blinking::TEXT;
+    if app.window_focused {
+        blink = blink | Blinking::CURSOR;
     }
-
-    if let Some(terminal) = &mut app.terminal {
-        let mut terminal = terminal.borrow_mut();
-
-        let mut blink = Blinking::TEXT;
-        if app.window_focused {
-            blink = blink | Blinking::CURSOR;
-        }
-        terminal.backend_mut().blink(blink);
-    }
+    terminal.backend_mut().blink(blink);
 
     event_loop.set_control_flow(ControlFlow::wait_duration(app.blink));
 }
 
 fn initialize_terminal<'a, Global, State, Event, Error>(
-    app: &mut WgpuApp<'a, Global, State, Event, Error>,
+    wgpu_app: &mut WgpuApp<'a, Global, State, Event, Error>,
     event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    if !matches!(app, WgpuApp::Startup(_)) {
-        panic!("expected startup state");
+    if !matches!(wgpu_app, WgpuApp::Startup(_)) {
+        panic!("not in startup state");
     }
 
     let WgpuApp::Startup(Startup {
@@ -503,7 +513,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         tokio_ctrl,
         poll,
         proxy,
-    }) = mem::replace(app, WgpuApp::Invalid)
+    }) = mem::replace(wgpu_app, WgpuApp::Invalid)
     else {
         panic!()
     };
@@ -585,7 +595,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         focus: Default::default(),
         count: Default::default(),
         cursor: Default::default(),
-        term: RefCell::new(Some(terminal.clone())),
+        term: Rc::downgrade(&terminal),
         image_buffer,
         clear_terminal: Default::default(),
         last_render: Default::default(),
@@ -595,7 +605,7 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         #[cfg(feature = "async")]
         tokio: tokio_ctrl,
         queue: ControlQueue::default(),
-        window: RefCell::new(Some(window.clone())),
+        window: Arc::downgrade(&window),
         font_changed: Default::default(),
         font_size_changed: Default::default(),
         fonts: Default::default(),
@@ -616,31 +626,31 @@ fn initialize_terminal<'a, Global, State, Event, Error>(
         rendered_event,
         blink,
         poll,
-        window: Some(window),
+        window,
         window_size,
         window_focused: true,
-        terminal: Some(terminal),
+        terminal,
     };
 
     // init state
     init(run_state.state, run_state.global).expect("init");
 
     // initial render
-    run_state.window.as_ref().expect("window").set_visible(true);
-    run_state.window.as_ref().expect("window").request_redraw();
+    run_state.window.set_visible(true);
+    run_state.window.request_redraw();
 
     // setup blink timer
     event_loop.set_control_flow(ControlFlow::wait_duration(run_state.blink));
 
     // set up running state.
-    *app = WgpuApp::Running(run_state);
+    *wgpu_app = WgpuApp::Running(run_state);
 
     // now start polling
     poll_start.start();
 }
 
 fn process_event<'a, Global, State, Event, Error>(
-    app: &mut WgpuApp<'a, Global, State, Event, Error>,
+    wgpu_app: &mut WgpuApp<'a, Global, State, Event, Error>,
     event_loop: &ActiveEventLoop,
     mut event: Option<WindowEvent>,
     user: Option<Result<Control<Event>, Error>>,
@@ -649,19 +659,9 @@ fn process_event<'a, Global, State, Event, Error>(
     Event: 'static + Send + for<'s> TryFrom<(&'s WindowEvent, &'s WindowEventState)>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let WgpuApp::Running(app) = app else {
-        panic!("not initialized");
+    let WgpuApp::Running(app) = wgpu_app else {
+        panic!("not running");
     };
-
-    if let Some(WindowEvent::Destroyed) = event {
-        info!("window destroyed. exit event-loop.");
-        event_loop.exit();
-        return;
-    }
-    if app.terminal.is_none() || app.window.is_none() {
-        info!("skip event during shutdown.");
-        return;
-    }
 
     // framework event-handling
 
@@ -732,7 +732,7 @@ fn process_event<'a, Global, State, Event, Error>(
         if let Some(tasks) = &app.global.salsa_ctx().tasks {
             if !tasks.check_liveness() {
                 dbg!("worker panicked");
-                shutdown(app, event_loop);
+                shutdown(wgpu_app, event_loop);
                 break 'ui;
             }
         }
@@ -792,7 +792,7 @@ fn process_event<'a, Global, State, Event, Error>(
                             Ok(_) => unreachable!(),
                         }
                     }
-                    shutdown(app, event_loop);
+                    shutdown(wgpu_app, event_loop);
                     break 'ui;
                 }
             }
@@ -812,7 +812,7 @@ where
 {
     let mut r = Ok(());
 
-    let mut terminal = app.terminal.as_ref().expect("terminal").borrow_mut();
+    let mut terminal = app.terminal.borrow_mut();
 
     terminal
         .backend_mut()
@@ -858,12 +858,7 @@ where
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    app.terminal
-        .as_ref()
-        .expect("terminal")
-        .borrow_mut()
-        .clear()
-        .expect("clear terminal");
+    _ = app.terminal.borrow_mut().clear();
 }
 
 #[cfg(feature = "font_resize")]
@@ -900,10 +895,9 @@ where
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let mut terminal = app.terminal.as_ref().expect("terminal").borrow_mut();
-
     let font_vec = app.global.salsa_ctx().fonts.take();
 
+    let mut terminal = app.terminal.borrow_mut();
     app.window_size = terminal.backend_mut().update_font_vec(font_vec);
     app.event_state
         .update_window_size(app.window_size, terminal.backend());
@@ -916,12 +910,11 @@ fn change_font_size<'a, Global, State, Event, Error>(
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let mut terminal = app.terminal.as_ref().expect("terminal").borrow_mut();
-
     let font_size = app.global.salsa_ctx().font_size();
-    let scale_factor = app.window.as_ref().expect("window").scale_factor();
+    let scale_factor = app.window.scale_factor();
     let font_size_px = (font_size as f64 * scale_factor).round() as u32;
 
+    let mut terminal = app.terminal.borrow_mut();
     app.window_size = terminal.backend_mut().update_font_size(font_size_px);
     app.event_state
         .update_window_size(app.window_size, terminal.backend());
@@ -935,8 +928,7 @@ fn resize<'a, Global, State, Event, Error>(
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let mut terminal = app.terminal.as_ref().expect("terminal").borrow_mut();
-
+    let mut terminal = app.terminal.borrow_mut();
     app.window_size = terminal.backend_mut().resize(size.width, size.height);
     app.event_state
         .update_window_size(app.window_size, terminal.backend());
@@ -950,7 +942,7 @@ fn update_event_state<'a, Global, State, Event, Error>(
     Event: 'static + Send + for<'s> TryFrom<(&'s WindowEvent, &'s WindowEventState)>,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let terminal = app.terminal.as_ref().expect("terminal").borrow();
+    let terminal = app.terminal.borrow();
     app.event_state.update_state(event, terminal.backend());
 }
 
@@ -972,44 +964,41 @@ where
 }
 
 fn shutdown<'a, Global, State, Event, Error>(
-    app: &mut Running<'a, Global, State, Event, Error>,
-    _event_loop: &ActiveEventLoop,
+    wgpu_app: &mut WgpuApp<'a, Global, State, Event, Error>,
+    event_loop: &ActiveEventLoop,
 ) where
     Global: SalsaContext<Event, Error>,
     Event: 'static + Send,
     Error: 'static + Debug + Send + From<io::Error>,
 {
-    let t = app
-        .global
-        .salsa_ctx()
-        .term
-        .borrow_mut()
-        .take()
-        .expect("terminal");
-    drop(t);
+    if !matches!(wgpu_app, WgpuApp::Running(_)) {
+        panic!("expected running state");
+    }
 
-    let t = app.terminal.take().expect("terminal");
-    if Rc::strong_count(&t) > 1 {
+    let WgpuApp::Running(Running {
+        poll,
+        window,
+        terminal,
+        ..
+    }) = mem::replace(wgpu_app, WgpuApp::Shutdown)
+    else {
+        panic!()
+    };
+
+    if Rc::strong_count(&terminal) > 1 {
         panic!("Terminal still referenced during shutdown. Can't shutdown cleanly.");
     }
-    drop(t);
+    drop(terminal);
 
-    let w = app
-        .global
-        .salsa_ctx()
-        .window
-        .borrow_mut()
-        .take()
-        .expect("window");
-    drop(w);
-
-    let w = app.window.take().expect("window");
-    if Arc::strong_count(&w) > 1 {
-        panic!("Window still referenced during shutdown. Can't shutdown cleanly");
+    if Arc::strong_count(&window) > 1 {
+        panic!("Window still referenced during shutdown. Can't shutdown cleanly.");
     }
-    drop(w);
+    drop(window);
 
-    app.poll.shutdown();
+    // extra events
+    poll.shutdown();
+    // clear blink timer
+    event_loop.set_control_flow(ControlFlow::Wait);
 }
 
 struct PollStart {
@@ -1043,6 +1032,7 @@ const SLEEP: u64 = 250_000; // µs
 const BACKOFF: u64 = 10_000; // µs
 const FAST_SLEEP: u64 = 100; // µs
 
+// todo: simplify
 fn create_poll<Event, Error>(
     event_loop: EventLoopProxy<Result<Control<Event>, Error>>,
     mut poll: Vec<Box<dyn PollEvents<Event, Error> + Send>>,
