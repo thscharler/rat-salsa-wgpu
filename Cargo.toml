@@ -42,14 +42,14 @@ fallback_symbol_font = ["rat-wgpu/fallback_symbol_font"]
 
 [dependencies]
 crossbeam = "0.8"
-crossterm = { version = "0.29.0" }
-fontdb = "0.24.0"
+crossterm = { version = "0.29" }
+fontdb = "0.24"
 log = "0.4"
 rat-event = { version = "2.1" }
 rat-focus = { version = "2.2" }
 rat-wgpu = { version = "1.0", features = ["winit-event"] }
 rat-widget = { version = "3.3", optional = true, features = ["user_directories"] }
-ratatui-core = { version = "0.1.0" }
+ratatui-core = { version = "0.1" }
 tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
 try_as_traits = { version = "0.1", optional = true }
 winit = "0.30"
@@ -64,9 +64,9 @@ image = "0.25"
 rand = "0.10"
 rat-theme4 = { version = "4.5" }
 rat-widget = { version = "3.3", features = ["user_directories", "cli-clipboard"] }
-ratatui-widgets = { version = "0.3.0" }
+ratatui-widgets = { version = "0.3" }
 regex-cursor = "0.1.5"
-ropey = "1.6.1"
+ropey = "1.6"
 rustybuzz = "0.20"
 sysinfo = "0.40"
 unic-ucd = "0.9"
@@ -75,29 +75,64 @@ unicode-segmentation = "1.11"
 unicode-width = "0.2.0"
 
 [[example]]
+name = "filesg"
+required-features = ["fallback_font"]
+
+[[example]]
+name = "keybindingg"
+required-features = ["fallback_font"]
+
+[[example]]
+name = "lifeg"
+required-features = ["fallback_font"]
+
+[[example]]
+name = "logscrollg"
+required-features = ["fallback_font"]
+
+[[example]]
+name = "one_img"
+required-features = ["fallback_font"]
+
+[[example]]
+name = "themesg"
+required-features = ["fallback_font"]
+
+[[example]]
+name = "ultrag"
+required-features = ["fallback_font"]
+
+[[example]]
 name = "img_icon"
 path = "utils/img_icon.rs"
+required-features = ["fallback_font"]
 
 [[example]]
 name = "monofonts"
 path = "utils/monofonts.rs"
+required-features = ["fallback_font"]
 
 [[example]]
 name = "basic_styles"
 path = "utils/basic_styles.rs"
+required-features = ["fallback_font"]
 
 [[example]]
 name = "one_glyph"
 path = "utils/one_glyph.rs"
+required-features = ["fallback_font"]
 
 [[example]]
 name = "one_span"
 path = "utils/one_span.rs"
+required-features = ["fallback_font"]
 
 [[example]]
 name = "box_draw"
 path = "utils/box_draw.rs"
+required-features = ["fallback_font"]
 
 [[example]]
 name = "uni_blocks"
 path = "utils/uni_blocks.rs"
+required-features = ["fallback_font"]
