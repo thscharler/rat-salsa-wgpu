@@ -463,7 +463,7 @@ where
         if !font_ids.is_empty() {
             *self.salsa_ctx().font_family.borrow_mut() = family.to_string();
             *self.salsa_ctx().fonts.borrow_mut() =
-                font_ids.into_iter().filter_map(|v| Font::new(v)).collect();
+                font_ids.into_iter().filter_map(Font::new).collect();
             self.salsa_ctx().font_changed.set(true);
             self.salsa_ctx().window().request_redraw();
             Ok(())

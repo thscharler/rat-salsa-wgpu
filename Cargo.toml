@@ -15,6 +15,9 @@ exclude = [".idea/*", ".gitignore", "NotoColorEmoji-Regular.ttf",
 ]
 
 [lints.clippy]
+result_unit_err = "allow"
+type_complexity = "allow"
+large_enum_variant = "allow"
 collapsible_else_if = "allow"
 collapsible_if = "allow"
 if_same_then_else = "allow"

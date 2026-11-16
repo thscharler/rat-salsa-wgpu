@@ -409,11 +409,8 @@ where
             info!("skip new_events during shutdown: {:?}", cause);
             return;
         }
-        match cause {
-            StartCause::ResumeTimeReached { .. } => {
-                blink_timer(self, event_loop);
-            }
-            _ => {}
+        if let StartCause::ResumeTimeReached { .. } = cause {
+            blink_timer(self, event_loop);
         }
     }
 

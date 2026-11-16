@@ -193,7 +193,7 @@ where
                 })
                 .collect::<Vec<_>>()
         };
-        self.regular_fonts = font_ids.into_iter().filter_map(|v| Font::new(v)).collect();
+        self.regular_fonts = font_ids.into_iter().filter_map(Font::new).collect();
         self
     }
 
