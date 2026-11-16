@@ -32,7 +32,9 @@ use std::thread::JoinHandle;
 use std::time::{Duration, SystemTime};
 use std::{io, mem, thread};
 use winit::application::ApplicationHandler;
-use winit::event::{MouseScrollDelta, StartCause, WindowEvent};
+#[cfg(feature = "font_resize")]
+use winit::event::MouseScrollDelta;
+use winit::event::{StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy};
 use winit::window::{Window, WindowAttributes, WindowId};
 

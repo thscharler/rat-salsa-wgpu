@@ -64,11 +64,6 @@ pub fn main() -> Result<(), Error> {
         RunConfig::new()?
             .backends("vulkan")
             .window_title("uni-blocks")
-            // .window_position(30, 30)
-            // .window_size(0, 0)
-            //.cursor_color(Color::Red)
-            //.cursor_style(CursorStyle::BoldUnderscore)
-            // .fallback_font("SegoeUI".to_string(), load_font_by_name("SegoeUI").unwrap())
             .font_size(20),
     )?;
 
