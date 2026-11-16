@@ -1,3 +1,7 @@
+# 1.0.7
+
+* fix: dependencies
+
 # 1.0.6
 
 * feat: make font-resizing a feature.
